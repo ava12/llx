@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"llx/errors"
-	"llx/langdef"
+	"github.com/ava12/llx/errors"
+	"github.com/ava12/llx/langdef"
 )
 
 type srcExprSample struct {

@@ -1,7 +1,7 @@
 package intset
 
 import (
-	"llx/util"
+	"github.com/ava12/llx/util"
 )
 
 const intShift = util.IntSizeShift

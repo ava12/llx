@@ -4,11 +4,11 @@ import (
 	"math/bits"
 	"regexp"
 
-	"llx/grammar"
-	"llx/lexer"
-	"llx/source"
-	"llx/util/intqueue"
-	"llx/util/intset"
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/source"
+	"github.com/ava12/llx/util/intqueue"
+	"github.com/ava12/llx/util/intset"
 )
 
 const (

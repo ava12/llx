@@ -4,9 +4,9 @@ import (
 	"regexp"
 	"strings"
 
-	"llx/grammar"
-	"llx/lexer"
-	"llx/source"
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/source"
 )
 
 type TokenHook interface {

@@ -1,8 +1,8 @@
 package parser
 
 import (
-	err "llx/errors"
-	"llx/lexer"
+	err "github.com/ava12/llx/errors"
+	"github.com/ava12/llx/lexer"
 )
 
 const (

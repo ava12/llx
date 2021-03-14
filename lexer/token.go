@@ -1,7 +1,7 @@
 package lexer
 
 import (
-	"llx/source"
+	"github.com/ava12/llx/source"
 )
 
 type Token struct {

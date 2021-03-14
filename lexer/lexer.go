@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	err "llx/errors"
-	"llx/source"
+	err "github.com/ava12/llx/errors"
+	"github.com/ava12/llx/source"
 )
 
 const (

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"llx/grammar"
-	"llx/langdef"
-	"llx/lexer"
-	"llx/source"
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/langdef"
+	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/source"
 )
 
 type treeNode struct {

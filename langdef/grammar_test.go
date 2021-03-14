@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"llx/grammar"
+	"github.com/ava12/llx/grammar"
 )
 
 type (

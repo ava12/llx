@@ -1,8 +1,8 @@
 package langdef
 
 import (
-	"llx/grammar"
-	"llx/util/intset"
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/util/intset"
 )
 
 type variantChunk struct {

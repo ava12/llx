@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"llx/grammar"
-	"llx/langdef"
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/langdef"
 )
 
 var (

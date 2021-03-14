@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"llx/grammar"
-	"llx/lexer"
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/lexer"
 )
 
 type branch struct {
