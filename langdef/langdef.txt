@@ -1,0 +1,73 @@
+# Recognized directives, defaults are empty lists.
+
+# Tokens that may be found in source text, but are not used in syntax rules.
+# May be hooked. Unhandled aside tokens are not emitted to parser.
+# E.g. line endings may be hooked to generate semicolons for JavaScript or Go.
+!aside $space $comment;
+
+# Tokens that are not defined in grammar, but may be emitted by hooks.
+# E.g. for Python it could be feasible to track current indentation level
+# and emit fake $begin or $end when it changes.
+!extern ;
+
+# Tokens that can be split into smaller parts.
+# By default lexer captures the longest possible character sequence
+# that matches a valid token, but sometimes it should capture a shorter one.
+# E. g. in C++ templates ">>" sequence should be split in ">" operators.
+!shrink ;
+
+# "Tokens" indicating lexical errors, e. g. unmatched opening quote.
+# Can be used for more descriptive error messages.
+!error $error;
+
+# Define a separate group of tokens and/or nonterminals. Each directive
+# defines a new group, all remaining tokens form "default" group.
+# Directives with empty list are ignored.
+# A token can belong to different groups, but a nonterminal cannot.
+# Each group effectively constructs a separate lexer. This can be used
+# when tokenization result depends on context.
+# E.g. parsing HTML would require at least two groups: one consisting of
+# raw text and "<" tokens and another one containing parts of HTML tags.
+!group ;
+
+
+# Token definitions.
+
+# Every byte of a source text must be a part of some token,
+# otherwise a "wrong character" error is raised.
+
+# Regexp body uses RE2 syntax.
+# Note that "." matches any character including newline ("s" flag is used).
+# Order of declarations matters: earlier ones are preferred.
+# Definitions must not contain capturing groups.
+
+$space = /[ \r\n\t\f]+/;
+$comment = /#.*?(?:\n|$)/;
+$string = /(?:".*?")|(?:'.*?')/;
+$name = /[a-zA-z_][a-zA-Z_0-9-]*/;
+$dir = /!(?:aside|error|extern|shrink)/;
+$group-dir = /!group/;
+$token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
+$regexp = /\/(?:[^\\\/]|\\.)+\//;
+$op = /[(){}\[\]=|,;]/;
+$error = /["'!].{0,10}/;
+
+
+# Nonterminal definitions. The first one is the root.
+# Definitions may contain string literals. Every literal matches
+# captured content of some token of any type and group.
+# All rules of the same nonterminal must use the same token group.
+# If that group cannot be determined (e.g. all rules use literal terminals),
+# nonterminal must be listed in !group directive.
+
+langdef = {directive | group-directive | token-definition}, definition, {definition};
+directive = $dir, {$token-name}, ';';
+group-directive = $group-dir, {$token-name | $name}, ';';
+token-definition = $token-name, '=', $regexp, ';';
+definition = $name, '=', sequence, ';';
+sequence = item, {',', item};
+item = variant, {'|', variant};
+variant = $name | $token-name | $string | group | optional | repeat;
+group = '(', sequence, ')';
+optional = '[', sequence, ']';
+repeat = '{', sequence, '}';
