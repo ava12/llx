@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"math/bits"
 	"regexp"
 	"strings"
 
@@ -64,9 +65,10 @@ type Parser struct {
 
 func New (g *grammar.Grammar) *Parser {
 	maxGroup := 0
-	for _, nt := range g.Nonterms {
-		if nt.Group > maxGroup {
-			maxGroup = nt.Group
+	for _, t := range g.Terms {
+		mg := 1 << (bits.Len(uint(t.Groups)) - 1)
+		if mg > maxGroup {
+			maxGroup = mg
 		}
 	}
 	lrs := make([]lexerRec, maxGroup + 1)
@@ -164,7 +166,7 @@ func (pc *ParseContext) pushNonterm (index int) error {
 		return e
 	}
 
-	pc.nonterm = &nontermRec{pc.nonterm, pc.lexers[nt.Group], nt.States, hook, index, grammar.InitialState}
+	pc.nonterm = &nontermRec{pc.nonterm, pc.lexers[nt.States[0].Group], nt.States, hook, index, grammar.InitialState}
 	return nil
 }
 
@@ -247,6 +249,9 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			tokenConsumed = (sameNonterm && rule.term != grammar.AnyTerm)
 			if rule.state != repeatState {
 				pc.nonterm.state = rule.state
+				if rule.state != grammar.FinalState {
+					pc.nonterm.lexer = pc.lexers[pc.nonterm.states[rule.state].Group]
+				}
 			}
 
 			if !sameNonterm {

@@ -20,9 +20,7 @@ const (
 	UnresolvedError
 	RecursionError
 	GroupNumberError
-	RedefineGroupError
-	WrongGroupError
-	UnresolvedGroupError
+	DisjointGroupsError
 )
 
 func eofError (token *lexer.Token) *err.Error {
@@ -73,15 +71,6 @@ func groupNumberError (token *lexer.Token) *err.Error {
 	return err.FormatPos(token, GroupNumberError, "too many terminal groups")
 }
 
-func redefineGroupError (token *lexer.Token, name string) *err.Error {
-	return err.FormatPos(token, RedefineGroupError, "cannot redefine group for %s nonterminal", name)
-}
-
-func wrongGroupError (expected, got int, nonterm, term string) *err.Error {
-	msg := "wrong group for %q nonterminal: expecting %d, but %s terminal belongs to %d"
-	return err.Format(WrongGroupError, msg, nonterm, expected, term, got)
-}
-
-func unresolvedGroupError (nonterm string) *err.Error {
-	return err.Format(UnresolvedGroupError, "cannot determine term group for %q nonterminal", nonterm)
+func disjointGroupsError (nonterm string, state int, term string) *err.Error {
+	return err.Format(DisjointGroupsError, "disjoint term groups for %q nonterminal, state %d, term %q", nonterm, state, term)
 }

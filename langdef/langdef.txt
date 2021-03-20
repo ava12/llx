@@ -20,14 +20,15 @@
 # Can be used for more descriptive error messages.
 !error $error;
 
-# Define a separate group of tokens and/or nonterminals. Each directive
-# defines a new group, all remaining tokens form "default" group.
-# Directives with empty list are ignored.
-# A token can belong to different groups, but a nonterminal cannot.
+# Define a separate group of tokens. Directives with empty list are ignored.
+# Each directive defines a new group, all remaining tokens form
+# "default" group. A token can belong to different groups.
+# Literal token groups are detected automatically.
 # Each group effectively constructs a separate lexer. This can be used
 # when tokenization result depends on context.
 # E.g. parsing HTML would require at least two groups: one consisting of
 # raw text and "<" tokens and another one containing parts of HTML tags.
+# All tokens allowed at some parsing state must belong to the same group.
 !group ;
 
 
@@ -45,8 +46,7 @@ $space = /[ \r\n\t\f]+/;
 $comment = /#.*?(?:\n|$)/;
 $string = /(?:".*?")|(?:'.*?')/;
 $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
-$dir = /!(?:aside|error|extern|shrink)/;
-$group-dir = /!group/;
+$dir = /!(?:aside|error|extern|group|shrink)/;
 $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
 $regexp = /\/(?:[^\\\/]|\\.)+\//;
 $op = /[(){}\[\]=|,;]/;
@@ -55,14 +55,10 @@ $error = /["'!].{0,10}/;
 
 # Nonterminal definitions. The first one is the root.
 # Definitions may contain string literals. Every literal matches
-# captured content of some token of any type and group.
-# All rules of the same nonterminal must use the same token group.
-# If that group cannot be determined (e.g. all rules use literal terminals),
-# nonterminal must be listed in !group directive.
+# captured content of some token.
 
-langdef = {directive | group-directive | token-definition}, definition, {definition};
+langdef = {directive | token-definition}, definition, {definition};
 directive = $dir, {$token-name}, ';';
-group-directive = $group-dir, {$token-name | $name}, ';';
 token-definition = $token-name, '=', $regexp, ';';
 definition = $name, '=', sequence, ';';
 sequence = item, {',', item};

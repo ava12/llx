@@ -108,7 +108,6 @@ type parseContext struct {
 	ti, lti termIndex
 	nti nontermIndex
 	eti map[string]extraTerm
-	ntg map[string]int
 	currentGroup int
 }
 
@@ -141,10 +140,9 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 
 	l := lexer.New(re, tokenTypes, source.NewQueue().Append(s))
 	eti := make(map[string]extraTerm)
-	etg := make(map[string]int)
 	ti := termIndex{}
 	lti := termIndex{}
-	c := &parseContext{l, g, ti, lti, nti, eti, etg, 0}
+	c := &parseContext{l, g, ti, lti, nti, eti, 0}
 
 	var t *lexer.Token
 	for e == nil {
@@ -197,20 +195,7 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 		}
 	}
 
-	if e != nil {
-		return e
-	}
-
-	for name, group := range c.ntg {
-		it, has := c.nti[name]
-		if !has {
-			return unknownNontermError([]string{name})
-		}
-
-		c.g.Nonterms[it.Index].Group = group
-	}
-
-	return nil
+	return e
 }
 
 var savedToken *lexer.Token
@@ -351,17 +336,6 @@ func addTermGroups(token *lexer.Token, groups int, c *parseContext) error {
 	return nil
 }
 
-func setNontermGroup(token *lexer.Token, group int, c *parseContext) error {
-	name := token.Text()
-	g, has := c.ntg[name]
-	if has && g != group {
-		return redefineGroupError(token, name)
-	}
-
-	c.ntg[name] = group
-	return nil
-}
-
 func parseDir (name string, c *parseContext) error {
 	tokens, e := fetchAll(c.l, []string{termNameTok}, nil)
 	e = skipOne(c.l, semicolonTok, e)
@@ -388,7 +362,7 @@ func parseDir (name string, c *parseContext) error {
 }
 
 func parseGroupDir (c *parseContext) error {
-	tokens, e := fetchAll(c.l, []string{termNameTok, nameTok}, nil)
+	tokens, e := fetchAll(c.l, []string{termNameTok}, nil)
 	e = skipOne(c.l, semicolonTok, e)
 	if e != nil {
 		return e
@@ -400,11 +374,7 @@ func parseGroupDir (c *parseContext) error {
 
 	groups := 1 << c.currentGroup
 	for _, token := range tokens {
-		if token.TypeName() == termNameTok {
-			e = addTermGroups(token, groups, c)
-		} else {
-			e = setNontermGroup(token, c.currentGroup, c)
-		}
+		e = addTermGroups(token, groups, c)
 		if e != nil {
 			return e
 		}
@@ -448,7 +418,7 @@ func addNonterm (name string, c *parseContext, define bool) *nontermItem {
 
 	result = &nontermItem{len(c.g.Nonterms), intset.New(), intset.New(), group}
 	c.nti[name] = result
-	c.g.Nonterms = append(c.g.Nonterms, grammar.Nonterm{name, noGroup, nil})
+	c.g.Nonterms = append(c.g.Nonterms, grammar.Nonterm{name, nil})
 	return result
 }
 
@@ -701,6 +671,7 @@ func buildStates (nts []grammar.Nonterm, nti nontermIndex, e error) error {
 
 	for _, item := range nti {
 		nts[item.Index].States = append(nts[item.Index].States, grammar.State {
+			noGroup,
 			map[int]grammar.Rule{},
 			map[int][]grammar.Rule{},
 		})
@@ -726,7 +697,7 @@ func findRecursions (nts []grammar.Nonterm, e error) error {
 
 	ntis := intset.New()
 	for i := range nts {
-		if isNtRecursive(nts, i, intset.New()) {
+		if ntIsRecursive(nts, i, intset.New()) {
 			ntis.Add(i)
 		}
 	}
@@ -738,12 +709,12 @@ func findRecursions (nts []grammar.Nonterm, e error) error {
 	}
 }
 
-func isNtRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
+func ntIsRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
 	visited.Add(index)
 	st := nts[index].States[0]
 	if len(st.Rules) > 0 {
 		for _, r := range st.Rules {
-			if r.Nonterm != grammar.SameNonterm && (visited.Contains(r.Nonterm) || isNtRecursive(nts, r.Nonterm, visited.Copy())) {
+			if r.Nonterm != grammar.SameNonterm && (visited.Contains(r.Nonterm) || ntIsRecursive(nts, r.Nonterm, visited.Copy())) {
 				return true
 			}
 		}
@@ -751,7 +722,7 @@ func isNtRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
 	if len(st.MultiRules) > 0 {
 		for _, rs := range st.MultiRules {
 			for _, r := range rs {
-				if r.Nonterm != grammar.SameNonterm && (visited.Contains(r.Nonterm) || isNtRecursive(nts, r.Nonterm, visited.Copy())) {
+				if r.Nonterm != grammar.SameNonterm && (visited.Contains(r.Nonterm) || ntIsRecursive(nts, r.Nonterm, visited.Copy())) {
 					return true
 				}
 			}
@@ -760,85 +731,71 @@ func isNtRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
 	return false
 }
 
+func assignTermGroups(g *grammar.Grammar) {
+	var (
+		rcnt, groups int
+	)
+	res := make([]*regexp.Regexp, 0, len(g.Terms))
+	ts := g.Terms
+	for rcnt = 0; rcnt < len(g.Terms) && ts[rcnt].Re != ""; rcnt++ {
+		res = append(res, regexp.MustCompile(ts[rcnt].Re))
+		groups |= ts[rcnt].Groups
+	}
+
+	rts := ts[: rcnt]
+	lts := ts[rcnt :]
+	defaultGroups := 1 << bits.Len(uint(groups))
+	for i, rt := range rts {
+		if rt.Groups == 0 {
+			rts[i].Groups = defaultGroups
+		}
+	}
+
+	for i, lt := range lts {
+		for j, rt := range rts {
+			if res[j].FindString(lt.Name) == lt.Name {
+				lts[i].Groups |= rt.Groups
+			}
+		}
+	}
+}
+
+func assignStateGroups (g *grammar.Grammar) error {
+	for i, nt := range g.Nonterms {
+		for j, st := range nt.States {
+			groups := -1
+			for k := range st.Rules {
+				if k >= 0 {
+					groups &= g.Terms[k].Groups
+					if groups == 0 {
+						return disjointGroupsError(g.Nonterms[i].Name, j, g.Terms[k].Name)
+					}
+				}
+			}
+
+			for k := range st.MultiRules {
+				if k >= 0 {
+					groups &= g.Terms[k].Groups
+					if groups == 0 {
+						return disjointGroupsError(g.Nonterms[i].Name, j, g.Terms[k].Name)
+					}
+				}
+			}
+
+			nt.States[j].Group = bits.Len(uint(groups)) - 1
+		}
+	}
+
+	return nil
+}
+
 func assignGroups (g *grammar.Grammar, e error) error {
 	if e != nil {
 		return e
 	}
 
-	groups := 0
-	for _, t := range g.Terms {
-		if (t.Flags & grammar.LiteralTerm) == 0 {
-			groups |= t.Groups
-		}
-	}
-	for _, nt := range g.Nonterms {
-		if nt.Group >= 0 {
-			groups |= (1 << nt.Group)
-		}
-	}
-	groups = 1 << bits.Len(uint(groups))
-
-	for i, t := range g.Terms {
-		if (t.Flags & grammar.LiteralTerm) == 0 && t.Groups == 0 {
-			g.Terms[i].Groups = groups
-		}
-	}
-
-	if groups == 1 {
-		for i := range g.Nonterms {
-			g.Nonterms[i].Group = 0
-		}
-		return nil
-	}
-
-	updateGroups := func (groups, t, nt int) (int, error) {
-		term := g.Terms[t]
-		if (term.Flags & grammar.LiteralTerm) != 0 {
-			return groups, nil
-		}
-
-		if (groups & term.Groups) == 0 {
-			tg := bits.TrailingZeros(uint(term.Groups &^ groups))
-			ntg := bits.TrailingZeros(uint(groups))
-			return groups, wrongGroupError(ntg, tg, g.Nonterms[nt].Name, term.Name)
-		}
-
-		return groups & term.Groups, nil
-	}
-
-	for i, nt := range g.Nonterms {
-		groups = noGroup
-		if nt.Group != noGroup {
-			groups = 1 << nt.Group
-		}
-
-		for _, st := range nt.States {
-			if st.Rules != nil {
-				for k := range st.Rules {
-					groups, e = updateGroups(groups, k, i)
-					if e != nil {
-						return e
-					}
-				}
-			}
-			if st.MultiRules != nil {
-				for k := range st.MultiRules {
-					groups, e = updateGroups(groups, k, i)
-					if e != nil {
-						return e
-					}
-				}
-			}
-		}
-
-		if (groups & (groups - 1)) != 0 {
-			return unresolvedGroupError(nt.Name)
-		}
-
-		g.Nonterms[i].Group = 1 << (bits.Len(uint(groups)) - 1)
-	}
-
-	return nil
+	assignTermGroups(g)
+	return assignStateGroups(g)
 }
 
 func nontermNames (nts []grammar.Nonterm, ntis intset.T) []string {

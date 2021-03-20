@@ -193,14 +193,15 @@ func atoi (a string) int {
 }
 
 func TestGrammar (t *testing.T) {
+	terms := "$term = /\\S+/; "
 	samples := []sample{
-		{"foo = 'bar';", "foo:-0=-1,-1"},
-		{"foo = 'bar' | 'baz';", "foo:0=-1,-1&1=-1,-1"},
-		{"foo = bar|baz; bar='bar'; baz='baz';", "foo:-0=-1,1&1=-1,2; bar:0=-1,-1; baz:1=-1,-1"},
-		{"foo = ['bar'], 'baz';", "foo:-1=1,-1&0=1,-1/1=-1,-1"},
-		{"foo = 'bar', ['baz'];", "foo:0=1,-1/-1=-1,-1&1=-1,-1"},
-		{"foo = 'bar', {'baz'};", "foo:0=1,-1/1=1,-1&-1=-1,-1"},
-		{"foo = 'bar', {'baz'}, 'qux';", "foo:0=1,-1/1=1,-1&-1=2,-1/2=-1,-1"},
+		{terms + "foo = 'bar';", "foo:1=-1,-1"},
+		{terms + "foo = 'bar' | 'baz';", "foo:1=-1,-1&2=-1,-1"},
+		{terms + "foo = bar|baz; bar='bar'; baz='baz';", "foo:1=-1,1&2=-1,2; bar:1=-1,-1; baz:2=-1,-1"},
+		{terms + "foo = ['bar'], 'baz';", "foo:-1=1,-1&1=1,-1/2=-1,-1"},
+		{terms + "foo = 'bar', ['baz'];", "foo:1=1,-1/-1=-1,-1&2=-1,-1"},
+		{terms + "foo = 'bar', {'baz'};", "foo:1=1,-1/2=1,-1&-1=-1,-1"},
+		{terms + "foo = 'bar', {'baz'}, 'qux';", "foo:1=1,-1/2=1,-1&-1=2,-1/3=-1,-1"},
 		{
 			"$num=/\\d+/; $op=/[()^*\\/+-]/;" +
 				"ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num|('(',sum,')');",

@@ -151,6 +151,7 @@ func (c *nontermChunk) BuildStates (nt *grammar.Nonterm, stateIndex, nextIndex i
 func addState (nt *grammar.Nonterm) (stateIndex int, state *grammar.State) {
 	stateIndex = len(nt.States)
 	nt.States = append(nt.States, grammar.State {
+		noGroup,
 		map[int]grammar.Rule{},
 		map[int][]grammar.Rule{},
 	})

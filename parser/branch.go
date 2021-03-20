@@ -100,7 +100,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 		if !isSame {
 			nt := b.pc.parser.grammar.Nonterms[ar.nonterm]
 			b.ntTree = b.nonterm
-			b.nonterm = &nontermRec{b.nonterm, b.pc.lexers[nt.Group], nt.States, nil, ar.nonterm, grammar.InitialState}
+			b.nonterm = &nontermRec{b.nonterm, b.pc.lexers[nt.States[0].Group], nt.States, nil, ar.nonterm, grammar.InitialState}
 		}
 	}
 

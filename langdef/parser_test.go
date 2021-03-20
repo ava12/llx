@@ -10,6 +10,8 @@ import (
 	"github.com/ava12/llx/source"
 )
 
+const terms = "$term = /\\S+/;"
+
 func checkErrorCode (t *testing.T, samples []string, code int) {
 	eCode := strconv.Itoa(code)
 	for index, src := range samples {
@@ -143,46 +145,32 @@ func TestGroupNumberError (t *testing.T) {
 	var sample strings.Builder
 	r := 'A'
 	for i := 0; i < 16; i++ {
-		fmt.Fprintf(&sample, "!group %c; !group %[1]c%[1]c;\n", r)
+		fmt.Fprintf(&sample, "!group $%c; !group $%[1]c%[1]c;\n", r)
 		r++
 	}
 	checkErrorCode(t, []string{sample.String()}, GroupNumberError)
 }
 
-func TestRedefineGroupError (t *testing.T) {
+func TestDisjointGroupsError (t *testing.T) {
 	samples := []string{
-		"!group foo; !group foo;",
+		"!extern $t; $u = /\\d+/; g = 'foo', $t;",
+		"!group $c; $c = /\\w+/; $d = /\\d+/; g = $c | $d;",
 	}
-	checkErrorCode(t, samples, RedefineGroupError)
+	checkErrorCode(t, samples, DisjointGroupsError)
 }
-
-func TestWrongGroupError (t *testing.T) {
-	samples := []string{
-		"!group foo; !extern $foo; foo = $foo;",
-	}
-	checkErrorCode(t, samples, WrongGroupError)
-}
-
-func TestUnresolvedGroupError (t *testing.T) {
-	samples := []string{
-		"!group $foo; !extern $foo; foo = 'foo';",
-	}
-	checkErrorCode(t, samples, UnresolvedGroupError)
-}
-
 
 func TestNoError (t *testing.T) {
 	samples := []string{
-		"foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		"!aside; !extern; !error; !shrink; !group; foo = 'foo';",
+		terms + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
+		terms + "!aside; !extern; !error; !shrink; !group; foo = 'foo';",
 	}
 	checkErrorCode(t, samples, 0)
 }
 
 
 func TestNoDuplicateLiterals (t *testing.T) {
-	sample := "grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
-	expectedTermCnt := 5
+	sample := terms + "grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
+	expectedTermCnt := 6
 	g, e := ParseString("", sample)
 	if e != nil {
 		t.Fatal("unexpected error: " + e.Error())

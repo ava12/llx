@@ -119,11 +119,12 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 	for _, nt := range gr.Nonterms {
 		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, States: []grammar.State{\n", nt.Name))
 		for _, st := range nt.States {
+			buffer.WriteString(fmt.Sprintf("\t\t\t{Group: %d, ", st.Group))
 			hasRules := (len(st.Rules) != 0)
 			hasMulti := len(st.MultiRules) != 0
 
 			if hasRules {
-				buffer.WriteString("\t\t\t{Rules: map[int]grammar.Rule{\n")
+				buffer.WriteString("Rules: map[int]grammar.Rule{\n")
 				for k, r := range st.Rules {
 					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {State: %d, Nonterm: %d},\n", k, r.State, r.Nonterm))
 				}
@@ -136,7 +137,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 
 			if hasMulti {
 				if !hasRules {
-					buffer.WriteString("\t\t\t{MultiRules: map[int][]grammar.Rule{\n")
+					buffer.WriteString("MultiRules: map[int][]grammar.Rule{\n")
 				}
 				for k, rs := range st.MultiRules {
 					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {\n", k))

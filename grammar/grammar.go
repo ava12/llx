@@ -34,7 +34,8 @@ const (
 
 
 type State struct {
-	Rules map[int]Rule   `json:",omitempty"`
+	Group int `json:",omitempty"`
+	Rules map[int]Rule `json:",omitempty"`
 	MultiRules map[int][]Rule `json:",omitempty"`
 }
 
@@ -43,7 +44,6 @@ const AnyTerm = -1
 
 type Nonterm struct {
 	Name string
-	Group int
 	States []State
 }
 
