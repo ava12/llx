@@ -17,7 +17,6 @@ const (
 	ErrNoSource = iota + 101
 	ErrWrongChar
 	ErrBadToken
-	ErrNotFetched
 )
 
 
@@ -34,8 +33,6 @@ type Lexer struct {
 	types []TokenType
 	re Regexp
 	queue *source.Queue
-	lastTokenPos int
-	lastToken *Token
 	eof bool
 }
 
@@ -69,10 +66,6 @@ func wrongTokenError (t *Token) *err.Error {
 	return err.FormatPos(t, ErrBadToken, "bad token %q", t.Text())
 }
 
-func notFetchedError () *err.Error {
-	return err.New(ErrNotFetched, "no token fetched yet", "", 0, 0)
-}
-
 func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token, error) {
 	content = content[pos :]
 	match := l.re.FindSubmatchIndex(content)
@@ -102,8 +95,6 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 				return nil, wrongTokenError(token)
 			}
 
-			l.lastTokenPos = pos
-			l.lastToken = token
 			l.Advance(match[1])
 			return token, nil
 		}
@@ -143,17 +134,17 @@ func (l *Lexer) Next () (*Token, error) {
 	}
 }
 
-func (l *Lexer) ShrinkToken () (*Token, error) {
-	if l.lastToken == nil {
-		return nil, notFetchedError()
+func (l *Lexer) Shrink (tok *Token) (*Token, error) {
+	if tok == nil {
+		return nil ,nil
 	}
 
-	content, pos := l.queue.ContentPos()
-	if pos == 0 {
-		l.queue.Prepend(l.lastToken.Source())
-		content, _ = l.queue.ContentPos()
-		pos = len(content)
+	if l.queue.Source() != tok.source {
+		l.queue.Prepend(tok.source)
 	}
-	l.queue.Seek(l.lastTokenPos)
-	return l.matchToken(l.queue.Source(), content[: pos - 1], l.lastTokenPos)
+	l.queue.Seek(tok.source.Pos(tok.line, tok.col))
+
+	content, pos := l.queue.ContentPos()
+	content = content[: len(tok.Text()) - 1]
+	return l.matchToken(l.queue.Source(), content, pos)
 }

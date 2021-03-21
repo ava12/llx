@@ -130,36 +130,36 @@ func TestTokenTypes (t *testing.T) {
 }
 
 func TestShrinkToken (t *testing.T) {
-	re := regexp.MustCompile("(?:#([a-z]+)=*)")
+	re := regexp.MustCompile("(#[a-z]+=*)")
 	types := []TokenType{{1, "name"}}
 	queue := source.NewQueue()
 	lexer := New(re, types, queue)
 	queue.Append(source.New("", []byte("#foo="))).Append(source.New("", []byte("#bar=")))
 
-	tok, e := lexer.ShrinkToken()
-	if tok != nil || e == nil {
-		t.Fatalf("error expected before token fetch, got: %v, %v", tok, e)
+	tok, e := lexer.Shrink(nil)
+	if tok != nil || e != nil {
+		t.Fatalf("expecting nil token, got: %v, %v", tok, e)
 	}
 
-	_, e = lexer.Next()
+	tok, e = lexer.Next()
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())
 	}
 
-	for i := 3; i > 0; i-- {
-		tok, e = lexer.ShrinkToken()
+	for i := 4; i > 1; i-- {
+		tok, e = lexer.Shrink(tok)
 		if e != nil {
 			t.Fatalf("step %d: unexpected error: %s", i, e.Error())
 		}
 		if tok == nil {
 			t.Fatalf("step %d: nil token", i)
 		}
-		if tok.Type() != 1 || tok.TypeName() != "name" || tok.Text() != "foo"[: i] {
+		if tok.Type() != 1 || tok.TypeName() != "name" || tok.Text() != "#foo="[: i] {
 			t.Fatalf("step %d: wrong token: %v", i, tok)
 		}
 	}
 
-	tok, e = lexer.ShrinkToken()
+	tok, e = lexer.Shrink(tok)
 	if tok != nil || e == nil {
 		t.Fatalf("error expected after token shrinked, got: %v, %v", tok, e)
 	}
