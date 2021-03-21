@@ -70,8 +70,8 @@ func TestErrors (t *testing.T) {
 	name := "errors"
 	grammar := spaceDef + "$name = /\\w+/; $op = /[()]/; s = 'foo' | 'bar', '(', 'bar' | 'baz', ')';"
 	samples := []srcErrSample{
-		{"foo(bar", ErrUnexpectedEof},
-		{"foo(bar baz", ErrUnexpectedToken},
+		{"foo(bar", UnexpectedEofError},
+		{"foo(bar baz", UnexpectedTokenError},
 	}
 	testErrorSamples(t, name, grammar, samples)
 }
@@ -148,6 +148,19 @@ func TestGroups (t *testing.T) {
 		{
 			"foo bar\nbar <bar baz>\nbaz baz qux\n",
 			"foo (val bar) eol bar (val '<bar baz>') eol baz (val 'baz qux') eol",
+		},
+	}
+	testGrammarSamples(t, name, grammar, samples, false)
+}
+
+func TestMultiGroups (t *testing.T) {
+	name := "multi-groups"
+	grammar := spaceDef + "!group $space $name; !group $space $str $any; $name = /[a-z]+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
+		"g = {s | a}; s = $name, $str; a = $name, $any;"
+	samples := []srcExprSample{
+		{
+			"foo <foo> bar bar baz",
+			"(s foo '<foo>') (a bar 'bar baz')",
 		},
 	}
 	testGrammarSamples(t, name, grammar, samples, false)

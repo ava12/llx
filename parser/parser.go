@@ -66,7 +66,7 @@ type Parser struct {
 func New (g *grammar.Grammar) *Parser {
 	maxGroup := 0
 	for _, t := range g.Terms {
-		mg := 1 << (bits.Len(uint(t.Groups)) - 1)
+		mg := bits.Len(uint(t.Groups)) - 1
 		if mg > maxGroup {
 			maxGroup = mg
 		}
@@ -117,7 +117,7 @@ func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error
 
 type nontermRec struct {
 	prev *nontermRec
-	lexer *lexer.Lexer
+	group int
 	states []grammar.State
 	hook NontermHookInstance
 	index, state int
@@ -166,7 +166,7 @@ func (pc *ParseContext) pushNonterm (index int) error {
 		return e
 	}
 
-	pc.nonterm = &nontermRec{pc.nonterm, pc.lexers[nt.States[0].Group], nt.States, hook, index, grammar.InitialState}
+	pc.nonterm = &nontermRec{pc.nonterm, nt.States[0].Group, nt.States, hook, index, grammar.InitialState}
 	return nil
 }
 
@@ -208,7 +208,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 	tokenConsumed := true
 	for pc.nonterm != nil {
 		if tokenConsumed {
-			tok, e = pc.nextToken()
+			tok, e = pc.nextToken(pc.nonterm.group)
 			if e != nil {
 				return nil, e
 			}
@@ -235,7 +235,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 
 		for _, rule := range rules {
 			if tokenConsumed {
-				tok, e = pc.nextToken()
+				tok, e = pc.nextToken(pc.nonterm.group)
 				if e != nil {
 					return nil, e
 				}
@@ -250,7 +250,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			if rule.state != repeatState {
 				pc.nonterm.state = rule.state
 				if rule.state != grammar.FinalState {
-					pc.nonterm.lexer = pc.lexers[pc.nonterm.states[rule.state].Group]
+					pc.nonterm.group = pc.nonterm.states[rule.state].Group
 				}
 			}
 
@@ -291,7 +291,7 @@ func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedR
 		defaultBranch := firstBranch
 		currentBranch := firstBranch
 		liveCnt := 0
-		tok, e := pc.nextToken()
+		tok, e := pc.nextToken(firstBranch.nextGroup())
 		if e != nil || tok == nil {
 			pc.tokens = append(pc.tokens, tokens...)
 			return firstBranch.applied
@@ -386,20 +386,27 @@ func (pc *ParseContext) getNontermHook (nonterm string) (res NontermHookInstance
 	return
 }
 
-func (pc *ParseContext) nextToken () (result *lexer.Token, e error) {
+func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 	if len(pc.tokens) > 0 {
 		result = pc.tokens[0]
 		pc.tokens = pc.tokens[1 :]
+		if result.Type() >= 0 {
+			groups := pc.parser.grammar.Terms[result.Type()].Groups
+			if groups & (1 << group) == 0 {
+				e = unexpectedGroupError(result, group)
+				result = nil
+			}
+		}
 	} else {
-		result, e = pc.fetchToken(pc.nonterm.lexer)
+		result, e = pc.fetchToken(group)
 	}
 
 	return
 }
 
-func (pc *ParseContext) fetchToken (l *lexer.Lexer) (*lexer.Token, error) {
+func (pc *ParseContext) fetchToken (group int) (*lexer.Token, error) {
 	for len(pc.tokens) == 0 {
-		result, e := l.Next()
+		result, e := pc.lexers[group].Next()
 		if result == nil || e != nil {
 			return nil, e
 		}

@@ -186,7 +186,7 @@ func parseAsTestNode (g *grammar.Grammar, src string, captureAside bool) (*treeN
 		hs.Tokens = testTokenHooks
 	}
 	parser := New(g)
-	q := source.NewQueue().Append(source.New("", []byte(src)))
+	q := source.NewQueue().Append(source.New("sample", []byte(src)))
 	r, e := parser.Parse(q, hs)
 	if e == nil {
 		return r.(*treeNode), nil

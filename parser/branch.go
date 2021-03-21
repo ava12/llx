@@ -15,7 +15,7 @@ type branch struct {
 }
 
 func createBranches (pc *ParseContext, nt *nontermRec, ars []appliedRule) *branch {
-	ntCopy := &nontermRec{nil, nt.lexer, nt.states, nil, nt.index, nt.state}
+	ntCopy := &nontermRec{nil, nt.group, nt.states, nil, nt.index, nt.state}
 	result := &branch{nil, 1, pc, []appliedRule{ars[0]}, nil, ntCopy, false}
 	result.split(ars)
 	return result
@@ -34,7 +34,7 @@ func (b *branch) split (ars []appliedRule) {
 		} else {
 			nars[ruleCnt - 1] = ars[i]
 		}
-		ntCopy := &nontermRec{nt.prev, nt.lexer, nt.states, nil, nt.index, nt.state}
+		ntCopy := &nontermRec{nt.prev, nt.group, nt.states, nil, nt.index, nt.state}
 		current := &branch{prev.next, b.index + i, b.pc, nars, b.ntTree, ntCopy, false}
 		prev.next = current
 		prev = current
@@ -80,6 +80,9 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 		isSame := (ar.nonterm == grammar.SameNonterm)
 
 		b.nonterm.state = ar.state
+		if ar.state != grammar.FinalState {
+			b.nonterm.group = b.nonterm.states[ar.state].Group
+		}
 
 		if isFinal && isSame {
 			for b.nonterm != nil && b.nonterm.state == grammar.FinalState {
@@ -87,7 +90,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 				if ntr == nil {
 					b.nonterm = nil
 				} else {
-					b.nonterm = &nontermRec{ntr.prev, ntr.lexer, ntr.states, nil, ntr.index, ntr.state}
+					b.nonterm = &nontermRec{ntr.prev, ntr.group, ntr.states, nil, ntr.index, ntr.state}
 					b.ntTree = ntr.prev
 				}
 			}
@@ -100,9 +103,21 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 		if !isSame {
 			nt := b.pc.parser.grammar.Nonterms[ar.nonterm]
 			b.ntTree = b.nonterm
-			b.nonterm = &nontermRec{b.nonterm, b.pc.lexers[nt.States[0].Group], nt.States, nil, ar.nonterm, grammar.InitialState}
+			b.nonterm = &nontermRec{b.nonterm, nt.States[0].Group, nt.States, nil, ar.nonterm, grammar.InitialState}
 		}
 	}
 
 	return true
+}
+
+func (b *branch) nextGroup () int {
+	if b.nonterm != nil {
+		return b.nonterm.group
+	}
+
+	if b.next != nil {
+		return b.next.nextGroup()
+	} else {
+		return 0
+	}
 }
