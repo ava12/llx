@@ -209,6 +209,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 	for pc.nonterm != nil {
 		if tokenConsumed {
 			tok, e = pc.nextToken(pc.nonterm.group)
+			tokenConsumed = false
 			if e != nil {
 				return nil, e
 			}
@@ -217,6 +218,16 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		nt := pc.nonterm
 		rules := pc.findRules(tok, nt.states[nt.state])
 		if rules == nil {
+			shrunk, e := pc.shrinkToken(tok, nt.group)
+			if e != nil {
+				return nil, e
+			}
+
+			if shrunk {
+				tokenConsumed = true
+				continue
+			}
+
 			expected := pc.getExpectedTerm(nt.states[nt.state])
 			if tok.Type() == lexer.EofTokenType {
 				e = unexpectedEofError(tok, expected)
@@ -281,44 +292,72 @@ func (pc *ParseContext) parse () (interface{}, error) {
 	return pc.lastResult, nil
 }
 
+func (pc *ParseContext) shrinkToken (tok *lexer.Token, group int) (bool, error) {
+	if tok.Type() < 0 || pc.parser.grammar.Terms[tok.Type()].Flags & grammar.ShrinkableTerm == 0 {
+		return false, nil
+	}
+
+	res, e := pc.lexers[group].Shrink(tok)
+	if res != nil && e == nil {
+		e = pc.handleToken(res)
+	}
+	return (res != nil), e
+}
+
 func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedRule {
-	firstBranch := createBranches(pc, pc.nonterm, ars)
+	liveBranch := createBranches(pc, pc.nonterm, ars)
 	tokens := make([]*lexer.Token, 0)
 	pc.tokens = append([]*lexer.Token{tok}, pc.tokens...)
 	for {
-		var parentBranch *branch
-		parentBranch = nil
-		defaultBranch := firstBranch
-		currentBranch := firstBranch
-		liveCnt := 0
-		tok, e := pc.nextToken(firstBranch.nextGroup())
+		var parentBranch, deadBranch, lastDead *branch
+		currentBranch := liveBranch
+		deadBranch = nil
+		lastDead = nil
+		survivors := 0
+		tok, e := pc.nextToken(liveBranch.nextGroup())
 		if e != nil || tok == nil {
 			pc.tokens = append(pc.tokens, tokens...)
-			return firstBranch.applied
+			return liveBranch.applied
 		}
 
 		tokens = append(tokens, tok)
 
 		for currentBranch != nil {
 			if currentBranch.applyToken(tok) {
-				liveCnt++
+				survivors++
 				parentBranch = currentBranch
+				currentBranch = currentBranch.next
 			} else {
 				if parentBranch == nil {
-					firstBranch = currentBranch.next
+					liveBranch = currentBranch.next
 				} else {
 					parentBranch.next = currentBranch.next
 				}
+
+				if lastDead == nil {
+					deadBranch = currentBranch
+				} else {
+					lastDead.next = currentBranch
+				}
+				nextBranch := currentBranch.next
+				lastDead = currentBranch
+				lastDead.next = nil
+				currentBranch = nextBranch
 			}
-			currentBranch = currentBranch.next
 		}
 
-		if liveCnt < 2 {
-			if liveCnt == 0 {
-				firstBranch = defaultBranch
+		if survivors < 2 {
+			if survivors == 0 {
+				liveBranch = deadBranch
+				shrunk, _ := pc.shrinkToken(tok, deadBranch.nextGroup())
+				if shrunk {
+					tokens = tokens[: len(tokens) - 1]
+					continue
+				}
 			}
+
 			pc.tokens = append(tokens, pc.tokens...)
-			return firstBranch.applied
+			return liveBranch.applied
 		}
 	}
 }
@@ -404,6 +443,38 @@ func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 	return
 }
 
+func (pc *ParseContext) handleToken (tok *lexer.Token) error {
+	h, f := pc.tokenHooks[tok.Type()]
+	if !f {
+		h, f = pc.tokenHooks[AnyTokenType]
+	}
+	if !f {
+		if pc.isAsideToken(tok) {
+			return nil
+		}
+
+		pc.tokens = append(pc.tokens, tok)
+		return nil
+	}
+
+	tailLen := len(pc.tokens)
+	emit, e := h.HandleToken(tok, pc)
+	if e != nil {
+		return e
+	}
+
+	if emit {
+		if tailLen == 0 {
+			pc.tokens = append(pc.tokens, tok)
+		} else {
+			headLen := len(pc.tokens) - tailLen
+			pc.tokens = append(pc.tokens[: headLen], tok)
+			pc.tokens = append(pc.tokens, pc.tokens[headLen + 1 :]...)
+		}
+	}
+	return nil
+}
+
 func (pc *ParseContext) fetchToken (group int) (*lexer.Token, error) {
 	for len(pc.tokens) == 0 {
 		result, e := pc.lexers[group].Next()
@@ -411,25 +482,9 @@ func (pc *ParseContext) fetchToken (group int) (*lexer.Token, error) {
 			return nil, e
 		}
 
-		h, f := pc.tokenHooks[result.Type()]
-		if !f {
-			h, f = pc.tokenHooks[AnyTokenType]
-		}
-		if !f {
-			if pc.isAsideToken(result) {
-				continue
-			}
-
-			return result, nil
-		}
-
-		emit, e := h.HandleToken(result, pc)
+		e = pc.handleToken(result)
 		if e != nil {
 			return nil, e
-		}
-
-		if emit {
-			pc.tokens = append(pc.tokens, result)
 		}
 	}
 

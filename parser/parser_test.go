@@ -165,3 +165,21 @@ func TestMultiGroups (t *testing.T) {
 	}
 	testGrammarSamples(t, name, grammar, samples, false)
 }
+
+func TestTokenShrinking (t *testing.T) {
+	name := "shrinking"
+	grammar := spaceDef + "!shrink $op; $name = /\\w+/; $op = /[()]|<<?|>>?/;" +
+		"g = val, {val};" +
+		"val = $name | pair | group; pair = '(', $name, '<<' | '>>', val, ')'; group = '<', val, {val}, '>';"
+	samples := []srcExprSample{
+		{
+			"<<foo> bar>",
+			"(val (group < (val (group < (val foo) >)) (val bar) >))",
+		},
+		{
+			"<foo <bar>>",
+			"(val (group < (val foo) (val (group < (val bar) > )) > ))",
+		},
+	}
+	testGrammarSamples(t, name, grammar, samples, false)
+}
