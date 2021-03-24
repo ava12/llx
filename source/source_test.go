@@ -1,6 +1,7 @@
 package source
 
 import (
+	"strconv"
 	"testing"
 )
 
@@ -103,6 +104,46 @@ func TestSourcePos (t *testing.T) {
 	}
 }
 
+func TestSkipAdvancesSource (t *testing.T) {
+	q := NewQueue().Append(src("bar"))
+	q.Skip(2)
+	c, p := q.ContentPos()
+	assert(t, string(c) == "bar", "expecting bar, got " + string(c))
+	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+
+	q.Prepend(src("foo"))
+	c, p = q.ContentPos()
+	assert(t, string(c) == "foo", "expecting foo, got " + string(c))
+	assert(t, p == 0, "expecting pos=0, got " + strconv.Itoa(p))
+
+	q.Skip(4)
+	c, p = q.ContentPos()
+	assert(t, string(c) == "bar", "expecting bar, got " + string(c))
+	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+}
+
+func TestSeekAfterEof (t *testing.T) {
+	q := NewQueue().Append(src("foo"))
+	q.Seek(4)
+	p := q.Pos()
+	assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
+	assert(t, q.IsEmpty(), "expecting EoF")
+
+	q.Seek(2)
+	p = q.Pos()
+	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+	assert(t, !q.IsEmpty(), "expecting no EoF")
+
+	q.Skip(4)
+	p = q.Pos()
+	assert(t, p == 3, "expecting pos=3 again, got " + strconv.Itoa(p))
+	assert(t, q.IsEmpty(), "expecting EoF again")
+
+	q.Rewind(2)
+	p = q.Pos()
+	assert(t, p == 1, "expecting pos=1, got " + strconv.Itoa(p))
+	assert(t, !q.IsEmpty(), "expecting no EoF again")
+}
 
 func assert (t *testing.T, flag bool, message string) {
 	if !flag {
