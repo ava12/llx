@@ -135,7 +135,7 @@ func (l *Lexer) Next () (*Token, error) {
 }
 
 func (l *Lexer) Shrink (tok *Token) (*Token, error) {
-	if tok == nil {
+	if tok == nil || len(tok.text) <= 1 {
 		return nil ,nil
 	}
 
@@ -145,6 +145,6 @@ func (l *Lexer) Shrink (tok *Token) (*Token, error) {
 	l.queue.Seek(tok.source.Pos(tok.line, tok.col))
 
 	content, pos := l.queue.ContentPos()
-	content = content[: len(tok.Text()) - 1]
+	content = content[: pos + len(tok.Text()) - 1]
 	return l.matchToken(l.queue.Source(), content, pos)
 }

@@ -130,11 +130,11 @@ func TestTokenTypes (t *testing.T) {
 }
 
 func TestShrinkToken (t *testing.T) {
-	re := regexp.MustCompile("(#[a-z]+=*)")
-	types := []TokenType{{1, "name"}}
+	re := regexp.MustCompile("(\\s+)|(#[a-z]+=*)")
+	types := []TokenType{{0, "space"}, {1, "name"}}
 	queue := source.NewQueue()
 	lexer := New(re, types, queue)
-	queue.Append(source.New("", []byte("#foo="))).Append(source.New("", []byte("#bar=")))
+	queue.Append(source.New("", []byte("  #foo="))).Append(source.New("", []byte("#bar=")))
 
 	tok, e := lexer.Shrink(nil)
 	if tok != nil || e != nil {
@@ -142,6 +142,9 @@ func TestShrinkToken (t *testing.T) {
 	}
 
 	tok, e = lexer.Next()
+	if e == nil {
+		tok, e = lexer.Next()
+	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())
 	}
@@ -162,5 +165,11 @@ func TestShrinkToken (t *testing.T) {
 	tok, e = lexer.Shrink(tok)
 	if tok != nil || e == nil {
 		t.Fatalf("error expected after token shrinked, got: %v, %v", tok, e)
+	}
+
+	tok = &Token{1, "name", "#", queue.Source(), 1, 1}
+	tok, e = lexer.Shrink(tok)
+	if tok != nil || e != nil {
+		t.Fatalf("expecting nil, nil for single char token, got: %v, %v", tok, e)
 	}
 }
