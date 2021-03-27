@@ -57,12 +57,13 @@ func Parse (s *source.Source) (*grammar.Grammar, error) {
 	var e error
 
 	e = parseLangDef(s, result, nti)
+	e = assignTermGroups(result, e)
 	e = findUndefinedNonterminals(nti, e)
 	e = findUnusedNonterminals(result.Nonterms, nti, e)
 	e = resolveDependencies(result.Nonterms, nti, e)
 	e = buildStates(result.Nonterms, nti, e)
 	e = findRecursions(result.Nonterms, e)
-	e = assignGroups(result, e)
+	e = assignStateGroups(result, e)
 
 	if e != nil {
 		return nil, e
@@ -75,6 +76,7 @@ const (
 	stringTok = "string"
 	nameTok = "name"
 	dirTok = "dir"
+	literalDirTok = "literal"
 	groupDirTok = "group-dir"
 	termNameTok = "term-name"
 	regexpTok = "regexp"
@@ -98,6 +100,7 @@ var (
 )
 
 type extraTerm struct {
+	name string
 	groups int
 	flags grammar.TermFlags
 }
@@ -105,9 +108,11 @@ type extraTerm struct {
 type parseContext struct {
 	l *lexer.Lexer
 	g *grammar.Grammar
+	lts []string
 	ti, lti termIndex
 	nti nontermIndex
-	eti map[string]extraTerm
+	ets []extraTerm
+	eti map[string]int
 	currentGroup int
 }
 
@@ -116,10 +121,11 @@ func init () {
 		{1, stringTok},
 		{2, nameTok},
 		{3, dirTok},
-		{4, groupDirTok},
-		{5, termNameTok},
-		{6, regexpTok},
-		{7, opTok},
+		{4, literalDirTok},
+		{5, groupDirTok},
+		{6, termNameTok},
+		{7, regexpTok},
+		{8, opTok},
 		{lexer.ErrorTokenType, wrongTok},
 	}
 }
@@ -132,6 +138,7 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 		"((?:\".*?\")|(?:'.*?'))|" +
 		"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(!(?:aside|error|extern|shrink))|" +
+		"(!literal)|" +
 		"(!group)|" +
 		"(\\$[a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(/(?:[^\\\\/]|\\\\.)+/)|" +
@@ -139,10 +146,11 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 		"(['\"/!])")
 
 	l := lexer.New(re, tokenTypes, source.NewQueue().Append(s))
-	eti := make(map[string]extraTerm)
+	ets := make([]extraTerm, 0)
+	eti := make(map[string]int)
 	ti := termIndex{}
 	lti := termIndex{}
-	c := &parseContext{l, g, ti, lti, nti, eti, 0}
+	c := &parseContext{l, g, make([]string, 0), ti, lti, nti, ets, eti, 0}
 
 	var t *lexer.Token
 	for e == nil {
@@ -166,6 +174,9 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 				e = parseGroupDir(c)
 			}
 
+		case literalDirTok:
+			e = parseLiteralDir(c)
+
 		case termNameTok:
 			name := t.Text()[1:]
 			i, has := ti[name]
@@ -179,8 +190,21 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 		return e
 	}
 
-	for name, et := range c.eti {
-		addTerm(name, "", et.groups, et.flags, c)
+	for _, et := range c.ets {
+		_, has := c.eti[et.name]
+		if has {
+			if et.flags & grammar.ExternalTerm != 0 {
+				addTerm(et.name, "", et.groups, et.flags, c)
+			} else {
+				return undefinedTermError(et.name)
+			}
+		}
+	}
+
+	firstLiteral := len(c.g.Terms)
+	for i, name := range c.lts {
+		addLiteralTerm(name, c)
+		c.lti[name] = i + firstLiteral
 	}
 
 	for e == nil && t != nil && t.Type() != lexer.EofTokenType {
@@ -290,8 +314,10 @@ func skipOne (l *lexer.Lexer, typ string, e error) error {
 }
 
 func addTerm (name, re string, groups int, flags grammar.TermFlags, c *parseContext) int {
-	t, has := c.eti[name]
+	var t extraTerm
+	i, has := c.eti[name]
 	if has {
+		t = c.ets[i]
 		delete(c.eti, name)
 	}
 	c.g.Terms = append(c.g.Terms, grammar.Term{name, re, groups | t.groups, flags | t.flags})
@@ -312,28 +338,25 @@ func addLiteralTerm (name string, c *parseContext) int {
 	return i
 }
 
-func addTermFlag (name string, flag grammar.TermFlags, c *parseContext) {
-	i, has := c.ti[name]
-	if has {
-		c.g.Terms[i].Flags |= flag
-		return
+func addExtraTerm (name string, c *parseContext) int {
+	i, has := c.eti[name]
+	if !has {
+		i = len(c.ets)
+		c.ets = append(c.ets, extraTerm{name : name})
+		c.eti[name] = i
 	}
-
-	t, _ := c.eti[name]
-	c.eti[name] = extraTerm{t.groups, t.flags | flag}
+	return i
 }
 
-func addTermGroups(token *lexer.Token, groups int, c *parseContext) error {
-	name := token.Text()[1 :]
-	i, has := c.ti[name]
-	if has {
-		c.g.Terms[i].Groups |= groups
-		return nil
-	}
+func addTermFlag (name string, flag grammar.TermFlags, c *parseContext) {
+	i := addExtraTerm(name, c)
+	c.ets[i].flags |= flag
+}
 
-	et := c.eti[name]
-	c.eti[name] = extraTerm{et.groups | groups, et.flags}
-	return nil
+func addTermGroups(token *lexer.Token, groups int, c *parseContext) {
+	name := token.Text()[1 :]
+	i := addExtraTerm(name, c)
+	c.ets[i].groups |= groups
 }
 
 func parseDir (name string, c *parseContext) error {
@@ -374,13 +397,24 @@ func parseGroupDir (c *parseContext) error {
 
 	groups := 1 << c.currentGroup
 	for _, token := range tokens {
-		e = addTermGroups(token, groups, c)
-		if e != nil {
-			return e
-		}
+		addTermGroups(token, groups, c)
 	}
 
 	c.currentGroup++
+	return nil
+}
+
+func parseLiteralDir (c *parseContext) error {
+	tokens, e := fetchAll(c.l, []string{stringTok}, nil)
+	e = skipOne(c.l, semicolonTok, e)
+	if e != nil {
+		return e
+	}
+
+	for _, t := range tokens {
+		text := t.Text()
+		addExtraTerm(text[1 : len(text) - 1], c)
+	}
 	return nil
 }
 
@@ -731,7 +765,11 @@ func ntIsRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
 	return false
 }
 
-func assignTermGroups(g *grammar.Grammar) {
+func assignTermGroups(g *grammar.Grammar, e error) error {
+	if e != nil {
+		return e
+	}
+
 	var (
 		rcnt, groups int
 	)
@@ -757,10 +795,19 @@ func assignTermGroups(g *grammar.Grammar) {
 				lts[i].Groups |= rt.Groups
 			}
 		}
+		if lts[i].Groups == 0 {
+			return unresolvedGroupsError(lt.Name)
+		}
 	}
+
+	return nil
 }
 
-func assignStateGroups (g *grammar.Grammar) error {
+func assignStateGroups (g *grammar.Grammar, e error) error {
+	if e != nil {
+		return e
+	}
+
 	for i, nt := range g.Nonterms {
 		for j, st := range nt.States {
 			groups := -1
@@ -787,15 +834,6 @@ func assignStateGroups (g *grammar.Grammar) error {
 	}
 
 	return nil
-}
-
-func assignGroups (g *grammar.Grammar, e error) error {
-	if e != nil {
-		return e
-	}
-
-	assignTermGroups(g)
-	return assignStateGroups(g)
 }
 
 func nontermNames (nts []grammar.Nonterm, ntis intset.T) []string {

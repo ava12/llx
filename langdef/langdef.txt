@@ -1,38 +1,4 @@
-# Recognized directives, defaults are empty lists.
-
-# Tokens that may be found in source text, but are not used in syntax rules.
-# May be hooked. Unhandled aside tokens are not emitted to parser.
-# E.g. line endings may be hooked to generate semicolons for JavaScript or Go.
-!aside $space $comment;
-
-# Tokens that are not defined in grammar, but may be emitted by hooks.
-# E.g. for Python it could be feasible to track current indentation level
-# and emit fake $begin or $end when it changes.
-!extern ;
-
-# Tokens that can be split into smaller parts.
-# By default lexer captures the longest possible character sequence
-# that matches a valid token, but sometimes it should capture a shorter one.
-# E. g. in C++ templates ">>" sequence should be split in ">" operators.
-!shrink ;
-
-# "Tokens" indicating lexical errors, e. g. unmatched opening quote.
-# Can be used for more descriptive error messages.
-!error $error;
-
-# Define a separate group of tokens. Directives with empty list are ignored.
-# Each directive defines a new group, all remaining tokens form
-# "default" group. A token can belong to different groups.
-# Literal token groups are detected automatically.
-# Each group effectively constructs a separate lexer. This can be used
-# when tokenization result depends on context.
-# E.g. parsing HTML would require at least two groups: one consisting of
-# raw text and "<" tokens and another one containing parts of HTML tags.
-# All tokens allowed at some parsing state must belong to the same group.
-!group ;
-
-
-# Token definitions.
+# Token type definitions, except for external types.
 
 # Every byte of a source text must be a part of some token,
 # otherwise a "wrong character" error is raised.
@@ -42,23 +8,75 @@
 # Order of declarations matters: earlier ones are preferred.
 # Definitions must not contain capturing groups.
 
+# Every defined token type will be added to 0-based term list
+# in order of appearance. E. g. 5 token types will have indexes 0-4.
+
 $space = /[ \r\n\t\f]+/;
 $comment = /#.*?(?:\n|$)/;
 $string = /(?:".*?")|(?:'.*?')/;
 $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
 $dir = /!(?:aside|error|extern|group|shrink)/;
+$literal-dir = /!literal/;
 $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
 $regexp = /\/(?:[^\\\/]|\\.)+\//;
 $op = /[(){}\[\]=|,;]/;
 $error = /["'!].{0,10}/;
 
 
+# Recognized directives, defaults are empty lists.
+# Each directive takes a list of space-separated token
+# types (in form $type) or literals ("text" or 'text').
+# Directives may precede corresponding token type definitions.
+
+# Token types that may be found in source text, but are not used
+# in syntax rules. May be hooked. Unhandled aside tokens are
+# not emitted to parser.
+# E.g. line endings may be hooked to generate semicolons for JavaScript or Go.
+!aside $space $comment;
+
+# Token types that are not defined in grammar, but may be emitted by hooks.
+# E.g. for Python it could be feasible to track current indentation level
+# and emit fake $begin or $end when it changes.
+# External token types will be added to term list after defined types
+# and before literal terms in order of appearance.
+!extern ;
+
+# Token types that can be split into smaller parts.
+# By default lexer captures the longest possible character sequence
+# that matches a valid token, but sometimes it should capture a shorter one.
+# E. g. in C++ templates ">>" sequence should be split in ">" operators.
+!shrink ;
+
+# "Token" types indicating lexical errors, e. g. unmatched opening quote.
+# Can be used for more descriptive error messages.
+!error $error;
+
+# Define a separate group of token types. Empty list are ignored.
+# Each directive defines a new group, all remaining tokens form
+# "default" group. A token can belong to different groups.
+# Literal term groups are detected automatically.
+# Each group effectively constructs a separate lexer. This can be used
+# when tokenization result depends on context.
+# E.g. parsing HTML would require at least two groups: one consisting of
+# raw text and "<" tokens and another one containing parts of HTML tags.
+# All tokens allowed at some parsing state must belong to the same group.
+!group ;
+
+# Define literal terms. All literals will be added to the end of term list
+# after defined and external token types, in order of appearance.
+# All literal terms used in grammar rules but not listed with this directive
+# will be added to the end of term list.
+!literal ;
+
+
 # Nonterminal definitions. The first one is the root.
-# Definitions may contain string literals. Every literal matches
-# captured content of some token.
+# Definitions may contain string literals. All new literals (not listed in
+# !literal directive) will be added to term list in order of appearance.
 
 langdef = {directive | token-definition}, definition, {definition};
-directive = $dir, {$token-name}, ';';
+directive = type-directive | literal-directive;
+type-directive = $dir, {$token-name}, ';';
+literal-directive = $literal-dir, {$string}, ';';
 token-definition = $token-name, '=', $regexp, ';';
 definition = $name, '=', sequence, ';';
 sequence = item, {',', item};

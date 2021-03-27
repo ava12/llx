@@ -20,7 +20,9 @@ const (
 	UnresolvedError
 	RecursionError
 	GroupNumberError
+	UnresolvedGroupsError
 	DisjointGroupsError
+	UndefinedTerminalError
 )
 
 func eofError (token *lexer.Token) *err.Error {
@@ -71,6 +73,14 @@ func groupNumberError (token *lexer.Token) *err.Error {
 	return err.FormatPos(token, GroupNumberError, "too many terminal groups")
 }
 
+func unresolvedGroupsError (text string) *err.Error {
+	return err.Format(UnresolvedGroupsError, "cannot detect terminal groups for %q literal", text)
+}
+
 func disjointGroupsError (nonterm string, state int, term string) *err.Error {
-	return err.Format(DisjointGroupsError, "disjoint term groups for %q nonterminal, state %d, term %q", nonterm, state, term)
+	return err.Format(DisjointGroupsError, "disjoint terminal groups for %q nonterminal, state %d, term %q", nonterm, state, term)
+}
+
+func undefinedTermError (name string) *err.Error {
+	return err.Format(UndefinedTerminalError, "terminal %q mentioned but not defined", name)
 }

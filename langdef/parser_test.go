@@ -112,16 +112,16 @@ func TestWrongRe (t *testing.T) {
 	}
 }
 
-func TestUknownNonerminal (t *testing.T) {
+func TestUnknownNonerminal (t *testing.T) {
 	samples := []string{
-		"foo = 'foo' | bar;",
+		"$name = /\\w+/; foo = 'foo' | bar;",
 	}
 	checkErrorCode(t, samples, UnknownNonterminalError)
 }
 
 func TestUnusedNonterminals (t *testing.T) {
 	samples := []string{
-		"foo = 'foo' | 'bar'; bar = baz | 'bar'; baz = 'baz';",
+		"$name = /\\w+/; foo = 'foo' | 'bar'; bar = baz | 'bar'; baz = 'baz';",
 	}
 	checkErrorCode(t, samples, UnusedNonterminalError)
 }
@@ -135,8 +135,8 @@ func TestUnresolved (t *testing.T) {
 
 func TestRecursions (t *testing.T) {
 	samples := []string{
-		"foo = bar; bar = bar | 'baz';",
-		"foo = bar; bar = 'bar' | baz; baz = bar, 'baz';",
+		"$name = /\\w+/; foo = bar; bar = bar | 'baz';",
+		"$name = /\\w+/; foo = bar; bar = 'bar' | baz; baz = bar, 'baz';",
 	}
 	checkErrorCode(t, samples, RecursionError)
 }
@@ -151,18 +151,31 @@ func TestGroupNumberError (t *testing.T) {
 	checkErrorCode(t, []string{sample.String()}, GroupNumberError)
 }
 
+func TestUnresolvedGroupsError (t *testing.T) {
+	samples := []string{
+		"$num = /\\d+/; $op = /[*\\/+-]/; g = 'x' | $num, $op, $num;",
+	}
+	checkErrorCode(t, samples, UnresolvedGroupsError)
+}
+
 func TestDisjointGroupsError (t *testing.T) {
 	samples := []string{
-		"!extern $t; $u = /\\d+/; g = 'foo', $t;",
 		"!group $c; $c = /\\w+/; $d = /\\d+/; g = $c | $d;",
 	}
 	checkErrorCode(t, samples, DisjointGroupsError)
 }
 
+func TestUndefinedTermError (t *testing.T) {
+	samples := []string{
+		"!group $foo; g = $foo;",
+	}
+	checkErrorCode(t, samples, UndefinedTerminalError)
+}
+
 func TestNoError (t *testing.T) {
 	samples := []string{
 		terms + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		terms + "!aside; !extern; !error; !shrink; !group; foo = 'foo';",
+		terms + "!aside; !extern; !error; !shrink; !group; !literal; foo = 'foo';",
 	}
 	checkErrorCode(t, samples, 0)
 }
