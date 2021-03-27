@@ -349,14 +349,24 @@ func addExtraTerm (name string, c *parseContext) int {
 }
 
 func addTermFlag (name string, flag grammar.TermFlags, c *parseContext) {
-	i := addExtraTerm(name, c)
-	c.ets[i].flags |= flag
+	i, has := c.ti[name]
+	if has {
+		c.g.Terms[i].Flags |= flag
+	} else {
+		i = addExtraTerm(name, c)
+		c.ets[i].flags |= flag
+	}
 }
 
 func addTermGroups(token *lexer.Token, groups int, c *parseContext) {
 	name := token.Text()[1 :]
-	i := addExtraTerm(name, c)
-	c.ets[i].groups |= groups
+	i, has := c.ti[name]
+	if has {
+		c.g.Terms[i].Groups |= groups
+	} else {
+		i = addExtraTerm(name, c)
+		c.ets[i].groups |= groups
+	}
 }
 
 func parseDir (name string, c *parseContext) error {

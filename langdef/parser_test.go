@@ -176,6 +176,7 @@ func TestNoError (t *testing.T) {
 	samples := []string{
 		terms + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
 		terms + "!aside; !extern; !error; !shrink; !group; !literal; foo = 'foo';",
+		"!aside $space; !group $space $name; $space = /\\s/; $name = /\\w/; g = {$name};",
 	}
 	checkErrorCode(t, samples, 0)
 }
