@@ -39,6 +39,10 @@ func (t *Token) Col () int {
 	return t.col
 }
 
+func NewToken (tokenType int, typeName, text string, source *source.Source, line, col int) *Token {
+	return &Token{tokenType, typeName, text, source, line, col}
+}
+
 const (
 	EofTokenType = -1
 	EofTokenName = "-eof-"

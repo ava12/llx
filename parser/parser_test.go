@@ -5,6 +5,8 @@ import (
 
 	"github.com/ava12/llx/errors"
 	"github.com/ava12/llx/langdef"
+	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/source"
 )
 
 type srcExprSample struct {
@@ -16,7 +18,13 @@ type srcErrSample struct {
 	err int
 }
 
-func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSample, captureAside bool) {
+var testTokenHooks = TokenHooks{
+	AnyTokenType: func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
+		return true, nil
+	},
+}
+
+func testGrammarSamplesWithHooks (t *testing.T, name, grammar string, samples []srcExprSample, hs TokenHooks) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
@@ -24,7 +32,7 @@ func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSa
 	}
 
 	for i, sample := range samples {
-		n, e := parseAsTestNode(g, sample.src, captureAside)
+		n, e := parseAsTestNode(g, sample.src, hs)
 		if e != nil {
 			t.Errorf("grammar %q, sample #%d: got error: %s", name, i, e.Error())
 			continue
@@ -37,6 +45,15 @@ func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSa
 	}
 }
 
+func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSample, captureAside bool) {
+	var hs TokenHooks
+
+	if captureAside {
+		hs = testTokenHooks
+	}
+	testGrammarSamplesWithHooks(t, name, grammar, samples, hs)
+}
+
 func testErrorSamples (t *testing.T, name, grammar string, samples []srcErrSample) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
@@ -45,7 +62,7 @@ func testErrorSamples (t *testing.T, name, grammar string, samples []srcErrSampl
 	}
 
 	for i, sample := range samples {
-		_, e := parseAsTestNode(g, sample.src, false)
+		_, e := parseAsTestNode(g, sample.src, nil)
 		if e == nil {
 			t.Errorf("grammar %q, sample #%d: expecting error code %d, got success", name, i, sample.err)
 			continue
@@ -74,6 +91,35 @@ func TestErrors (t *testing.T) {
 		{"foo(bar baz", UnexpectedTokenError},
 	}
 	testErrorSamples(t, name, grammar, samples)
+}
+
+func TestUnexpectedGroupError (t *testing.T) {
+	grammar := spaceDef + "!group $op; $name = /\\w+/; $op = /\\+/; g = $name, $op, $name;"
+	sample := "foo + bar"
+	g, e := langdef.ParseString("sample", grammar)
+	var (
+		pc *ParseContext
+		q *source.Queue
+	)
+	if e == nil {
+		q = source.NewQueue().Append(source.New("sample", []byte(sample)))
+		p := New(g)
+		pc, e = newParseContext(p, q, &Hooks{})
+	}
+	if e != nil {
+		t.Fatal("unexpected error:" + e.Error())
+	}
+
+	pc.tokens = append(pc.tokens, lexer.NewToken(2, "op", "+", q.Source(), 1, 1))
+	_, e = pc.nextToken(1)
+	if e == nil {
+		t.Fatal("expecting UnexpectedGroupError, got success")
+	}
+
+	ee, f := e.(*errors.Error)
+	if !f || ee.Code != UnexpectedGroupError {
+		t.Fatal("expecting UnexpectedGroupError, got: " + e.Error())
+	}
 }
 
 func TestSimple (t *testing.T) {
@@ -182,4 +228,41 @@ func TestTokenShrinking (t *testing.T) {
 		},
 	}
 	testGrammarSamples(t, name, grammar, samples, false)
+}
+
+func TestTokenHooks (t *testing.T) {
+	name := "token hooks"
+	grammar := "$space = /\\s+/; $char = /[bcdf]|aa?|ee?/; !literal 'a' 'b' 'c' 'd' 'e' 'f';" +
+		"g = {('b', 'aa') | ('b', 'ee', 'f') | ('f', 'a', 'c', 'e') | $space};"
+	samples := []srcExprSample{
+		{"baabbef baa", "b aa b ee f _ b aa"},
+	}
+
+	copyToken := func (t *lexer.Token, tokenType int, typeName, text string) *lexer.Token {
+		return lexer.NewToken(tokenType, typeName, text, t.Source(), t.Line(), t.Col())
+	}
+
+	prevTokenText := ""
+	hooks := TokenHooks{
+		6: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			if prevTokenText != "b" {
+				return true, nil
+			}
+
+			return false, pc.EmitToken(copyToken(t, 6, "char", "ee")) // e -> ee
+		},
+		4: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			return true, pc.EmitToken(copyToken(t, 4, "char", "a")) // c -> a c
+		},
+		1: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			f := (t.Text() != prevTokenText) // x x -> x
+			prevTokenText = t.Text()
+			return f, nil
+		},
+		AnyTokenType: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			return false, pc.EmitToken(copyToken(t, 0, "space", "_")) // " " -> _
+		},
+	}
+
+	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks)
 }

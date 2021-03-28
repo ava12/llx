@@ -10,9 +10,7 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-type TokenHook interface {
-	HandleToken (token *lexer.Token, pc *ParseContext) (emit bool, e error)
-}
+type TokenHook = func (token *lexer.Token, pc *ParseContext) (emit bool, e error)
 
 type NontermHookInstance interface {
 	HandleNonterm (nonterm string, result interface{}) error
@@ -20,9 +18,7 @@ type NontermHookInstance interface {
 	EndNonterm () (result interface{}, e error)
 }
 
-type NontermHook interface {
-	BeginNonterm (nonterm string, pc *ParseContext) (NontermHookInstance, error)
-}
+type NontermHook = func (nonterm string, pc *ParseContext) (NontermHookInstance, error)
 
 type defaultHookInstance struct {
 	result interface{}
@@ -154,8 +150,13 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 }
 
 
-func (pc *ParseContext) EmitToken (t *lexer.Token) {
+func (pc *ParseContext) EmitToken (t *lexer.Token) error {
+	if t.Type() >= len(pc.parser.grammar.Terms) {
+		return emitWrongTokenError(t)
+	}
+
 	pc.tokens = append(pc.tokens, t)
+	return nil
 }
 
 
@@ -297,6 +298,10 @@ func (pc *ParseContext) shrinkToken (tok *lexer.Token, group int) (bool, error) 
 		return false, nil
 	}
 
+	if len(pc.tokens) > 0 {
+		return false, nil
+	}
+
 	res, e := pc.lexers[group].Shrink(tok)
 	if res != nil && e == nil {
 		e = pc.handleToken(res)
@@ -417,7 +422,7 @@ func (pc *ParseContext) getNontermHook (nonterm string) (res NontermHookInstance
 		h, f = pc.nontermHooks[AnyNonterm]
 	}
 	if f {
-		res, e = h.BeginNonterm(nonterm, pc)
+		res, e = h(nonterm, pc)
 	} else {
 		res = &defaultHookInstance{}
 		e = nil
@@ -444,11 +449,28 @@ func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 }
 
 func (pc *ParseContext) handleToken (tok *lexer.Token) error {
-	h, f := pc.tokenHooks[tok.Type()]
-	if !f {
-		h, f = pc.tokenHooks[AnyTokenType]
+	if tok.Type() < 0 {
+		pc.tokens = append(pc.tokens, tok)
+		return nil
 	}
-	if !f {
+
+	tt := make([]int, 0, 3)
+
+	i, f := pc.parser.literals[tok.Text()]
+	if f {
+		tt = append(tt, i)
+	}
+	tt = append(tt, tok.Type(), AnyTokenType)
+
+	var h TokenHook
+	for _, i = range tt {
+		h = pc.tokenHooks[i]
+		if h != nil {
+			break
+		}
+	}
+
+	if h == nil {
 		if pc.isAsideToken(tok) {
 			return nil
 		}
@@ -457,20 +479,13 @@ func (pc *ParseContext) handleToken (tok *lexer.Token) error {
 		return nil
 	}
 
-	tailLen := len(pc.tokens)
-	emit, e := h.HandleToken(tok, pc)
+	emit, e := h(tok, pc)
 	if e != nil {
 		return e
 	}
 
 	if emit {
-		if tailLen == 0 {
-			pc.tokens = append(pc.tokens, tok)
-		} else {
-			headLen := len(pc.tokens) - tailLen
-			pc.tokens = append(pc.tokens[: headLen], tok)
-			pc.tokens = append(pc.tokens, pc.tokens[headLen + 1 :]...)
-		}
+		pc.tokens = append(pc.tokens, tok)
 	}
 	return nil
 }

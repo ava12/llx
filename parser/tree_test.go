@@ -41,27 +41,11 @@ func (n *treeNode) EndNonterm () (result interface{}, e error) {
 	return n, nil
 }
 
-type nodeHook struct {}
-
-func (nh nodeHook) BeginNonterm (nonterm string, pc *ParseContext) (NontermHookInstance, error) {
+func nodeHook (nonterm string, pc *ParseContext) (NontermHookInstance, error) {
 	return nontermNode(nonterm), nil
 }
 
-type tokenHook struct {}
-
-func (th tokenHook) HandleToken (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
-	return true, nil
-}
-
-var testNodeHooks = NontermHooks{AnyNonterm: nodeHook{}}
-var testTokenHooks = TokenHooks{AnyTokenType: tokenHook{}}
-
-func parseTestSource (g *grammar.Grammar, name, src string) (*treeNode, error) {
-	queue := source.NewQueue().Append(source.New(name, []byte(src)))
-	parser := New(g)
-	r, e := parser.Parse(queue, &Hooks{nil, testNodeHooks})
-	return r.(*treeNode), e
-}
+var testNodeHooks = NontermHooks{AnyNonterm: nodeHook}
 
 
 type stackNode struct {
@@ -180,11 +164,8 @@ func (tv *treeValidator) validate () error {
 	}
 }
 
-func parseAsTestNode (g *grammar.Grammar, src string, captureAside bool) (*treeNode, error) {
-	hs := &Hooks{nil, testNodeHooks}
-	if captureAside {
-		hs.Tokens = testTokenHooks
-	}
+func parseAsTestNode (g *grammar.Grammar, src string, hooks TokenHooks) (*treeNode, error) {
+	hs := &Hooks{hooks, testNodeHooks}
 	parser := New(g)
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
 	r, e := parser.Parse(q, hs)
@@ -212,7 +193,7 @@ func TestParseTreeExpr (t *testing.T) {
 	g, e := langdef.ParseString("", grammarSrc)
 	var n *treeNode
 	if e == nil {
-		n, e = parseAsTestNode(g, src, false)
+		n, e = parseAsTestNode(g, src, nil)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())
