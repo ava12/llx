@@ -112,6 +112,27 @@ func (s *Source) findLineIndex (pos int) int {
 	return index
 }
 
+type Pos struct {
+	src *Source
+	pos, line, col int
+}
+
+func (p Pos) Source () *Source {
+	return p.src
+}
+
+func (p Pos) Pos () int {
+	return p.pos
+}
+
+func (p Pos) Line () int {
+	return p.line
+}
+
+func (p Pos) Col () int {
+	return p.col
+}
+
 
 type queueItem struct {
 	source *Source
@@ -136,6 +157,14 @@ func (q *Queue) Source () *Source {
 
 func (q *Queue) Pos () int {
 	return q.pos
+}
+
+func (q *Queue) SourcePos () Pos {
+	res := Pos{q.source, q.pos, 0, 0}
+	if q.source != nil {
+		res.line, res.col = q.source.LineCol(q.pos)
+	}
+	return res
 }
 
 func (q *Queue) resize () {

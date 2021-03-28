@@ -39,8 +39,14 @@ func (t *Token) Col () int {
 	return t.col
 }
 
-func NewToken (tokenType int, typeName, text string, source *source.Source, line, col int) *Token {
-	return &Token{tokenType, typeName, text, source, line, col}
+type SourcePos interface {
+	Source () *source.Source
+	Line () int
+	Col () int
+}
+
+func NewToken (tokenType int, typeName, text string, sp SourcePos) *Token {
+	return &Token{tokenType, typeName, text, sp.Source(), sp.Line(), sp.Col()}
 }
 
 const (

@@ -110,7 +110,7 @@ func TestUnexpectedGroupError (t *testing.T) {
 		t.Fatal("unexpected error:" + e.Error())
 	}
 
-	pc.tokens = append(pc.tokens, lexer.NewToken(2, "op", "+", q.Source(), 1, 1))
+	pc.tokens = append(pc.tokens, lexer.NewToken(2, "op", "+", q.SourcePos()))
 	_, e = pc.nextToken(1)
 	if e == nil {
 		t.Fatal("expecting UnexpectedGroupError, got success")
@@ -235,11 +235,7 @@ func TestTokenHooks (t *testing.T) {
 	grammar := "$space = /\\s+/; $char = /[bcdf]|aa?|ee?/; !literal 'a' 'b' 'c' 'd' 'e' 'f';" +
 		"g = {('b', 'aa') | ('b', 'ee', 'f') | ('f', 'a', 'c', 'e') | $space};"
 	samples := []srcExprSample{
-		{"baabbef baa", "b aa b ee f _ b aa"},
-	}
-
-	copyToken := func (t *lexer.Token, tokenType int, typeName, text string) *lexer.Token {
-		return lexer.NewToken(tokenType, typeName, text, t.Source(), t.Line(), t.Col())
+		{"fce baabbef baa", "f a c e _ b aa b ee f _ b aa"},
 	}
 
 	prevTokenText := ""
@@ -249,10 +245,10 @@ func TestTokenHooks (t *testing.T) {
 				return true, nil
 			}
 
-			return false, pc.EmitToken(copyToken(t, 6, "char", "ee")) // e -> ee
+			return false, pc.EmitToken(lexer.NewToken(6, "char", "ee", t)) // e -> ee
 		},
 		4: func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			return true, pc.EmitToken(copyToken(t, 4, "char", "a")) // c -> a c
+			return true, pc.EmitToken(lexer.NewToken(4, "char", "a", t)) // c -> a c
 		},
 		1: func (t *lexer.Token, pc *ParseContext) (bool, error) {
 			f := (t.Text() != prevTokenText) // x x -> x
@@ -260,7 +256,7 @@ func TestTokenHooks (t *testing.T) {
 			return f, nil
 		},
 		AnyTokenType: func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			return false, pc.EmitToken(copyToken(t, 0, "space", "_")) // " " -> _
+			return false, pc.EmitToken(lexer.NewToken(0, "space", "_", t)) // " " -> _
 		},
 	}
 
