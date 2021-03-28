@@ -449,21 +449,21 @@ func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 }
 
 func (pc *ParseContext) handleToken (tok *lexer.Token) error {
-	if tok.Type() < 0 {
-		pc.tokens = append(pc.tokens, tok)
-		return nil
-	}
+	tts := make([]int, 0, 3)
+	tt := tok.Type()
 
-	tt := make([]int, 0, 3)
-
-	i, f := pc.parser.literals[tok.Text()]
-	if f {
-		tt = append(tt, i)
+	if tt < 0 {
+		tts = append(tts, tt)
+	} else {
+		i, f := pc.parser.literals[tok.Text()]
+		if f {
+			tts = append(tts, i)
+		}
+		tts = append(tts, tok.Type(), AnyTokenType)
 	}
-	tt = append(tt, tok.Type(), AnyTokenType)
 
 	var h TokenHook
-	for _, i = range tt {
+	for _, i := range tts {
 		h = pc.tokenHooks[i]
 		if h != nil {
 			break
@@ -484,7 +484,7 @@ func (pc *ParseContext) handleToken (tok *lexer.Token) error {
 		return e
 	}
 
-	if emit {
+	if emit || tt < 0 {
 		pc.tokens = append(pc.tokens, tok)
 	}
 	return nil

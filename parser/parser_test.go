@@ -262,3 +262,51 @@ func TestTokenHooks (t *testing.T) {
 
 	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks)
 }
+
+func TestEofHooks (t *testing.T) {
+	name := "EoF hooks"
+	grammar := "!aside $space $indent; !extern $begin $end; " +
+		"$indent = /(?:\\n|^)\\t+/; $space = /[ \\t]+/; $name = /\\w+/; " +
+		"g = {$name | block}; block = $begin, {$name | block}, $end;"
+	samples := []srcExprSample{
+		{
+			"foo\n\tbar baz\n\t\tqux",
+			"foo (block { bar baz (block { qux } ) } )",
+		},
+		{
+			"\tfoo\n\t\t\tbar\n\t\tbaz",
+			"(block { foo (block { (block { bar } ) baz } ) } )",
+		},
+	}
+
+	prevIndent := 0
+	hooks := TokenHooks{
+		0: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			text := t.Text()
+			indent := len(text)
+			if text[0] == '\n' {
+				indent--
+			}
+			var e error
+			for indent > prevIndent {
+				e = pc.EmitToken(lexer.NewToken(3, "begin", "{", t))
+				prevIndent++
+			}
+			for indent < prevIndent {
+				e = pc.EmitToken(lexer.NewToken(4, "end", "}", t))
+				prevIndent--
+			}
+			return false, e
+		},
+		lexer.EofTokenType: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			var e error
+			for prevIndent > 0 {
+				e = pc.EmitToken(lexer.NewToken(4, "end", "}", t))
+				prevIndent--
+			}
+			return false, e
+		},
+	}
+
+	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks)
+}

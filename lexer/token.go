@@ -50,7 +50,7 @@ func NewToken (tokenType int, typeName, text string, sp SourcePos) *Token {
 }
 
 const (
-	EofTokenType = -1
+	EofTokenType = -2
 	EofTokenName = "-eof-"
 )
 

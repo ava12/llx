@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ErrorTokenType = -2
+	ErrorTokenType = -3
 	ErrorTokenName = "-error-"
 )
 
