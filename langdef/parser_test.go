@@ -21,8 +21,9 @@ func checkErrorCode (t *testing.T, samples []string, code int) {
 		if code == 0 {
 			if e != nil {
 				t.Error(errPrefix + ": unexpected error: " + e.Error())
+				return
 			}
-			return
+			continue
 		}
 
 		if e == nil {
@@ -177,6 +178,7 @@ func TestNoError (t *testing.T) {
 		terms + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
 		terms + "!aside; !extern; !error; !shrink; !group; !literal; foo = 'foo';",
 		"!aside $space; !group $space $name; $space = /\\s/; $name = /\\w/; g = {$name};",
+		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 	}
 	checkErrorCode(t, samples, 0)
 }

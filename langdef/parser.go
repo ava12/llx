@@ -423,7 +423,7 @@ func parseLiteralDir (c *parseContext) error {
 
 	for _, t := range tokens {
 		text := t.Text()
-		addExtraTerm(text[1 : len(text) - 1], c)
+		addLiteralTerm(text[1 : len(text) - 1], c)
 	}
 	return nil
 }
