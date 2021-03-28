@@ -137,13 +137,13 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 		"\\s+|#.*?(?:\\n|$)|" +
 		"((?:\".*?\")|(?:'.*?'))|" +
 		"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
-		"(!(?:aside|error|extern|shrink))|" +
-		"(!literal)|" +
-		"(!group)|" +
+		"(!(?:aside|error|extern|shrink)\\b)|" +
+		"(!literal\\b)|" +
+		"(!group\\b)|" +
 		"(\\$[a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(/(?:[^\\\\/]|\\\\.)+/)|" +
 		"([(){}\\[\\]=|,;])|" +
-		"(['\"/!])")
+		"(['\"/!].{0,10})")
 
 	l := lexer.New(re, tokenTypes, source.NewQueue().Append(s))
 	ets := make([]extraTerm, 0)
@@ -154,7 +154,7 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 
 	var t *lexer.Token
 	for e == nil {
-		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, termNameTok}, true, nil)
+		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, literalDirTok, termNameTok}, true, nil)
 		if e != nil {
 			return e
 		}
