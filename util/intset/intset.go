@@ -9,7 +9,7 @@ const intSize = util.IntSize
 
 type setRec struct {
 	lowItem, highItem int
-	chunks []uint
+	chunks            []uint
 }
 
 type T = *setRec

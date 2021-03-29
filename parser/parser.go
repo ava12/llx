@@ -44,19 +44,19 @@ type TokenHooks map[int]TokenHook
 type NonTermHooks map[string]NonTermHook
 
 type Hooks struct {
-	Tokens TokenHooks
+	Tokens   TokenHooks
 	NonTerms NonTermHooks
 }
 
 type lexerRec struct {
-	re *regexp.Regexp
+	re    *regexp.Regexp
 	types []lexer.TokenType
 }
 
 type Parser struct {
-	grammar *grammar.Grammar
+	grammar  *grammar.Grammar
 	literals map[string]int
-	lexers []lexerRec
+	lexers   []lexerRec
 }
 
 func New (g *grammar.Grammar) *Parser {
@@ -112,22 +112,23 @@ func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error
 }
 
 type nonTermRec struct {
-	prev *nonTermRec
-	group int
+	prev   *nonTermRec
+	group  int
 	states []grammar.State
-	hook NonTermHookInstance
-	index, state int
+	hook   NonTermHookInstance
+	index  int
+	state  int
 }
 
 type ParseContext struct {
-	parser *Parser
-	lexers []*lexer.Lexer
-	queue *source.Queue
-	tokenHooks TokenHooks
+	parser       *Parser
+	lexers       []*lexer.Lexer
+	queue        *source.Queue
+	tokenHooks   TokenHooks
 	nonTermHooks NonTermHooks
-	tokens []*lexer.Token
-	lastResult interface{}
-	nonTerm *nonTermRec
+	tokens       []*lexer.Token
+	lastResult   interface{}
+	nonTerm      *nonTermRec
 }
 
 func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, error) {

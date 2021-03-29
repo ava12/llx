@@ -48,8 +48,9 @@ func (c *variantChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex i
 
 
 type groupChunk struct {
-	chunks []chunk
-	isOptional, isRepeated bool
+	chunks     []chunk
+	isOptional bool
+	isRepeated bool
 }
 
 func newGroupChunk (isOptional, isRepeated bool) *groupChunk {

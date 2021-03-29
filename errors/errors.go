@@ -5,10 +5,10 @@ import (
 )
 
 type Error struct {
-	Code int
-	Message string
+	Code       int
+	Message    string
 	SourceName string
-	Line, Col int
+	Line, Col  int
 }
 
 type SourcePos interface {

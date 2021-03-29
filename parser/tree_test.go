@@ -14,9 +14,9 @@ import (
 )
 
 type treeNode struct {
-	isNonTerm bool
+	isNonTerm  bool
 	name, text string
-	children []*treeNode
+	children   []*treeNode
 }
 
 func nonTermNode (name string) *treeNode {
@@ -49,13 +49,13 @@ var testNodeHooks = NonTermHooks{AnyNonTerm: nodeHook}
 
 
 type stackNode struct {
-	parent *stackNode
-	node *treeNode
+	parent        *stackNode
+	node          *treeNode
 	length, index int
 }
 
 type treeValidator struct {
-	sn *stackNode
+	sn   *stackNode
 	cmds []string
 }
 

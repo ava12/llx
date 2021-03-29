@@ -6,9 +6,9 @@ import (
 )
 
 type Source struct {
-	name string
-	content []byte
-	lineStarts []int
+	name          string
+	content       []byte
+	lineStarts    []int
 	prevLineIndex int
 }
 
@@ -113,7 +113,7 @@ func (s *Source) findLineIndex (pos int) int {
 }
 
 type Pos struct {
-	src *Source
+	src            *Source
 	pos, line, col int
 }
 
@@ -136,15 +136,16 @@ func (p Pos) Col () int {
 
 type queueItem struct {
 	source *Source
-	pos int
+	pos    int
 }
 
 type Queue struct {
-	buffer []queueItem
-	size, head, tail int
-	source *Source
-	pos int
-	eof bool
+	buffer     []queueItem
+	size       int
+	head, tail int
+	source     *Source
+	pos        int
+	eof        bool
 }
 
 func NewQueue () *Queue {

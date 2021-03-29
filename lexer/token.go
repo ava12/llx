@@ -6,8 +6,9 @@ import (
 
 type Token struct {
 	tokenType int
-	typeName, text string
-	source *source.Source
+	typeName  string
+	text      string
+	source    *source.Source
 	line, col int
 }
 

@@ -38,9 +38,10 @@ func ParseBytes (name string, content []byte) (*grammar.Grammar, error) {
 }
 
 type nonTermItem struct {
-	Index int
-	DependsOn, FirstTerms intset.T
-	Chunk *groupChunk
+	Index      int
+	DependsOn  intset.T
+	FirstTerms intset.T
+	Chunk      *groupChunk
 }
 
 type termIndex map[string]int
@@ -100,19 +101,19 @@ var (
 )
 
 type extraTerm struct {
-	name string
+	name   string
 	groups int
-	flags grammar.TermFlags
+	flags  grammar.TermFlags
 }
 
 type parseContext struct {
-	l *lexer.Lexer
-	g *grammar.Grammar
-	lts []string
-	ti, lti termIndex
-	nti nonTermIndex
-	ets []extraTerm
-	eti map[string]int
+	l            *lexer.Lexer
+	g            *grammar.Grammar
+	lts          []string
+	ti, lti      termIndex
+	nti          nonTermIndex
+	ets          []extraTerm
+	eti          map[string]int
 	currentGroup int
 }
 

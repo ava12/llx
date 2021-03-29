@@ -25,15 +25,15 @@ type Regexp interface {
 }
 
 type TokenType struct {
-	Type int
+	Type     int
 	TypeName string
 }
 
 type Lexer struct {
 	types []TokenType
-	re Regexp
+	re    Regexp
 	queue *source.Queue
-	eof bool
+	eof   bool
 }
 
 func New (re Regexp, types []TokenType, queue *source.Queue) *Lexer {

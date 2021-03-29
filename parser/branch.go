@@ -6,12 +6,13 @@ import (
 )
 
 type branch struct {
-	next *branch
-	index int
-	pc *ParseContext
+	next    *branch
+	index   int
+	pc      *ParseContext
 	applied []appliedRule
-	ntTree, nonTerm *nonTermRec
-	inited bool
+	ntTree  *nonTermRec
+	nonTerm *nonTermRec
+	inited  bool
 }
 
 func createBranches (pc *ParseContext, nt *nonTermRec, ars []appliedRule) *branch {

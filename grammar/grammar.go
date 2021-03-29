@@ -9,9 +9,10 @@ const (
 type TermFlags int
 
 type Term struct {
-	Name, Re string
+	Name   string
+	Re     string
 	Groups int
-	Flags TermFlags
+	Flags  TermFlags
 }
 
 const (
@@ -24,7 +25,8 @@ const (
 
 
 type Rule struct {
-	State, NonTerm int
+	State   int
+	NonTerm int
 }
 
 const (
@@ -34,8 +36,8 @@ const (
 
 
 type State struct {
-	Group int `json:",omitempty"`
-	Rules map[int]Rule `json:",omitempty"`
+	Group      int            `json:",omitempty"`
+	Rules      map[int]Rule   `json:",omitempty"`
 	MultiRules map[int][]Rule `json:",omitempty"`
 }
 
@@ -43,11 +45,11 @@ const AnyTerm = -1
 
 
 type NonTerm struct {
-	Name string
+	Name   string
 	States []State
 }
 
 type Grammar struct {
-	Terms []Term
+	Terms    []Term
 	NonTerms []NonTerm
 }

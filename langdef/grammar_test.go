@@ -13,7 +13,7 @@ import (
 type (
 	state map[int][]grammar.Rule
 	nonTerm struct {
-		name string
+		name   string
 		states []state
 	}
 	nonTerms []nonTerm

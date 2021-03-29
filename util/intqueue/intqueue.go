@@ -1,8 +1,9 @@
 package intqueue
 
 type queueRec struct {
-	items []int
-	size, head, tail int
+	items      []int
+	size       int
+	head, tail int
 }
 
 type T = *queueRec
