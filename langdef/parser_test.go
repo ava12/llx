@@ -91,7 +91,7 @@ func TestNonerminalDefined (t *testing.T) {
 	samples := []string{
 		"foo = 'foo'; bar = 'bar'; foo = 'baz';",
 	}
-	checkErrorCode(t, samples, NonterminalDefinedError)
+	checkErrorCode(t, samples, NonTerminalDefinedError)
 }
 
 func TestWrongRe (t *testing.T) {
@@ -117,14 +117,14 @@ func TestUnknownNonerminal (t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | bar;",
 	}
-	checkErrorCode(t, samples, UnknownNonterminalError)
+	checkErrorCode(t, samples, UnknownNonTerminalError)
 }
 
-func TestUnusedNonterminals (t *testing.T) {
+func TestUnusedNonTerminals (t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | 'bar'; bar = baz | 'bar'; baz = 'baz';",
 	}
-	checkErrorCode(t, samples, UnusedNonterminalError)
+	checkErrorCode(t, samples, UnusedNonTerminalError)
 }
 
 func TestUnresolved (t *testing.T) {

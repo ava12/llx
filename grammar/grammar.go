@@ -1,7 +1,7 @@
 package grammar
 
 const (
-	RootNonterm = 0
+	RootNonTerm  = 0
 	InitialState = 0
 )
 
@@ -24,12 +24,12 @@ const (
 
 
 type Rule struct {
-	State, Nonterm int
+	State, NonTerm int
 }
 
 const (
-	SameNonterm = -1
-	FinalState = -1
+	SameNonTerm = -1
+	FinalState  = -1
 )
 
 
@@ -42,12 +42,12 @@ type State struct {
 const AnyTerm = -1
 
 
-type Nonterm struct {
+type NonTerm struct {
 	Name string
 	States []State
 }
 
 type Grammar struct {
 	Terms []Term
-	Nonterms []Nonterm
+	NonTerms []NonTerm
 }

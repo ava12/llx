@@ -31,7 +31,7 @@ func main () {
 	flag.StringVar(&outFileName, "o", "", "output file name, default is the name of input file with .go or .json suffix")
 	flag.StringVar(&packageName, "p", "", "Go package name, default is dir name of output file")
 	flag.BoolVar(&useShortImport, "s", false, "use short path (\"llx/grammar\") for Go import")
-	flag.StringVar(&varName, "v", "", "Go variable name, default is the root nonterminal name")
+	flag.StringVar(&varName, "v", "", "Go variable name, default is the root non-terminal name")
 	flag.Parse()
 	inFileName = flag.Arg(0)
 	if inFileName == "" {
@@ -87,7 +87,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 		_, packageName = filepath.Split(dir[: len(dir) - 1])
 	}
 	if varName == "" {
-		varName = gr.Nonterms[0].Name
+		varName = gr.NonTerms[0].Name
 	}
 
 	re := regexp.MustCompile("^[A-Za-z_][A-Za-z_0-9]*$")
@@ -115,8 +115,8 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 	}
 	buffer.WriteString("\t},\n")
 
-	buffer.WriteString("\tNonterms: []grammar.Nonterm{\n")
-	for _, nt := range gr.Nonterms {
+	buffer.WriteString("\tNon-terms: []grammar.NonTerm{\n")
+	for _, nt := range gr.NonTerms {
 		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, States: []grammar.State{\n", nt.Name))
 		for _, st := range nt.States {
 			buffer.WriteString(fmt.Sprintf("\t\t\t{Group: %d, ", st.Group))
@@ -126,7 +126,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 			if hasRules {
 				buffer.WriteString("Rules: map[int]grammar.Rule{\n")
 				for k, r := range st.Rules {
-					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {State: %d, Nonterm: %d},\n", k, r.State, r.Nonterm))
+					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {State: %d, NonTerm: %d},\n", k, r.State, r.NonTerm))
 				}
 				if hasMulti {
 					buffer.WriteString("\t\t\t}, MultiRules: map[int][]grammar.Rule{\n")
@@ -142,7 +142,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 				for k, rs := range st.MultiRules {
 					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {\n", k))
 					for _, r := range rs {
-						buffer.WriteString(fmt.Sprintf("\t\t\t\t\t{State: %d, Nonterm: %d},\n", r.State, r.Nonterm))
+						buffer.WriteString(fmt.Sprintf("\t\t\t\t\t{State: %d, NonTerm: %d},\n", r.State, r.NonTerm))
 					}
 					buffer.WriteString(fmt.Sprintf("\t\t\t\t},\n"))
 				}

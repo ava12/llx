@@ -21,7 +21,7 @@ const (
 type chunk interface {
 	FirstTerms () intset.T
 	IsOptional () bool
-	BuildStates (nonterm *grammar.Nonterm, stateIndex, nextIndex int)
+	BuildStates (nonTerm *grammar.NonTerm, stateIndex, nextIndex int)
 }
 
 type complexChunk interface {
@@ -37,32 +37,32 @@ func ParseBytes (name string, content []byte) (*grammar.Grammar, error) {
 	return Parse(source.New(name, content))
 }
 
-type nontermItem struct {
+type nonTermItem struct {
 	Index int
 	DependsOn, FirstTerms intset.T
 	Chunk *groupChunk
 }
 
 type termIndex map[string]int
-type nontermIndex map[string]*nontermItem
+type nonTermIndex map[string]*nonTermItem
 
 
 func Parse (s *source.Source) (*grammar.Grammar, error) {
 	result := &grammar.Grammar{
-		Terms: make([]grammar.Term, 0),
-		Nonterms: make([]grammar.Nonterm, 0),
+		Terms:    make([]grammar.Term, 0),
+		NonTerms: make([]grammar.NonTerm, 0),
 	}
 
-	nti := nontermIndex{}
+	nti := nonTermIndex{}
 	var e error
 
 	e = parseLangDef(s, result, nti)
 	e = assignTermGroups(result, e)
-	e = findUndefinedNonterminals(nti, e)
-	e = findUnusedNonterminals(result.Nonterms, nti, e)
-	e = resolveDependencies(result.Nonterms, nti, e)
-	e = buildStates(result.Nonterms, nti, e)
-	e = findRecursions(result.Nonterms, e)
+	e = findUndefinedNonTerminals(nti, e)
+	e = findUnusedNonTerminals(result.NonTerms, nti, e)
+	e = resolveDependencies(result.NonTerms, nti, e)
+	e = buildStates(result.NonTerms, nti, e)
+	e = findRecursions(result.NonTerms, e)
 	e = assignStateGroups(result, e)
 
 	if e != nil {
@@ -110,7 +110,7 @@ type parseContext struct {
 	g *grammar.Grammar
 	lts []string
 	ti, lti termIndex
-	nti nontermIndex
+	nti nonTermIndex
 	ets []extraTerm
 	eti map[string]int
 	currentGroup int
@@ -130,7 +130,7 @@ func init () {
 	}
 }
 
-func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error {
+func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error {
 	var e error
 
 	re := regexp.MustCompile(
@@ -210,10 +210,10 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nontermIndex) error
 	for e == nil && t != nil && t.Type() != lexer.EofTokenType {
 		_, has := nti[t.Text()]
 		if has && nti[t.Text()].Chunk != nil {
-			return defNontermError(t)
+			return defNonTermError(t)
 		}
 
-		e = parseNontermDef(t.Text(), c)
+		e = parseNonTermDef(t.Text(), c)
 		if e == nil {
 			t, e = fetch(l, []string{nameTok, lexer.EofTokenName}, true, nil)
 		}
@@ -358,7 +358,7 @@ func addTermFlag (name string, flag grammar.TermFlags, c *parseContext) {
 	}
 }
 
-func addTermGroups(token *lexer.Token, groups int, c *parseContext) {
+func addTermGroups (token *lexer.Token, groups int, c *parseContext) {
 	name := token.Text()[1 :]
 	i, has := c.ti[name]
 	if has {
@@ -447,7 +447,7 @@ func parseTermDef (name string, c *parseContext) error {
 	return nil
 }
 
-func addNonterm (name string, c *parseContext, define bool) *nontermItem {
+func addNonTerm (name string, c *parseContext, define bool) *nonTermItem {
 	var group *groupChunk = nil
 	if define {
 		group = newGroupChunk(false, false)
@@ -460,14 +460,14 @@ func addNonterm (name string, c *parseContext, define bool) *nontermItem {
 		return result
 	}
 
-	result = &nontermItem{len(c.g.Nonterms), intset.New(), intset.New(), group}
+	result = &nonTermItem{len(c.g.NonTerms), intset.New(), intset.New(), group}
 	c.nti[name] = result
-	c.g.Nonterms = append(c.g.Nonterms, grammar.Nonterm{name, nil})
+	c.g.NonTerms = append(c.g.NonTerms, grammar.NonTerm{name, nil})
 	return result
 }
 
-func parseNontermDef (name string, c *parseContext) error {
-	nt := addNonterm(name, c, true)
+func parseNonTermDef (name string, c *parseContext) error {
+	nt := addNonTerm(name, c, true)
 	e := skipOne(c.l, equTok, nil)
 	e = parseGroup(name, nt.Chunk, c, e)
 	e = skipOne(c.l, semicolonTok, e)
@@ -538,9 +538,9 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 	)
 	switch t.TypeName() {
 	case nameTok:
-		nt := addNonterm(t.Text(), c, false)
+		nt := addNonTerm(t.Text(), c, false)
 		c.nti[name].DependsOn.Add(nt.Index)
-		return newNontermChunk(t.Text(), nt), nil
+		return newNonTermChunk(t.Text(), nt), nil
 
 	case termNameTok:
 		index, f = c.ti[t.Text()[1 :]]
@@ -584,7 +584,7 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 	return result, nil
 }
 
-func findUndefinedNonterminals (nti nontermIndex, e error) error {
+func findUndefinedNonTerminals (nti nonTermIndex, e error) error {
 	if e != nil {
 		return e
 	}
@@ -597,13 +597,13 @@ func findUndefinedNonterminals (nti nontermIndex, e error) error {
 	}
 
 	if len(uns) > 0 {
-		return unknownNontermError(uns)
+		return unknownNonTermError(uns)
 	}
 
 	return nil
 }
 
-func findUnusedNonterminals (nts []grammar.Nonterm, nti nontermIndex, e error) error {
+func findUnusedNonTerminals (nts []grammar.NonTerm, nti nonTermIndex, e error) error {
 	if e != nil {
 		return e
 	}
@@ -628,11 +628,11 @@ func findUnusedNonterminals (nts []grammar.Nonterm, nti nontermIndex, e error) e
 	if unreachedNts.IsEmpty() {
 		return nil
 	} else {
-		return unusedNontermError(nontermNames(nts, unreachedNts))
+		return unusedNonTermError(nonTermNames(nts, unreachedNts))
 	}
 }
 
-func resolveDependencies (nts []grammar.Nonterm, nti nontermIndex, e error) error {
+func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) error {
 	if e != nil {
 		return e
 	}
@@ -708,7 +708,7 @@ func resolveDependencies (nts []grammar.Nonterm, nti nontermIndex, e error) erro
 	return nil
 }
 
-func buildStates (nts []grammar.Nonterm, nti nontermIndex, e error) error {
+func buildStates (nts []grammar.NonTerm, nti nonTermIndex, e error) error {
 	if e != nil {
 		return e
 	}
@@ -734,7 +734,7 @@ func buildStates (nts []grammar.Nonterm, nti nontermIndex, e error) error {
 	return nil
 }
 
-func findRecursions (nts []grammar.Nonterm, e error) error {
+func findRecursions (nts []grammar.NonTerm, e error) error {
 	if e != nil {
 		return e
 	}
@@ -749,16 +749,16 @@ func findRecursions (nts []grammar.Nonterm, e error) error {
 	if ntis.IsEmpty() {
 		return nil
 	} else {
-		return recursionError(nontermNames(nts, ntis))
+		return recursionError(nonTermNames(nts, ntis))
 	}
 }
 
-func ntIsRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
+func ntIsRecursive (nts []grammar.NonTerm, index int, visited intset.T) bool {
 	visited.Add(index)
 	st := nts[index].States[0]
 	if len(st.Rules) > 0 {
 		for _, r := range st.Rules {
-			if r.Nonterm != grammar.SameNonterm && (visited.Contains(r.Nonterm) || ntIsRecursive(nts, r.Nonterm, visited.Copy())) {
+			if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(nts, r.NonTerm, visited.Copy())) {
 				return true
 			}
 		}
@@ -766,7 +766,7 @@ func ntIsRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
 	if len(st.MultiRules) > 0 {
 		for _, rs := range st.MultiRules {
 			for _, r := range rs {
-				if r.Nonterm != grammar.SameNonterm && (visited.Contains(r.Nonterm) || ntIsRecursive(nts, r.Nonterm, visited.Copy())) {
+				if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(nts, r.NonTerm, visited.Copy())) {
 					return true
 				}
 			}
@@ -775,7 +775,7 @@ func ntIsRecursive (nts []grammar.Nonterm, index int, visited intset.T) bool {
 	return false
 }
 
-func assignTermGroups(g *grammar.Grammar, e error) error {
+func assignTermGroups (g *grammar.Grammar, e error) error {
 	if e != nil {
 		return e
 	}
@@ -818,14 +818,14 @@ func assignStateGroups (g *grammar.Grammar, e error) error {
 		return e
 	}
 
-	for i, nt := range g.Nonterms {
+	for i, nt := range g.NonTerms {
 		for j, st := range nt.States {
 			groups := -1
 			for k := range st.Rules {
 				if k >= 0 {
 					groups &= g.Terms[k].Groups
 					if groups == 0 {
-						return disjointGroupsError(g.Nonterms[i].Name, j, g.Terms[k].Name)
+						return disjointGroupsError(g.NonTerms[i].Name, j, g.Terms[k].Name)
 					}
 				}
 			}
@@ -834,7 +834,7 @@ func assignStateGroups (g *grammar.Grammar, e error) error {
 				if k >= 0 {
 					groups &= g.Terms[k].Groups
 					if groups == 0 {
-						return disjointGroupsError(g.Nonterms[i].Name, j, g.Terms[k].Name)
+						return disjointGroupsError(g.NonTerms[i].Name, j, g.Terms[k].Name)
 					}
 				}
 			}
@@ -846,7 +846,7 @@ func assignStateGroups (g *grammar.Grammar, e error) error {
 	return nil
 }
 
-func nontermNames (nts []grammar.Nonterm, ntis intset.T) []string {
+func nonTermNames (nts []grammar.NonTerm, ntis intset.T) []string {
 	indexes := ntis.ToSlice()
 	names := make([]string, len(indexes))
 	for i, index := range indexes {

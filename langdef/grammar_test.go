@@ -12,43 +12,43 @@ import (
 
 type (
 	state map[int][]grammar.Rule
-	nonterm struct {
+	nonTerm struct {
 		name string
 		states []state
 	}
-	nonterms []nonterm
+	nonTerms []nonTerm
 )
 
-func checkGrammar (g *grammar.Grammar, nti nonterms) error {
-	ntcnt := len(g.Nonterms)
+func checkGrammar (g *grammar.Grammar, nti nonTerms) error {
+	ntcnt := len(g.NonTerms)
 	if ntcnt > len(nti) {
 		ntcnt = len(nti)
 	}
 
 	for i := 0; i < ntcnt; i++ {
-		if g.Nonterms[i].Name != nti[i].name {
-			return errors.New(fmt.Sprintf("nt #%d: %s expected, got %s", i, nti[i].name, g.Nonterms[i].Name))
+		if g.NonTerms[i].Name != nti[i].name {
+			return errors.New(fmt.Sprintf("nt #%d: %s expected, got %s", i, nti[i].name, g.NonTerms[i].Name))
 		}
 	}
 
-	if len(g.Nonterms) != len(nti) {
+	if len(g.NonTerms) != len(nti) {
 		if len(nti) > ntcnt {
 			missing := make([]string, 0, len(nti) - ntcnt)
 			for i := ntcnt; i < len(nti); i++ {
 				missing = append(missing, nti[i].name)
 			}
-			return errors.New("missing nonterminals: " + strings.Join(missing, ", "))
+			return errors.New("missing non-terminals: " + strings.Join(missing, ", "))
 		} else {
-			missing := make([]string, 0, len(g.Nonterms) - ntcnt)
-			for i := ntcnt; i < len(g.Nonterms); i++ {
-				missing = append(missing, g.Nonterms[i].Name)
+			missing := make([]string, 0, len(g.NonTerms) - ntcnt)
+			for i := ntcnt; i < len(g.NonTerms); i++ {
+				missing = append(missing, g.NonTerms[i].Name)
 			}
-			return errors.New("unexpected nonterminals: " + strings.Join(missing, ", "))
+			return errors.New("unexpected non-terminals: " + strings.Join(missing, ", "))
 		}
 	}
 
-	for i, nt := range g.Nonterms {
-		e := checkNonterm(nt, nti[i])
+	for i, nt := range g.NonTerms {
+		e := checkNonTerm(nt, nti[i])
 		if e != nil {
 			return errors.New(nt.Name + ": " + e.Error())
 		}
@@ -57,7 +57,7 @@ func checkGrammar (g *grammar.Grammar, nti nonterms) error {
 	return nil
 }
 
-func checkNonterm (nt grammar.Nonterm, ent nonterm) error {
+func checkNonTerm (nt grammar.NonTerm, ent nonTerm) error {
 	if len(nt.States) != len(ent.states) {
 		return errors.New(fmt.Sprintf("state counts differ: %d(%d)", len(nt.States), len(ent.states)))
 	}
@@ -98,7 +98,7 @@ func checkState (s grammar.State, es state) error {
 		}
 
 		er := ers[0]
-		if r.State != er.State || r.Nonterm != er.Nonterm {
+		if r.State != er.State || r.NonTerm != er.NonTerm {
 			return errors.New(fmt.Sprintf("rules for %d differ: %v (%v)", k, r, er))
 		}
 	}
@@ -112,7 +112,7 @@ func checkState (s grammar.State, es state) error {
 		for _, er := range ers {
 			f = false
 			for _, r := range rs {
-				if r.State == er.State && r.Nonterm == er.Nonterm {
+				if r.State == er.State && r.NonTerm == er.NonTerm {
 					f = true
 					break
 				}
@@ -125,7 +125,7 @@ func checkState (s grammar.State, es state) error {
 		for _, r := range rs {
 			f = false
 			for _, er := range ers {
-				if r.State == er.State && r.Nonterm == er.Nonterm {
+				if r.State == er.State && r.NonTerm == er.NonTerm {
 					f = true
 					break
 				}
@@ -145,21 +145,21 @@ type sample struct {
 }
 
 /*
-ntsrc: nonterm;nonterm
-nonterm: name:state/state
+ntsrc: nonTerm;nonTerm
+nonTerm: name:state/state
 state: rules&rules
 rules: termIndex=rule|rule
-rule: stateIndex,nontermIndex
+rule: stateIndex,nonTermIndex
 */
 
-func (s sample) nts () nonterms {
+func (s sample) nts () nonTerms {
 	ntsrc := strings.ReplaceAll(s.ntsrc, "\n", "")
 	ntsrc = strings.ReplaceAll(ntsrc, "\r", "")
 	ntsrc = strings.ReplaceAll(ntsrc, "\t", "")
 	ntsrc = strings.ReplaceAll(ntsrc, " ", "")
 
 	ntDefs := strings.Split(ntsrc, ";")
-	result := make(nonterms, 0, len(ntDefs))
+	result := make(nonTerms, 0, len(ntDefs))
 	for _, ntDef := range ntDefs {
 		ntPair := strings.Split(ntDef, ":")
 		stateDefs := strings.Split(ntPair[1], "/")
@@ -179,7 +179,7 @@ func (s sample) nts () nonterms {
 			}
 			states = append(states, rules)
 		}
-		result = append(result, nonterm{ntPair[0], states})
+		result = append(result, nonTerm{ntPair[0], states})
 	}
 	return result
 }

@@ -13,10 +13,10 @@ const (
 	UnknownTerminalError
 	WrongTerminalError
 	TerminalDefinedError
-	NonterminalDefinedError
+	NonTerminalDefinedError
 	WrongRegexpError
-	UnknownNonterminalError
-	UnusedNonterminalError
+	UnknownNonTerminalError
+	UnusedNonTerminalError
 	UnresolvedError
 	RecursionError
 	GroupNumberError
@@ -45,28 +45,28 @@ func defTermError (token *lexer.Token) *err.Error {
 	return err.FormatPos(token, TerminalDefinedError, "terminal %q already defined", token.Text())
 }
 
-func defNontermError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, NonterminalDefinedError, "nonterminal %q already defined", token.Text())
+func defNonTermError (token *lexer.Token) *err.Error {
+	return err.FormatPos(token, NonTerminalDefinedError, "non-terminal %q already defined", token.Text())
 }
 
 func regexpError (token *lexer.Token, e error) *err.Error {
 	return err.FormatPos(token, WrongRegexpError, "incorrect RegExp %s (%s)", token.Text(), e.Error())
 }
 
-func unknownNontermError (names []string) *err.Error {
-	return err.Format(UnknownNonterminalError, "undefined nonterminals: " + strings.Join(names, ", "))
+func unknownNonTermError (names []string) *err.Error {
+	return err.Format(UnknownNonTerminalError, "undefined non-terminals: " + strings.Join(names, ", "))
 }
 
-func unusedNontermError (names []string) *err.Error {
-	return err.Format(UnusedNonterminalError, "unused nonterminals: " + strings.Join(names, ", "))
+func unusedNonTermError (names []string) *err.Error {
+	return err.Format(UnusedNonTerminalError, "unused non-terminals: " + strings.Join(names, ", "))
 }
 
 func unresolvedError (names []string) *err.Error {
-	return err.Format(UnresolvedError, "cannot resolve dependencies for nonterminals: " + strings.Join(names, ", "))
+	return err.Format(UnresolvedError, "cannot resolve dependencies for non-terminals: " + strings.Join(names, ", "))
 }
 
 func recursionError (names []string) *err.Error {
-	return err.Format(RecursionError, "found left-recursive nonterminals: " + strings.Join(names, ", "))
+	return err.Format(RecursionError, "found left-recursive non-terminals: " + strings.Join(names, ", "))
 }
 
 func groupNumberError (token *lexer.Token) *err.Error {
@@ -77,8 +77,8 @@ func unresolvedGroupsError (text string) *err.Error {
 	return err.Format(UnresolvedGroupsError, "cannot detect terminal groups for %q literal", text)
 }
 
-func disjointGroupsError (nonterm string, state int, term string) *err.Error {
-	return err.Format(DisjointGroupsError, "disjoint terminal groups for %q nonterminal, state %d, term %q", nonterm, state, term)
+func disjointGroupsError (nonTerm string, state int, term string) *err.Error {
+	return err.Format(DisjointGroupsError, "disjoint terminal groups for %q non-terminal, state %d, term %q", nonTerm, state, term)
 }
 
 func undefinedTermError (name string) *err.Error {

@@ -12,19 +12,19 @@ import (
 
 type TokenHook = func (token *lexer.Token, pc *ParseContext) (emit bool, e error)
 
-type NontermHookInstance interface {
-	HandleNonterm (nonterm string, result interface{}) error
+type NonTermHookInstance interface {
+	HandleNonTerm (nonTerm string, result interface{}) error
 	HandleToken (token *lexer.Token) error
-	EndNonterm () (result interface{}, e error)
+	EndNonTerm () (result interface{}, e error)
 }
 
-type NontermHook = func (nonterm string, pc *ParseContext) (NontermHookInstance, error)
+type NonTermHook = func (nonTerm string, pc *ParseContext) (NonTermHookInstance, error)
 
 type defaultHookInstance struct {
 	result interface{}
 }
 
-func (dhi *defaultHookInstance) HandleNonterm (nonterm string, result interface{}) error {
+func (dhi *defaultHookInstance) HandleNonTerm (nonTerm string, result interface{}) error {
 	dhi.result = result
 	return nil
 }
@@ -33,19 +33,19 @@ func (dhi *defaultHookInstance) HandleToken (token *lexer.Token) error {
 	return nil
 }
 
-func (dhi *defaultHookInstance) EndNonterm () (result interface{}, e error) {
+func (dhi *defaultHookInstance) EndNonTerm () (result interface{}, e error) {
 	return dhi.result, nil
 }
 
 const AnyTokenType = -128
-const AnyNonterm = ""
+const AnyNonTerm = ""
 
 type TokenHooks map[int]TokenHook
-type NontermHooks map[string]NontermHook
+type NonTermHooks map[string]NonTermHook
 
 type Hooks struct {
 	Tokens TokenHooks
-	Nonterms NontermHooks
+	NonTerms NonTermHooks
 }
 
 type lexerRec struct {
@@ -111,11 +111,11 @@ func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error
 	return pc.parse()
 }
 
-type nontermRec struct {
-	prev *nontermRec
+type nonTermRec struct {
+	prev *nonTermRec
 	group int
 	states []grammar.State
-	hook NontermHookInstance
+	hook NonTermHookInstance
 	index, state int
 }
 
@@ -124,28 +124,27 @@ type ParseContext struct {
 	lexers []*lexer.Lexer
 	queue *source.Queue
 	tokenHooks TokenHooks
-	nontermHooks NontermHooks
+	nonTermHooks NonTermHooks
 	tokens []*lexer.Token
 	lastResult interface{}
-
-	nonterm *nontermRec
+	nonTerm *nonTermRec
 }
 
 func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, error) {
 	result := &ParseContext{
-		parser: p,
-		lexers: make([]*lexer.Lexer, len(p.lexers)),
-		queue: q,
-		tokenHooks: hs.Tokens,
-		nontermHooks: hs.Nonterms,
-		tokens: make([]*lexer.Token, 0),
+		parser:       p,
+		lexers:       make([]*lexer.Lexer, len(p.lexers)),
+		queue:        q,
+		tokenHooks:   hs.Tokens,
+		nonTermHooks: hs.NonTerms,
+		tokens:       make([]*lexer.Token, 0),
 	}
 
 	for i, lr := range p.lexers {
 		result.lexers[i] = lexer.New(lr.re, lr.types, q)
 	}
 
-	e := result.pushNonterm(grammar.RootNonterm)
+	e := result.pushNonTerm(grammar.RootNonTerm)
 	return result, e
 }
 
@@ -160,34 +159,34 @@ func (pc *ParseContext) EmitToken (t *lexer.Token) error {
 }
 
 
-func (pc *ParseContext) pushNonterm (index int) error {
-	nt := pc.parser.grammar.Nonterms[index]
-	hook, e := pc.getNontermHook(nt.Name)
+func (pc *ParseContext) pushNonTerm (index int) error {
+	nt := pc.parser.grammar.NonTerms[index]
+	hook, e := pc.getNonTermHook(nt.Name)
 	if e != nil {
 		return e
 	}
 
-	pc.nonterm = &nontermRec{pc.nonterm, nt.States[0].Group, nt.States, hook, index, grammar.InitialState}
+	pc.nonTerm = &nonTermRec{pc.nonTerm, nt.States[0].Group, nt.States, hook, index, grammar.InitialState}
 	return nil
 }
 
-func (pc *ParseContext) popNonterm () error {
+func (pc *ParseContext) popNonTerm () error {
 	var (
 		e error
 		res interface{}
 	)
 
-	for e == nil && pc.nonterm != nil && pc.nonterm.state == grammar.FinalState {
-		nt := pc.nonterm
-		pc.nonterm = nt.prev
-		res, e = nt.hook.EndNonterm()
+	for e == nil && pc.nonTerm != nil && pc.nonTerm.state == grammar.FinalState {
+		nt := pc.nonTerm
+		pc.nonTerm = nt.prev
+		res, e = nt.hook.EndNonTerm()
 		pc.lastResult = res
-		if pc.nonterm == nil {
+		if pc.nonTerm == nil {
 			break
 		}
 
 		if e == nil {
-			e = pc.nonterm.hook.HandleNonterm(pc.parser.grammar.Nonterms[nt.index].Name, res)
+			e = pc.nonTerm.hook.HandleNonTerm(pc.parser.grammar.NonTerms[nt.index].Name, res)
 		}
 	}
 
@@ -195,7 +194,7 @@ func (pc *ParseContext) popNonterm () error {
 }
 
 type appliedRule struct {
-	term, state, nonterm int
+	term, state, nonTerm int
 }
 
 const repeatState = -128
@@ -207,16 +206,16 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		e error
 	)
 	tokenConsumed := true
-	for pc.nonterm != nil {
+	for pc.nonTerm != nil {
 		if tokenConsumed {
-			tok, e = pc.nextToken(pc.nonterm.group)
+			tok, e = pc.nextToken(pc.nonTerm.group)
 			tokenConsumed = false
 			if e != nil {
 				return nil, e
 			}
 		}
 
-		nt := pc.nonterm
+		nt := pc.nonTerm
 		rules := pc.findRules(tok, nt.states[nt.state])
 		if rules == nil {
 			shrunk, e := pc.shrinkToken(tok, nt.group)
@@ -247,7 +246,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 
 		for _, rule := range rules {
 			if tokenConsumed {
-				tok, e = pc.nextToken(pc.nonterm.group)
+				tok, e = pc.nextToken(pc.nonTerm.group)
 				if e != nil {
 					return nil, e
 				}
@@ -257,23 +256,23 @@ func (pc *ParseContext) parse () (interface{}, error) {
 				}
 			}
 
-			sameNonterm := (rule.nonterm == grammar.SameNonterm)
-			tokenConsumed = (sameNonterm && rule.term != grammar.AnyTerm)
+			sameNonTerm := (rule.nonTerm == grammar.SameNonTerm)
+			tokenConsumed = (sameNonTerm && rule.term != grammar.AnyTerm)
 			if rule.state != repeatState {
-				pc.nonterm.state = rule.state
+				pc.nonTerm.state = rule.state
 				if rule.state != grammar.FinalState {
-					pc.nonterm.group = pc.nonterm.states[rule.state].Group
+					pc.nonTerm.group = pc.nonTerm.states[rule.state].Group
 				}
 			}
 
-			if !sameNonterm {
-				e = pc.pushNonterm(rule.nonterm)
+			if !sameNonTerm {
+				e = pc.pushNonTerm(rule.nonTerm)
 			} else if tokenConsumed {
-				e = pc.nonterm.hook.HandleToken(tok)
+				e = pc.nonTerm.hook.HandleToken(tok)
 			}
 
-			if e == nil && pc.nonterm.state == grammar.FinalState {
-				e = pc.popNonterm()
+			if e == nil && pc.nonTerm.state == grammar.FinalState {
+				e = pc.popNonTerm()
 			}
 
 			if e != nil {
@@ -310,7 +309,7 @@ func (pc *ParseContext) shrinkToken (tok *lexer.Token, group int) (bool, error) 
 }
 
 func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedRule {
-	liveBranch := createBranches(pc, pc.nonterm, ars)
+	liveBranch := createBranches(pc, pc.nonTerm, ars)
 	tokens := make([]*lexer.Token, 0)
 	pc.tokens = append([]*lexer.Token{tok}, pc.tokens...)
 	for {
@@ -388,7 +387,7 @@ func (pc *ParseContext) getExpectedTerm (s grammar.State) string {
 
 func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRule {
 	if pc.isAsideToken(t) {
-		return []appliedRule{{t.Type(), repeatState, grammar.SameNonterm}}
+		return []appliedRule{{t.Type(), repeatState, grammar.SameNonTerm}}
 	}
 
 	indexes := make([]int, 0, 3)
@@ -400,14 +399,14 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	for _, index = range indexes {
 		r, f := s.Rules[index]
 		if f {
-			return []appliedRule{{index, r.State, r.Nonterm}}
+			return []appliedRule{{index, r.State, r.NonTerm}}
 		}
 
 		rs := s.MultiRules[index]
 		if rs != nil {
 			result := make([]appliedRule, len(rs))
 			for i, r := range rs {
-				result[i] = appliedRule{index, r.State, r.Nonterm}
+				result[i] = appliedRule{index, r.State, r.NonTerm}
 			}
 			return result
 		}
@@ -416,13 +415,13 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	return nil
 }
 
-func (pc *ParseContext) getNontermHook (nonterm string) (res NontermHookInstance, e error) {
-	h, f := pc.nontermHooks[nonterm]
+func (pc *ParseContext) getNonTermHook (nonTerm string) (res NonTermHookInstance, e error) {
+	h, f := pc.nonTermHooks[nonTerm]
 	if !f {
-		h, f = pc.nontermHooks[AnyNonterm]
+		h, f = pc.nonTermHooks[AnyNonTerm]
 	}
 	if f {
-		res, e = h(nonterm, pc)
+		res, e = h(nonTerm, pc)
 	} else {
 		res = &defaultHookInstance{}
 		e = nil

@@ -35,7 +35,7 @@ func (c *variantChunk) Append (ch chunk) {
 	c.chunks = append(c.chunks, ch)
 }
 
-func (c *variantChunk) BuildStates (nt *grammar.Nonterm, stateIndex, nextIndex int) {
+func (c *variantChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
 	bypass := false
 	for _, chunk := range c.chunks {
 		if !bypass && chunk.IsOptional() {
@@ -84,7 +84,7 @@ func (c *groupChunk) Append (ch chunk) {
 	c.chunks = append(c.chunks, ch)
 }
 
-func (c *groupChunk) BuildStates (nt *grammar.Nonterm, stateIndex, nextIndex int) {
+func (c *groupChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
 	if c.isRepeated || c.IsOptional() {
 		bypassRule(nt, stateIndex, nextIndex)
 	}
@@ -121,34 +121,34 @@ func (c termChunk) IsOptional () bool {
 	return false
 }
 
-func (c termChunk) BuildStates (nt *grammar.Nonterm, stateIndex, nextIndex int) {
-	addRule(&nt.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonterm)
+func (c termChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
+	addRule(&nt.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonTerm)
 }
 
 
-type nontermChunk struct {
+type nonTermChunk struct {
 	name string
-	item *nontermItem
+	item *nonTermItem
 }
 
-func newNontermChunk (name string, item *nontermItem) *nontermChunk {
-	return &nontermChunk{name, item}
+func newNonTermChunk (name string, item *nonTermItem) *nonTermChunk {
+	return &nonTermChunk{name, item}
 }
 
-func (c *nontermChunk) FirstTerms () intset.T {
+func (c *nonTermChunk) FirstTerms () intset.T {
 	return c.item.FirstTerms
 }
 
-func (c *nontermChunk) IsOptional () bool {
+func (c *nonTermChunk) IsOptional () bool {
 	return false
 }
 
-func (c *nontermChunk) BuildStates (nt *grammar.Nonterm, stateIndex, nextIndex int) {
+func (c *nonTermChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
 	firstTerms := c.FirstTerms().ToSlice()
 	addRule(&nt.States[stateIndex], firstTerms, nextIndex, c.item.Index)
 }
 
-func addState (nt *grammar.Nonterm) (stateIndex int, state *grammar.State) {
+func addState (nt *grammar.NonTerm) (stateIndex int, state *grammar.State) {
 	stateIndex = len(nt.States)
 	nt.States = append(nt.States, grammar.State {
 		noGroup,
@@ -177,8 +177,8 @@ func addRule (st *grammar.State, terms []int, state, nt int) {
 	}
 }
 
-func bypassRule (nt *grammar.Nonterm, stateIndex, nextIndex int) {
+func bypassRule (nt *grammar.NonTerm, stateIndex, nextIndex int) {
 	if stateIndex >= 0 {
-		nt.States[stateIndex].Rules[grammar.AnyTerm] = grammar.Rule{nextIndex, grammar.SameNonterm}
+		nt.States[stateIndex].Rules[grammar.AnyTerm] = grammar.Rule{nextIndex, grammar.SameNonTerm}
 	}
 }
