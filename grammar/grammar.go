@@ -4,13 +4,13 @@ const (
 	RootNonTerm  = 0
 )
 
-
+type BitSet = int
 type TermFlags int
 
 type Term struct {
 	Name   string
 	Re     string
-	Groups int
+	Groups BitSet
 	Flags  TermFlags
 }
 
@@ -24,7 +24,7 @@ const (
 
 
 type NonTerm struct {
-	Name   string
+	Name       string
 	FirstState int
 }
 

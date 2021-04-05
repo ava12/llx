@@ -493,9 +493,6 @@ func (pc *ParseContext) handleToken (tok *lexer.Token) error {
 
 func (pc *ParseContext) fetchToken (group int) (*lexer.Token, error) {
 	for len(pc.tokens) == 0 {
-		if group < 0 {
-			group = -1
-		}
 		result, e := pc.lexers[group].Next()
 		if result == nil || e != nil {
 			return nil, e
