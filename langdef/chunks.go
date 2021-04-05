@@ -35,14 +35,14 @@ func (c *variantChunk) Append (ch chunk) {
 	c.chunks = append(c.chunks, ch)
 }
 
-func (c *variantChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
+func (c *variantChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
 	bypass := false
 	for _, chunk := range c.chunks {
 		if !bypass && chunk.IsOptional() {
 			bypass = true
-			bypassRule(nt, stateIndex, nextIndex)
+			bypassRule(g, stateIndex, nextIndex)
 		}
-		chunk.BuildStates(nt, stateIndex, nextIndex)
+		chunk.BuildStates(g, stateIndex, nextIndex)
 	}
 }
 
@@ -85,9 +85,9 @@ func (c *groupChunk) Append (ch chunk) {
 	c.chunks = append(c.chunks, ch)
 }
 
-func (c *groupChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
+func (c *groupChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
 	if c.isRepeated || c.IsOptional() {
-		bypassRule(nt, stateIndex, nextIndex)
+		bypassRule(g, stateIndex, nextIndex)
 	}
 
 	tailIndex := nextIndex
@@ -97,13 +97,13 @@ func (c *groupChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int
 
 	nextStates := make([]int, len(c.chunks))
 	for i := 0; i < (len(c.chunks) - 1); i++ {
-		nextStates[i], _ = addState(nt)
+		nextStates[i], _ = addState(g)
 	}
 	nextStates[len(nextStates) - 1] = tailIndex
 
 	currentIndex := stateIndex
 	for i, chunk := range c.chunks {
-		chunk.BuildStates(nt, currentIndex, nextStates[i])
+		chunk.BuildStates(g, currentIndex, nextStates[i])
 		currentIndex = nextStates[i]
 	}
 }
@@ -122,8 +122,8 @@ func (c termChunk) IsOptional () bool {
 	return false
 }
 
-func (c termChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
-	addRule(&nt.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonTerm)
+func (c termChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
+	addRule(&g.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonTerm)
 }
 
 
@@ -144,19 +144,19 @@ func (c *nonTermChunk) IsOptional () bool {
 	return false
 }
 
-func (c *nonTermChunk) BuildStates (nt *grammar.NonTerm, stateIndex, nextIndex int) {
+func (c *nonTermChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
 	firstTerms := c.FirstTerms().ToSlice()
-	addRule(&nt.States[stateIndex], firstTerms, nextIndex, c.item.Index)
+	addRule(&g.States[stateIndex], firstTerms, nextIndex, c.item.Index)
 }
 
-func addState (nt *grammar.NonTerm) (stateIndex int, state *grammar.State) {
-	stateIndex = len(nt.States)
-	nt.States = append(nt.States, grammar.State {
+func addState (g *grammar.Grammar) (stateIndex int, state *grammar.State) {
+	stateIndex = len(g.States)
+	g.States = append(g.States, grammar.State {
 		noGroup,
 		map[int]grammar.Rule{},
 		map[int][]grammar.Rule{},
 	})
-	state = &nt.States[stateIndex]
+	state = &g.States[stateIndex]
 	return
 }
 
@@ -178,8 +178,8 @@ func addRule (st *grammar.State, terms []int, state, nt int) {
 	}
 }
 
-func bypassRule (nt *grammar.NonTerm, stateIndex, nextIndex int) {
+func bypassRule (g *grammar.Grammar, stateIndex, nextIndex int) {
 	if stateIndex >= 0 {
-		nt.States[stateIndex].Rules[grammar.AnyTerm] = grammar.Rule{nextIndex, grammar.SameNonTerm}
+		g.States[stateIndex].Rules[grammar.AnyTerm] = grammar.Rule{nextIndex, grammar.SameNonTerm}
 	}
 }

@@ -48,7 +48,7 @@ func checkGrammar (g *grammar.Grammar, nti nonTerms) error {
 	}
 
 	for i, nt := range g.NonTerms {
-		e := checkNonTerm(nt, nti[i])
+		e := checkNonTerm(g, i, nti[i])
 		if e != nil {
 			return errors.New(nt.Name + ": " + e.Error())
 		}
@@ -57,13 +57,22 @@ func checkGrammar (g *grammar.Grammar, nti nonTerms) error {
 	return nil
 }
 
-func checkNonTerm (nt grammar.NonTerm, ent nonTerm) error {
-	if len(nt.States) != len(ent.states) {
-		return errors.New(fmt.Sprintf("state counts differ: %d(%d)", len(nt.States), len(ent.states)))
+func checkNonTerm (g *grammar.Grammar, nti int, ent nonTerm) error {
+	firstState := g.NonTerms[nti].FirstState
+	var lastState int
+	if nti >= len(g.NonTerms) - 1 {
+		lastState = len(g.States)
+	} else {
+		lastState = g.NonTerms[nti + 1].FirstState
+	}
+	states := g.States[firstState : lastState]
+
+	if len(states) != len(ent.states) {
+		return errors.New(fmt.Sprintf("state lengths differ: %d(%d)", len(states), len(ent.states)))
 	}
 
-	for i, s := range nt.States {
-		e := checkState(s, ent.states[i])
+	for i, s := range states {
+		e := checkState(s, firstState, ent.states[i])
 		if e != nil {
 			return errors.New("state " + strconv.Itoa(i) + ": " + e.Error())
 		}
@@ -72,7 +81,7 @@ func checkNonTerm (nt grammar.NonTerm, ent nonTerm) error {
 	return nil
 }
 
-func checkState (s grammar.State, es state) error {
+func checkState (s grammar.State, firstState int, es state) error {
 	l := len(s.Rules) + len(s.MultiRules)
 	el := len(es)
 	if el > l {
@@ -98,6 +107,9 @@ func checkState (s grammar.State, es state) error {
 		}
 
 		er := ers[0]
+		if r.State >= 0 {
+			er.State += firstState
+		}
 		if r.State != er.State || r.NonTerm != er.NonTerm {
 			return errors.New(fmt.Sprintf("rules for %d differ: %v (%v)", k, r, er))
 		}
@@ -125,6 +137,9 @@ func checkState (s grammar.State, es state) error {
 		for _, r := range rs {
 			f = false
 			for _, er := range ers {
+				if r.State >= 0 {
+					er.State += firstState
+				}
 				if r.State == er.State && r.NonTerm == er.NonTerm {
 					f = true
 					break

@@ -115,41 +115,41 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 	}
 	buffer.WriteString("\t},\n")
 
-	buffer.WriteString("\tNon-terms: []grammar.NonTerm{\n")
+	buffer.WriteString("\tNonTerms: []grammar.NonTerm{\n")
 	for _, nt := range gr.NonTerms {
-		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, States: []grammar.State{\n", nt.Name))
-		for _, st := range nt.States {
-			buffer.WriteString(fmt.Sprintf("\t\t\t{Group: %d, ", st.Group))
-			hasRules := (len(st.Rules) != 0)
-			hasMulti := len(st.MultiRules) != 0
+		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, FirstState: %d},\n", nt.Name, nt.FirstState))
+	}
+	buffer.WriteString("\t},\n")
 
-			if hasRules {
-				buffer.WriteString("Rules: map[int]grammar.Rule{\n")
-				for k, r := range st.Rules {
-					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {State: %d, NonTerm: %d},\n", k, r.State, r.NonTerm))
-				}
-				if hasMulti {
-					buffer.WriteString("\t\t\t}, MultiRules: map[int][]grammar.Rule{\n")
-				} else {
-					buffer.WriteString("\t\t\t}},\n")
-				}
+	buffer.WriteString("\tStates: []grammar.State{\n")
+	for _, st := range gr.States {
+		buffer.WriteString(fmt.Sprintf("\t\t{Group: %d, ", st.Group))
+		hasRules := (len(st.Rules) != 0)
+		hasMulti := len(st.MultiRules) != 0
+
+		if hasRules {
+			buffer.WriteString("Rules: map[int]grammar.Rule{\n")
+			for k, r := range st.Rules {
+				buffer.WriteString(fmt.Sprintf("\t\t\t%d: {State: %d, NonTerm: %d},\n", k, r.State, r.NonTerm))
 			}
-
 			if hasMulti {
-				if !hasRules {
-					buffer.WriteString("MultiRules: map[int][]grammar.Rule{\n")
-				}
-				for k, rs := range st.MultiRules {
-					buffer.WriteString(fmt.Sprintf("\t\t\t\t%d: {\n", k))
-					for _, r := range rs {
-						buffer.WriteString(fmt.Sprintf("\t\t\t\t\t{State: %d, NonTerm: %d},\n", r.State, r.NonTerm))
-					}
-					buffer.WriteString(fmt.Sprintf("\t\t\t\t},\n"))
-				}
-				buffer.WriteString("\t\t\t}},\n")
+				buffer.WriteString("\t\t}, ")
+			} else {
+				buffer.WriteString("\t\t}},\n")
 			}
 		}
-		buffer.WriteString("\t\t}},\n")
+
+		if hasMulti {
+			buffer.WriteString("MultiRules: map[int][]grammar.Rule{\n")
+			for k, rs := range st.MultiRules {
+				buffer.WriteString(fmt.Sprintf("\t\t\t%d: {\n", k))
+				for _, r := range rs {
+					buffer.WriteString(fmt.Sprintf("\t\t\t\t{State: %d, NonTerm: %d},\n", r.State, r.NonTerm))
+				}
+				buffer.WriteString(fmt.Sprintf("\t\t\t},\n"))
+			}
+			buffer.WriteString("\t\t}},\n")
+		}
 	}
 	buffer.WriteString("\t},\n")
 

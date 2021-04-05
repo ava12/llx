@@ -21,7 +21,7 @@ const (
 type chunk interface {
 	FirstTerms () intset.T
 	IsOptional () bool
-	BuildStates (nonTerm *grammar.NonTerm, stateIndex, nextIndex int)
+	BuildStates (g *grammar.Grammar, stateIndex, nextIndex int)
 }
 
 type complexChunk interface {
@@ -62,8 +62,8 @@ func Parse (s *source.Source) (*grammar.Grammar, error) {
 	e = findUndefinedNonTerminals(nti, e)
 	e = findUnusedNonTerminals(result.NonTerms, nti, e)
 	e = resolveDependencies(result.NonTerms, nti, e)
-	e = buildStates(result.NonTerms, nti, e)
-	e = findRecursions(result.NonTerms, e)
+	e = buildStates(result, nti, e)
+	e = findRecursions(result, e)
 	e = assignStateGroups(result, e)
 
 	if e != nil {
@@ -463,7 +463,7 @@ func addNonTerm (name string, c *parseContext, define bool) *nonTermItem {
 
 	result = &nonTermItem{len(c.g.NonTerms), intset.New(), intset.New(), group}
 	c.nti[name] = result
-	c.g.NonTerms = append(c.g.NonTerms, grammar.NonTerm{name, nil})
+	c.g.NonTerms = append(c.g.NonTerms, grammar.NonTerm{name, 0})
 	return result
 }
 
@@ -709,25 +709,27 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	return nil
 }
 
-func buildStates (nts []grammar.NonTerm, nti nonTermIndex, e error) error {
+func buildStates (g *grammar.Grammar, nti nonTermIndex, e error) error {
 	if e != nil {
 		return e
 	}
 
-	for _, item := range nti {
-		nts[item.Index].States = append(nts[item.Index].States, grammar.State {
+	for i, nt := range g.NonTerms {
+		firstState := len(g.States)
+		g.States = append(g.States, grammar.State{
 			noGroup,
 			map[int]grammar.Rule{},
 			map[int][]grammar.Rule{},
 		})
-		item.Chunk.BuildStates(&nts[item.Index], 0, grammar.FinalState)
-		states := nts[item.Index].States
-		for i, state := range states {
+		item := nti[nt.Name]
+		g.NonTerms[i].FirstState = firstState
+		item.Chunk.BuildStates(g, firstState, grammar.FinalState)
+		for i, state := range g.States[firstState :] {
 			if len(state.Rules) == 0 {
-				states[i].Rules = nil
+				g.States[i + firstState].Rules = nil
 			}
 			if len(state.MultiRules) == 0 {
-				states[i].MultiRules = nil
+				g.States[i + firstState].MultiRules = nil
 			}
 		}
 	}
@@ -735,14 +737,14 @@ func buildStates (nts []grammar.NonTerm, nti nonTermIndex, e error) error {
 	return nil
 }
 
-func findRecursions (nts []grammar.NonTerm, e error) error {
+func findRecursions (g *grammar.Grammar, e error) error {
 	if e != nil {
 		return e
 	}
 
 	ntis := intset.New()
-	for i := range nts {
-		if ntIsRecursive(nts, i, intset.New()) {
+	for i := range g.NonTerms {
+		if ntIsRecursive(g, i, intset.New()) {
 			ntis.Add(i)
 		}
 	}
@@ -750,16 +752,16 @@ func findRecursions (nts []grammar.NonTerm, e error) error {
 	if ntis.IsEmpty() {
 		return nil
 	} else {
-		return recursionError(nonTermNames(nts, ntis))
+		return recursionError(nonTermNames(g.NonTerms, ntis))
 	}
 }
 
-func ntIsRecursive (nts []grammar.NonTerm, index int, visited intset.T) bool {
+func ntIsRecursive (g *grammar.Grammar, index int, visited intset.T) bool {
 	visited.Add(index)
-	st := nts[index].States[0]
+	st := g.States[g.NonTerms[index].FirstState]
 	if len(st.Rules) > 0 {
 		for _, r := range st.Rules {
-			if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(nts, r.NonTerm, visited.Copy())) {
+			if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(g, r.NonTerm, visited.Copy())) {
 				return true
 			}
 		}
@@ -767,7 +769,7 @@ func ntIsRecursive (nts []grammar.NonTerm, index int, visited intset.T) bool {
 	if len(st.MultiRules) > 0 {
 		for _, rs := range st.MultiRules {
 			for _, r := range rs {
-				if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(nts, r.NonTerm, visited.Copy())) {
+				if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(g, r.NonTerm, visited.Copy())) {
 					return true
 				}
 			}
@@ -819,8 +821,17 @@ func assignStateGroups (g *grammar.Grammar, e error) error {
 		return e
 	}
 
+	totalNts := len(g.NonTerms)
 	for i, nt := range g.NonTerms {
-		for j, st := range nt.States {
+		var lastState int
+		if i >= totalNts - 1 {
+			lastState = len(g.States)
+		} else {
+			lastState = g.NonTerms[i + 1].FirstState
+		}
+
+		for j := nt.FirstState; j < lastState; j++ {
+			st := g.States[j]
 			groups := -1
 			for k := range st.Rules {
 				if k >= 0 {
@@ -840,7 +851,7 @@ func assignStateGroups (g *grammar.Grammar, e error) error {
 				}
 			}
 
-			nt.States[j].Group = bits.Len(uint(groups)) - 1
+			g.States[j].Group = bits.Len(uint(groups)) - 1
 		}
 	}
 

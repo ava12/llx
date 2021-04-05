@@ -112,12 +112,11 @@ func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error
 }
 
 type nonTermRec struct {
-	prev   *nonTermRec
-	group  int
-	states []grammar.State
-	hook   NonTermHookInstance
-	index  int
-	state  int
+	prev  *nonTermRec
+	hook  NonTermHookInstance
+	group int
+	index int
+	state int
 }
 
 type ParseContext struct {
@@ -161,13 +160,14 @@ func (pc *ParseContext) EmitToken (t *lexer.Token) error {
 
 
 func (pc *ParseContext) pushNonTerm (index int) error {
-	nt := pc.parser.grammar.NonTerms[index]
+	gr := pc.parser.grammar
+	nt := gr.NonTerms[index]
 	hook, e := pc.getNonTermHook(nt.Name)
 	if e != nil {
 		return e
 	}
 
-	pc.nonTerm = &nonTermRec{pc.nonTerm, nt.States[0].Group, nt.States, hook, index, grammar.InitialState}
+	pc.nonTerm = &nonTermRec{pc.nonTerm, hook, gr.States[nt.FirstState].Group, index, nt.FirstState}
 	return nil
 }
 
@@ -206,6 +206,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		tok *lexer.Token
 		e error
 	)
+	gr := pc.parser.grammar
 	tokenConsumed := true
 	for pc.nonTerm != nil {
 		if tokenConsumed {
@@ -217,7 +218,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		}
 
 		nt := pc.nonTerm
-		rules := pc.findRules(tok, nt.states[nt.state])
+		rules := pc.findRules(tok, gr.States[nt.state])
 		if rules == nil {
 			shrunk, e := pc.shrinkToken(tok, nt.group)
 			if e != nil {
@@ -229,7 +230,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 				continue
 			}
 
-			expected := pc.getExpectedTerm(nt.states[nt.state])
+			expected := pc.getExpectedTerm(gr.States[nt.state])
 			if tok.Type() == lexer.EofTokenType {
 				e = unexpectedEofError(tok, expected)
 			} else {
@@ -262,7 +263,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			if rule.state != repeatState {
 				pc.nonTerm.state = rule.state
 				if rule.state != grammar.FinalState {
-					pc.nonTerm.group = pc.nonTerm.states[rule.state].Group
+					pc.nonTerm.group = gr.States[rule.state].Group
 				}
 			}
 
@@ -492,6 +493,9 @@ func (pc *ParseContext) handleToken (tok *lexer.Token) error {
 
 func (pc *ParseContext) fetchToken (group int) (*lexer.Token, error) {
 	for len(pc.tokens) == 0 {
+		if group < 0 {
+			group = -1
+		}
 		result, e := pc.lexers[group].Next()
 		if result == nil || e != nil {
 			return nil, e
