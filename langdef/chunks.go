@@ -13,10 +13,10 @@ func newVariantChunk () *variantChunk {
 	return &variantChunk{make([]chunk, 0)}
 }
 
-func (c *variantChunk) FirstTerms () intset.T {
+func (c *variantChunk) FirstTokens () intset.T {
 	result := intset.New()
 	for _, ch := range c.chunks {
-		result.Union(ch.FirstTerms())
+		result.Union(ch.FirstTokens())
 	}
 	return result
 }
@@ -57,10 +57,10 @@ func newGroupChunk (isOptional, isRepeated bool) *groupChunk {
 	return &groupChunk {[]chunk{}, isOptional, isRepeated}
 }
 
-func (c *groupChunk) FirstTerms () intset.T {
+func (c *groupChunk) FirstTokens () intset.T {
 	result := intset.New()
 	for _, ch := range c.chunks {
-		result.Union(ch.FirstTerms())
+		result.Union(ch.FirstTokens())
 		if !ch.IsOptional() {
 			break
 		}
@@ -108,21 +108,21 @@ func (c *groupChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int)
 	}
 }
 
-type termChunk int
+type tokenChunk int
 
-func newTermChunk (t int) termChunk {
-	return termChunk(t)
+func newTokenChunk (t int) tokenChunk {
+	return tokenChunk(t)
 }
 
-func (c termChunk) FirstTerms () intset.T {
+func (c tokenChunk) FirstTokens () intset.T {
 	return intset.New(int(c))
 }
 
-func (c termChunk) IsOptional () bool {
+func (c tokenChunk) IsOptional () bool {
 	return false
 }
 
-func (c termChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
+func (c tokenChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
 	addRule(&g.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonTerm)
 }
 
@@ -136,8 +136,8 @@ func newNonTermChunk (name string, item *nonTermItem) *nonTermChunk {
 	return &nonTermChunk{name, item}
 }
 
-func (c *nonTermChunk) FirstTerms () intset.T {
-	return c.item.FirstTerms
+func (c *nonTermChunk) FirstTokens () intset.T {
+	return c.item.FirstTokens
 }
 
 func (c *nonTermChunk) IsOptional () bool {
@@ -145,8 +145,8 @@ func (c *nonTermChunk) IsOptional () bool {
 }
 
 func (c *nonTermChunk) BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) {
-	firstTerms := c.FirstTerms().ToSlice()
-	addRule(&g.States[stateIndex], firstTerms, nextIndex, c.item.Index)
+	firstTokens := c.FirstTokens().ToSlice()
+	addRule(&g.States[stateIndex], firstTokens, nextIndex, c.item.Index)
 }
 
 func addState (g *grammar.Grammar) (stateIndex int, state *grammar.State) {
@@ -160,26 +160,26 @@ func addState (g *grammar.Grammar) (stateIndex int, state *grammar.State) {
 	return
 }
 
-func addRule (st *grammar.State, terms []int, state, nt int) {
-	for _, term := range terms {
-		rule, hasSingle := st.Rules[term]
-		_, hasAmbiguous := st.MultiRules[term]
+func addRule (st *grammar.State, tokens []int, state, nt int) {
+	for _, token := range tokens {
+		rule, hasSingle := st.Rules[token]
+		_, hasAmbiguous := st.MultiRules[token]
 		if !hasSingle && !hasAmbiguous {
-			st.Rules[term] = grammar.Rule{state, nt}
+			st.Rules[token] = grammar.Rule{state, nt}
 		} else if !hasAmbiguous {
-			delete(st.Rules, term)
-			st.MultiRules[term] = []grammar.Rule{
+			delete(st.Rules, token)
+			st.MultiRules[token] = []grammar.Rule{
 				rule,
 				{state, nt},
 			}
 		} else {
-			st.MultiRules[term] = append(st.MultiRules[term], grammar.Rule{state, nt})
+			st.MultiRules[token] = append(st.MultiRules[token], grammar.Rule{state, nt})
 		}
 	}
 }
 
 func bypassRule (g *grammar.Grammar, stateIndex, nextIndex int) {
 	if stateIndex >= 0 {
-		g.States[stateIndex].Rules[grammar.AnyTerm] = grammar.Rule{nextIndex, grammar.SameNonTerm}
+		g.States[stateIndex].Rules[grammar.AnyToken] = grammar.Rule{nextIndex, grammar.SameNonTerm}
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-const terms = "$term = /\\S+/;"
+const toks = "$tok = /\\S+/;"
 
 func checkErrorCode (t *testing.T, samples []string, code int) {
 	eCode := strconv.Itoa(code)
@@ -65,29 +65,29 @@ func TestUnexpectedToken (t *testing.T) {
 	checkErrorCode(t, samples, UnexpectedTokenError)
 }
 
-func TestUnknownTerminal (t *testing.T) {
+func TestUnknownTokeninal (t *testing.T) {
 	samples := []string{
 		"foo = $foo;",
 	}
-	checkErrorCode(t, samples, UnknownTerminalError)
+	checkErrorCode(t, samples, UnknownTokenError)
 }
 
-func TestWrongTerminal (t *testing.T) {
+func TestWrongTokeninal (t *testing.T) {
 	samples := []string{
 		"!aside $foo; $foo = /foo/; bar = $foo;",
 		"!error $foo; $foo = /foo/; bar = $foo;",
 	}
-	checkErrorCode(t, samples, WrongTerminalError)
+	checkErrorCode(t, samples, WrongTokenError)
 }
 
-func TestTerminalDefined (t *testing.T) {
+func TestTokenDefined (t *testing.T) {
 	samples := []string{
 		"$foo = /a/; $bar = /b/; $foo = /c/;",
 	}
-	checkErrorCode(t, samples, TerminalDefinedError)
+	checkErrorCode(t, samples, TokenDefinedError)
 }
 
-func TestNonerminalDefined (t *testing.T) {
+func TestNonTerminalDefined (t *testing.T) {
 	samples := []string{
 		"foo = 'foo'; bar = 'bar'; foo = 'baz';",
 	}
@@ -113,7 +113,7 @@ func TestWrongRe (t *testing.T) {
 	}
 }
 
-func TestUnknownNonerminal (t *testing.T) {
+func TestUnknownNonTerminal (t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | bar;",
 	}
@@ -166,17 +166,17 @@ func TestDisjointGroupsError (t *testing.T) {
 	checkErrorCode(t, samples, DisjointGroupsError)
 }
 
-func TestUndefinedTermError (t *testing.T) {
+func TestUndefinedTokenError (t *testing.T) {
 	samples := []string{
 		"!group $foo; g = $foo;",
 	}
-	checkErrorCode(t, samples, UndefinedTerminalError)
+	checkErrorCode(t, samples, UndefinedTokenError)
 }
 
 func TestNoError (t *testing.T) {
 	samples := []string{
-		terms + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		terms + "!aside; !extern; !error; !shrink; !group; !literal; foo = 'foo';",
+		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
+		toks + "!aside; !extern; !error; !shrink; !group; !literal; foo = 'foo';",
 		"!aside $space; !group $space $name; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 	}
@@ -185,20 +185,19 @@ func TestNoError (t *testing.T) {
 
 
 func TestNoDuplicateLiterals (t *testing.T) {
-	sample := terms + "grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
-	expectedTermCnt := 6
+	sample := toks + "grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
+	expectedTokCnt := 6
 	g, e := ParseString("", sample)
 	if e != nil {
 		t.Fatal("unexpected error: " + e.Error())
 	}
 
-	termCnt := len(g.Terms)
-	if termCnt != expectedTermCnt {
-		names := make([]string, termCnt)
-		for i, term := range g.Terms {
-			names[i] = term.Name
+	tokCnt := len(g.Tokens)
+	if tokCnt != expectedTokCnt {
+		names := make([]string, tokCnt)
+		for i, tok := range g.Tokens {
+			names[i] = tok.Name
 		}
-		t.Fatalf("expecting %d terms, got %d terms: %q", expectedTermCnt, termCnt, names)
+		t.Fatalf("expecting %d toks, got %d toks: %q", expectedTokCnt, tokCnt, names)
 	}
 }
-

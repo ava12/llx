@@ -77,7 +77,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 			b.inited = true
 		}
 
-		isWildcard := (ar.term == grammar.AnyTerm)
+		isWildcard := (ar.token == grammar.AnyToken)
 		isFinal := (ar.state == grammar.FinalState)
 		isSame := (ar.nonTerm == grammar.SameNonTerm)
 

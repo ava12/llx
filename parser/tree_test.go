@@ -23,7 +23,7 @@ func nonTermNode (name string) *treeNode {
 	return &treeNode{true, name, "", make([]*treeNode, 0)}
 }
 
-func termNode (name, content string) *treeNode {
+func tokenNode (name, content string) *treeNode {
 	return &treeNode{false, name, content, nil}
 }
 
@@ -33,7 +33,7 @@ func (n *treeNode) HandleNonTerm (nonTerm string, result interface{}) error {
 }
 
 func (n *treeNode) HandleToken (token *lexer.Token) error {
-	n.children = append(n.children, termNode(token.TypeName(), token.Text()))
+	n.children = append(n.children, tokenNode(token.TypeName(), token.Text()))
 	return nil
 }
 
@@ -95,16 +95,16 @@ func (tv *treeValidator) matchName (name string) error {
 
 	} else {
 		if tv.sn.index >= tv.sn.length {
-			return tv.newError("expecting %s terminal, got end of non-terminal", name)
+			return tv.newError("expecting %s token, got end of non-terminal", name)
 		}
 
 		child := node.children[tv.sn.index]
 		if child.isNonTerm {
-			return tv.newError("expecting %s terminal, got %s non-terminal", name, child.name)
+			return tv.newError("expecting %s token, got %s non-terminal", name, child.name)
 		}
 
 		if child.name != name && child.text != name {
-			return tv.newError("expecting %s terminal, got %s(%s)", name, child.name, child.text)
+			return tv.newError("expecting %s token, got %s(%s)", name, child.name, child.text)
 		}
 	}
 
@@ -119,7 +119,7 @@ func (tv *treeValidator) matchNtStart () error {
 
 	child := tv.sn.node.children[tv.sn.index]
 	if !child.isNonTerm {
-		return tv.newError("expecting child non-terminal, got %s terminal", child.name)
+		return tv.newError("expecting child non-terminal, got %s token", child.name)
 	}
 
 	tv.sn = &stackNode{tv.sn, child, len(child.children), -1}

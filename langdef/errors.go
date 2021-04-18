@@ -10,9 +10,9 @@ import (
 const (
 	UnexpectedEofError = iota + 1
 	UnexpectedTokenError
-	UnknownTerminalError
-	WrongTerminalError
-	TerminalDefinedError
+	UnknownTokenError
+	WrongTokenError
+	TokenDefinedError
 	NonTerminalDefinedError
 	WrongRegexpError
 	UnknownNonTerminalError
@@ -22,27 +22,27 @@ const (
 	GroupNumberError
 	UnresolvedGroupsError
 	DisjointGroupsError
-	UndefinedTerminalError
+	UndefinedTokenError
 )
 
 func eofError (token *lexer.Token) *err.Error {
 	return err.FormatPos(token, UnexpectedEofError, "unexpected EoF")
 }
 
-func tokenError (token *lexer.Token) *err.Error {
+func unexpectedTokenError (token *lexer.Token) *err.Error {
 	return err.FormatPos(token, UnexpectedTokenError, "unexpected %s token", token.TypeName())
 }
 
-func termError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, UnknownTerminalError, "unknown terminal %q ", token.Text())
+func tokenError (token *lexer.Token) *err.Error {
+	return err.FormatPos(token, UnknownTokenError, "unknown token %q ", token.Text())
 }
 
-func wrongTermError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, WrongTerminalError, "cannot use terminal %q in definitions", token.Text())
+func wrongTokenError (token *lexer.Token) *err.Error {
+	return err.FormatPos(token, WrongTokenError, "cannot use token %q in definitions", token.Text())
 }
 
-func defTermError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, TerminalDefinedError, "terminal %q already defined", token.Text())
+func defTokenError (token *lexer.Token) *err.Error {
+	return err.FormatPos(token, TokenDefinedError, "token %q already defined", token.Text())
 }
 
 func defNonTermError (token *lexer.Token) *err.Error {
@@ -70,17 +70,17 @@ func recursionError (names []string) *err.Error {
 }
 
 func groupNumberError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, GroupNumberError, "too many terminal groups")
+	return err.FormatPos(token, GroupNumberError, "too many token groups")
 }
 
 func unresolvedGroupsError (text string) *err.Error {
-	return err.Format(UnresolvedGroupsError, "cannot detect terminal groups for %q literal", text)
+	return err.Format(UnresolvedGroupsError, "cannot detect token groups for %q literal", text)
 }
 
-func disjointGroupsError (nonTerm string, state int, term string) *err.Error {
-	return err.Format(DisjointGroupsError, "disjoint terminal groups for %q non-terminal, state %d, term %q", nonTerm, state, term)
+func disjointGroupsError (nonTerm string, state int, token string) *err.Error {
+	return err.Format(DisjointGroupsError, "disjoint token groups for %q non-terminal, state %d, token %q", nonTerm, state, token)
 }
 
-func undefinedTermError (name string) *err.Error {
-	return err.Format(UndefinedTerminalError, "terminal %q mentioned but not defined", name)
+func undefinedTokenError (name string) *err.Error {
+	return err.Format(UndefinedTokenError, "token %q mentioned but not defined", name)
 }

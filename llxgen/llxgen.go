@@ -109,8 +109,8 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 		"import \"" + importString + "\"\n\n" +
 		"var " + varName + " = &grammar.Grammar{\n")
 
-	buffer.WriteString("\tTerms: []grammar.Term{\n")
-	for _, t := range gr.Terms {
+	buffer.WriteString("\tTokens: []grammar.Token{\n")
+	for _, t := range gr.Tokens {
 		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, Re: %q, Groups: %d, Flags: %d},\n", t.Name, t.Re, t.Groups, t.Flags))
 	}
 	buffer.WriteString("\t},\n")

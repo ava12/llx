@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	unusedTerm = grammar.AsideTerm | grammar.ErrorTerm
-	noGroup = -1
-	maxGroup = 30
+	unusedToken = grammar.AsideToken | grammar.ErrorToken
+	noGroup     = -1
+	maxGroup    = 30
 )
 
 
 type chunk interface {
-	FirstTerms () intset.T
+	FirstTokens () intset.T
 	IsOptional () bool
 	BuildStates (g *grammar.Grammar, stateIndex, nextIndex int)
 }
@@ -38,19 +38,19 @@ func ParseBytes (name string, content []byte) (*grammar.Grammar, error) {
 }
 
 type nonTermItem struct {
-	Index      int
-	DependsOn  intset.T
-	FirstTerms intset.T
-	Chunk      *groupChunk
+	Index       int
+	DependsOn   intset.T
+	FirstTokens intset.T
+	Chunk       *groupChunk
 }
 
-type termIndex map[string]int
+type tokenIndex map[string]int
 type nonTermIndex map[string]*nonTermItem
 
 
 func Parse (s *source.Source) (*grammar.Grammar, error) {
 	result := &grammar.Grammar{
-		Terms:    make([]grammar.Term, 0),
+		Tokens:   make([]grammar.Token, 0),
 		NonTerms: make([]grammar.NonTerm, 0),
 	}
 
@@ -58,7 +58,7 @@ func Parse (s *source.Source) (*grammar.Grammar, error) {
 	var e error
 
 	e = parseLangDef(s, result, nti)
-	e = assignTermGroups(result, e)
+	e = assignTokenGroups(result, e)
 	e = findUndefinedNonTerminals(nti, e)
 	e = findUnusedNonTerminals(result.NonTerms, nti, e)
 	e = resolveDependencies(result.NonTerms, nti, e)
@@ -74,45 +74,47 @@ func Parse (s *source.Source) (*grammar.Grammar, error) {
 }
 
 const (
-	stringTok = "string"
-	nameTok = "name"
-	dirTok = "dir"
+	stringTok     = "string"
+	nameTok       = "name"
+	dirTok        = "dir"
 	literalDirTok = "literal"
-	groupDirTok = "group-dir"
-	termNameTok = "term-name"
-	regexpTok = "regexp"
-	opTok = "op"
-	wrongTok = ""
+	groupDirTok   = "group-dir"
+	tokenNameTok  = "token-name"
+	regexpTok     = "regexp"
+	opTok         = "op"
+	wrongTok      = ""
+)
 
-	equTok = "="
-	commaTok = ","
+const (
+	equTok       = "="
+	commaTok     = ","
 	semicolonTok = ";"
-	pipeTok = "|"
-	lBraceTok = "("
-	rBraceTok = ")"
-	lSquareTok = "["
-	rSquareTok = "]"
-	lCurlyTok = "{"
-	rCurlyTok = "}"
+	pipeTok      = "|"
+	lBraceTok    = "("
+	rBraceTok    = ")"
+	lSquareTok   = "["
+	rSquareTok   = "]"
+	lCurlyTok    = "{"
+	rCurlyTok    = "}"
 )
 
 var (
 	tokenTypes []lexer.TokenType
 )
 
-type extraTerm struct {
+type extraToken struct {
 	name   string
 	groups int
-	flags  grammar.TermFlags
+	flags  grammar.TokenFlags
 }
 
 type parseContext struct {
 	l            *lexer.Lexer
 	g            *grammar.Grammar
 	lts          []string
-	ti, lti      termIndex
+	ti, lti      tokenIndex
 	nti          nonTermIndex
-	ets          []extraTerm
+	ets          []extraToken
 	eti          map[string]int
 	currentGroup int
 }
@@ -124,7 +126,7 @@ func init () {
 		{3, dirTok},
 		{4, literalDirTok},
 		{5, groupDirTok},
-		{6, termNameTok},
+		{6, tokenNameTok},
 		{7, regexpTok},
 		{8, opTok},
 		{lexer.ErrorTokenType, wrongTok},
@@ -147,15 +149,15 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 		"(['\"/!].{0,10})")
 
 	l := lexer.New(re, tokenTypes, source.NewQueue().Append(s))
-	ets := make([]extraTerm, 0)
+	ets := make([]extraToken, 0)
 	eti := make(map[string]int)
-	ti := termIndex{}
-	lti := termIndex{}
+	ti := tokenIndex{}
+	lti := tokenIndex{}
 	c := &parseContext{l, g, make([]string, 0), ti, lti, nti, ets, eti, 0}
 
 	var t *lexer.Token
 	for e == nil {
-		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, literalDirTok, termNameTok}, true, nil)
+		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, literalDirTok, tokenNameTok}, true, nil)
 		if e != nil {
 			return e
 		}
@@ -178,13 +180,13 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 		case literalDirTok:
 			e = parseLiteralDir(c)
 
-		case termNameTok:
+		case tokenNameTok:
 			name := t.Text()[1:]
 			i, has := ti[name]
-			if has && g.Terms[i].Re != "" {
-				return defTermError(t)
+			if has && g.Tokens[i].Re != "" {
+				return defTokenError(t)
 			}
-			e = parseTermDef(name, c)
+			e = parseTokenDef(name, c)
 		}
 	}
 	if e != nil {
@@ -194,17 +196,17 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 	for _, et := range c.ets {
 		_, has := c.eti[et.name]
 		if has {
-			if et.flags & grammar.ExternalTerm != 0 {
-				addTerm(et.name, "", et.groups, et.flags, c)
+			if et.flags & grammar.ExternalToken != 0 {
+				addToken(et.name, "", et.groups, et.flags, c)
 			} else {
-				return undefinedTermError(et.name)
+				return undefinedTokenError(et.name)
 			}
 		}
 	}
 
-	firstLiteral := len(c.g.Terms)
+	firstLiteral := len(c.g.Tokens)
 	for i, name := range c.lts {
-		addLiteralTerm(name, c)
+		addLiteralToken(name, c)
 		c.lti[name] = i + firstLiteral
 	}
 
@@ -268,7 +270,7 @@ func fetch (l *lexer.Lexer, types []string, strict bool, e error) (*lexer.Token,
 	}
 
 	if strict {
-		return nil, tokenError(token)
+		return nil, unexpectedTokenError(token)
 	}
 
 	put(token)
@@ -314,89 +316,89 @@ func skipOne (l *lexer.Lexer, typ string, e error) error {
 	return skip(l, []string{typ}, e)
 }
 
-func addTerm (name, re string, groups int, flags grammar.TermFlags, c *parseContext) int {
-	var t extraTerm
+func addToken (name, re string, groups int, flags grammar.TokenFlags, c *parseContext) int {
+	var t extraToken
 	i, has := c.eti[name]
 	if has {
 		t = c.ets[i]
 		delete(c.eti, name)
 	}
-	c.g.Terms = append(c.g.Terms, grammar.Term{name, re, groups | t.groups, flags | t.flags})
-	index := len(c.g.Terms) - 1
+	c.g.Tokens = append(c.g.Tokens, grammar.Token{name, re, groups | t.groups, flags | t.flags})
+	index := len(c.g.Tokens) - 1
 	c.ti[name] = index
 	return index
 }
 
-func addLiteralTerm (name string, c *parseContext) int {
+func addLiteralToken (name string, c *parseContext) int {
 	i, has := c.lti[name]
 	if has {
 		return i
 	}
 
-	i = len(c.g.Terms)
-	c.g.Terms = append(c.g.Terms, grammar.Term{name, "", 0, grammar.LiteralTerm})
+	i = len(c.g.Tokens)
+	c.g.Tokens = append(c.g.Tokens, grammar.Token{name, "", 0, grammar.LiteralToken})
 	c.lti[name] = i
 	return i
 }
 
-func addExtraTerm (name string, c *parseContext) int {
+func addExtraToken (name string, c *parseContext) int {
 	i, has := c.eti[name]
 	if !has {
 		i = len(c.ets)
-		c.ets = append(c.ets, extraTerm{name : name})
+		c.ets = append(c.ets, extraToken{name : name})
 		c.eti[name] = i
 	}
 	return i
 }
 
-func addTermFlag (name string, flag grammar.TermFlags, c *parseContext) {
+func addTokenFlag (name string, flag grammar.TokenFlags, c *parseContext) {
 	i, has := c.ti[name]
 	if has {
-		c.g.Terms[i].Flags |= flag
+		c.g.Tokens[i].Flags |= flag
 	} else {
-		i = addExtraTerm(name, c)
+		i = addExtraToken(name, c)
 		c.ets[i].flags |= flag
 	}
 }
 
-func addTermGroups (token *lexer.Token, groups int, c *parseContext) {
+func addTokenGroups (token *lexer.Token, groups int, c *parseContext) {
 	name := token.Text()[1 :]
 	i, has := c.ti[name]
 	if has {
-		c.g.Terms[i].Groups |= groups
+		c.g.Tokens[i].Groups |= groups
 	} else {
-		i = addExtraTerm(name, c)
+		i = addExtraToken(name, c)
 		c.ets[i].groups |= groups
 	}
 }
 
 func parseDir (name string, c *parseContext) error {
-	tokens, e := fetchAll(c.l, []string{termNameTok}, nil)
+	tokens, e := fetchAll(c.l, []string{tokenNameTok}, nil)
 	e = skipOne(c.l, semicolonTok, e)
 	if e != nil {
 		return e
 	}
 
-	var flag grammar.TermFlags = 0
+	var flag grammar.TokenFlags = 0
 	switch name {
 	case "!aside":
-		flag = grammar.AsideTerm
+		flag = grammar.AsideToken
 	case "!extern":
-		flag = grammar.ExternalTerm
+		flag = grammar.ExternalToken
 	case "!error":
-		flag = grammar.ErrorTerm
+		flag = grammar.ErrorToken
 	case "!shrink":
-		flag = grammar.ShrinkableTerm
+		flag = grammar.ShrinkableToken
 	}
 	for _, token := range tokens {
-		addTermFlag(token.Text()[1 :], flag, c)
+		addTokenFlag(token.Text()[1 :], flag, c)
 	}
 
 	return nil
 }
 
 func parseGroupDir (c *parseContext) error {
-	tokens, e := fetchAll(c.l, []string{termNameTok}, nil)
+	tokens, e := fetchAll(c.l, []string{tokenNameTok}, nil)
 	e = skipOne(c.l, semicolonTok, e)
 	if e != nil {
 		return e
@@ -408,7 +410,7 @@ func parseGroupDir (c *parseContext) error {
 
 	groups := 1 << c.currentGroup
 	for _, token := range tokens {
-		addTermGroups(token, groups, c)
+		addTokenGroups(token, groups, c)
 	}
 
 	c.currentGroup++
@@ -424,12 +426,12 @@ func parseLiteralDir (c *parseContext) error {
 
 	for _, t := range tokens {
 		text := t.Text()
-		addLiteralTerm(text[1 : len(text) - 1], c)
+		addLiteralToken(text[1 : len(text) - 1], c)
 	}
 	return nil
 }
 
-func parseTermDef (name string, c *parseContext) error {
+func parseTokenDef (name string, c *parseContext) error {
 	e := skipOne(c.l, equTok, nil)
 	token, e := fetchOne(c.l, regexpTok, true, e)
 	e = skipOne(c.l, semicolonTok, e)
@@ -443,7 +445,7 @@ func parseTermDef (name string, c *parseContext) error {
 		return regexpError(token, e)
 	}
 
-	addTerm(name, re, 0, 0, c)
+	addToken(name, re, 0, 0, c)
 
 	return nil
 }
@@ -527,7 +529,7 @@ func parseVariants (name string, c *parseContext) (chunk, error) {
 }
 
 func parseVariant (name string, c *parseContext) (chunk, error) {
-	variantHeads := []string{nameTok, termNameTok, stringTok, lBraceTok, lSquareTok, lCurlyTok}
+	variantHeads := []string{nameTok, tokenNameTok, stringTok, lBraceTok, lSquareTok, lCurlyTok}
 	t, e := fetch(c.l, variantHeads, true, nil)
 	if e != nil {
 		return nil, e
@@ -543,41 +545,41 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 		c.nti[name].DependsOn.Add(nt.Index)
 		return newNonTermChunk(t.Text(), nt), nil
 
-	case termNameTok:
+	case tokenNameTok:
 		index, f = c.ti[t.Text()[1 :]]
 		if !f {
-			return nil, termError(t)
+			return nil, tokenError(t)
 		}
 
-		if (c.g.Terms[index].Flags & unusedTerm) != 0 {
-			return nil, wrongTermError(t)
+		if (c.g.Tokens[index].Flags & unusedToken) != 0 {
+			return nil, wrongTokenError(t)
 		}
 
-		return newTermChunk(index), nil
+		return newTokenChunk(index), nil
 
 	case stringTok:
 		name = t.Text()[1 : len(t.Text()) - 1]
 		index, f = c.lti[name]
 		if !f {
-			index = addLiteralTerm(name, c)
+			index = addLiteralToken(name, c)
 		}
-		return newTermChunk(index), nil
+		return newTokenChunk(index), nil
 	}
 
 	repeated := (t.Text() == "{")
 	optional := (t.Text() != "(")
-	var lastTerm string
+	var lastToken string
 	if repeated {
-		lastTerm = rCurlyTok
+		lastToken = rCurlyTok
 	} else if optional {
-		lastTerm = rSquareTok
+		lastToken = rSquareTok
 	} else {
-		lastTerm = rBraceTok
+		lastToken = rBraceTok
 	}
 
 	result := newGroupChunk(optional, repeated)
 	e = parseGroup(name, result, c, nil)
-	e = skipOne(c.l, lastTerm, e)
+	e = skipOne(c.l, lastToken, e)
 	if e != nil {
 		return nil, e
 	}
@@ -644,7 +646,7 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	for _, item := range nti {
 		if item.DependsOn.IsEmpty() {
 			queue.Append(item.Index)
-			item.FirstTerms = item.Chunk.FirstTerms()
+			item.FirstTokens = item.Chunk.FirstTokens()
 			continue
 		}
 
@@ -665,7 +667,7 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 			item.DependsOn.Remove(k)
 			if item.DependsOn.IsEmpty() {
 				queue.Append(index)
-				item.FirstTerms = item.Chunk.FirstTerms()
+				item.FirstTokens = item.Chunk.FirstTokens()
 			}
 		}
 	}
@@ -681,16 +683,16 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	}
 
 	indexes := queue.Items()
-	termAdded := true
-	for termAdded {
-		termAdded = false
+	tokenAdded := true
+	for tokenAdded {
+		tokenAdded = false
 
 		for _, index := range indexes {
 			item := nti[nts[index].Name]
-			firstTerms := item.Chunk.FirstTerms()
-			if !firstTerms.IsEmpty() && !intset.Subtract(firstTerms, item.FirstTerms).IsEmpty() {
-				item.FirstTerms.Union(firstTerms)
-				termAdded = true
+			firstTokens := item.Chunk.FirstTokens()
+			if !firstTokens.IsEmpty() && !intset.Subtract(firstTokens, item.FirstTokens).IsEmpty() {
+				item.FirstTokens.Union(firstTokens)
+				tokenAdded = true
 			}
 		}
 	}
@@ -698,7 +700,7 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	names := make([]string, 0, len(indexes))
 	for _, index := range indexes {
 		name := nts[index].Name
-		if nti[name].FirstTerms.IsEmpty() {
+		if nti[name].FirstTokens.IsEmpty() {
 			names = append(names, name)
 		}
 	}
@@ -778,7 +780,7 @@ func ntIsRecursive (g *grammar.Grammar, index int, visited intset.T) bool {
 	return false
 }
 
-func assignTermGroups (g *grammar.Grammar, e error) error {
+func assignTokenGroups (g *grammar.Grammar, e error) error {
 	if e != nil {
 		return e
 	}
@@ -786,9 +788,9 @@ func assignTermGroups (g *grammar.Grammar, e error) error {
 	var (
 		rcnt, groups int
 	)
-	res := make([]*regexp.Regexp, 0, len(g.Terms))
-	ts := g.Terms
-	for rcnt = 0; rcnt < len(g.Terms) && ts[rcnt].Re != ""; rcnt++ {
+	res := make([]*regexp.Regexp, 0, len(g.Tokens))
+	ts := g.Tokens
+	for rcnt = 0; rcnt < len(g.Tokens) && ts[rcnt].Re != ""; rcnt++ {
 		res = append(res, regexp.MustCompile(ts[rcnt].Re))
 		groups |= ts[rcnt].Groups
 	}
@@ -835,18 +837,18 @@ func assignStateGroups (g *grammar.Grammar, e error) error {
 			groups := -1
 			for k := range st.Rules {
 				if k >= 0 {
-					groups &= g.Terms[k].Groups
+					groups &= g.Tokens[k].Groups
 					if groups == 0 {
-						return disjointGroupsError(g.NonTerms[i].Name, j, g.Terms[k].Name)
+						return disjointGroupsError(g.NonTerms[i].Name, j, g.Tokens[k].Name)
 					}
 				}
 			}
 
 			for k := range st.MultiRules {
 				if k >= 0 {
-					groups &= g.Terms[k].Groups
+					groups &= g.Tokens[k].Groups
 					if groups == 0 {
-						return disjointGroupsError(g.NonTerms[i].Name, j, g.Terms[k].Name)
+						return disjointGroupsError(g.NonTerms[i].Name, j, g.Tokens[k].Name)
 					}
 				}
 			}

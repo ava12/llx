@@ -163,7 +163,7 @@ type sample struct {
 ntsrc: nonTerm;nonTerm
 nonTerm: name:state/state
 state: rules&rules
-rules: termIndex=rule|rule
+rules: tokenIndex=rule|rule
 rule: stateIndex,nonTermIndex
 */
 
@@ -208,15 +208,15 @@ func atoi (a string) int {
 }
 
 func TestGrammar (t *testing.T) {
-	terms := "$term = /\\S+/; "
+	tokens := "$tok = /\\S+/; "
 	samples := []sample{
-		{terms + "foo = 'bar';", "foo:1=-1,-1"},
-		{terms + "foo = 'bar' | 'baz';", "foo:1=-1,-1&2=-1,-1"},
-		{terms + "foo = bar|baz; bar='bar'; baz='baz';", "foo:1=-1,1&2=-1,2; bar:1=-1,-1; baz:2=-1,-1"},
-		{terms + "foo = ['bar'], 'baz';", "foo:-1=1,-1&1=1,-1/2=-1,-1"},
-		{terms + "foo = 'bar', ['baz'];", "foo:1=1,-1/-1=-1,-1&2=-1,-1"},
-		{terms + "foo = 'bar', {'baz'};", "foo:1=1,-1/2=1,-1&-1=-1,-1"},
-		{terms + "foo = 'bar', {'baz'}, 'qux';", "foo:1=1,-1/2=1,-1&-1=2,-1/3=-1,-1"},
+		{tokens + "foo = 'bar';", "foo:1=-1,-1"},
+		{tokens + "foo = 'bar' | 'baz';", "foo:1=-1,-1&2=-1,-1"},
+		{tokens + "foo = bar|baz; bar='bar'; baz='baz';", "foo:1=-1,1&2=-1,2; bar:1=-1,-1; baz:2=-1,-1"},
+		{tokens + "foo = ['bar'], 'baz';", "foo:-1=1,-1&1=1,-1/2=-1,-1"},
+		{tokens + "foo = 'bar', ['baz'];", "foo:1=1,-1/-1=-1,-1&2=-1,-1"},
+		{tokens + "foo = 'bar', {'baz'};", "foo:1=1,-1/2=1,-1&-1=-1,-1"},
+		{tokens + "foo = 'bar', {'baz'}, 'qux';", "foo:1=1,-1/2=1,-1&-1=2,-1/3=-1,-1"},
 		{
 			"$num=/\\d+/; $op=/[()^*\\/+-]/;" +
 				"ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num|('(',sum,')');",

@@ -61,7 +61,7 @@ type Parser struct {
 
 func New (g *grammar.Grammar) *Parser {
 	maxGroup := 0
-	for _, t := range g.Terms {
+	for _, t := range g.Tokens {
 		mg := bits.Len(uint(t.Groups)) - 1
 		if mg > maxGroup {
 			maxGroup = mg
@@ -70,8 +70,8 @@ func New (g *grammar.Grammar) *Parser {
 	lrs := make([]lexerRec, maxGroup + 1)
 	ls := make(map[string]int)
 	ms := make([][]string, maxGroup + 1)
-	for i, t := range g.Terms {
-		if (t.Flags & grammar.LiteralTerm) != 0 {
+	for i, t := range g.Tokens {
+		if (t.Flags & grammar.LiteralToken) != 0 {
 			ls[t.Name] = i
 		}
 		if t.Re == "" {
@@ -150,7 +150,7 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 
 
 func (pc *ParseContext) EmitToken (t *lexer.Token) error {
-	if t.Type() >= len(pc.parser.grammar.Terms) {
+	if t.Type() >= len(pc.parser.grammar.Tokens) {
 		return emitWrongTokenError(t)
 	}
 
@@ -195,7 +195,7 @@ func (pc *ParseContext) popNonTerm () error {
 }
 
 type appliedRule struct {
-	term, state, nonTerm int
+	token, state, nonTerm int
 }
 
 const repeatState = -128
@@ -230,7 +230,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 				continue
 			}
 
-			expected := pc.getExpectedTerm(gr.States[nt.state])
+			expected := pc.getExpectedToken(gr.States[nt.state])
 			if tok.Type() == lexer.EofTokenType {
 				e = unexpectedEofError(tok, expected)
 			} else {
@@ -259,7 +259,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			}
 
 			sameNonTerm := (rule.nonTerm == grammar.SameNonTerm)
-			tokenConsumed = (sameNonTerm && rule.term != grammar.AnyTerm)
+			tokenConsumed = (sameNonTerm && rule.token != grammar.AnyToken)
 			if rule.state != repeatState {
 				pc.nonTerm.state = rule.state
 				if rule.state != grammar.FinalState {
@@ -295,7 +295,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 }
 
 func (pc *ParseContext) shrinkToken (tok *lexer.Token, group int) (bool, error) {
-	if tok.Type() < 0 || pc.parser.grammar.Terms[tok.Type()].Flags & grammar.ShrinkableTerm == 0 {
+	if tok.Type() < 0 || pc.parser.grammar.Tokens[tok.Type()].Flags & grammar.ShrinkableToken == 0 {
 		return false, nil
 	}
 
@@ -368,9 +368,9 @@ func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedR
 	}
 }
 
-func (pc *ParseContext) getExpectedTerm (s grammar.State) string {
+func (pc *ParseContext) getExpectedToken (s grammar.State) string {
 	var i int
-	for i = 0; i < len(pc.parser.grammar.Terms); i++ {
+	for i = 0; i < len(pc.parser.grammar.Tokens); i++ {
 		_, f := s.Rules[i]
 		if !f {
 			_, f = s.MultiRules[i]
@@ -379,11 +379,11 @@ func (pc *ParseContext) getExpectedTerm (s grammar.State) string {
 			break
 		}
 	}
-	term := pc.parser.grammar.Terms[i]
-	if (term.Flags & grammar.LiteralTerm) != 0 {
-		return term.Name
+	token := pc.parser.grammar.Tokens[i]
+	if (token.Flags & grammar.LiteralToken) != 0 {
+		return token.Name
 	} else {
-		return "$" + term.Name
+		return "$" + token.Name
 	}
 }
 
@@ -397,7 +397,7 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	if f {
 		indexes = append(indexes, index)
 	}
-	indexes = append(indexes, t.Type(), grammar.AnyTerm)
+	indexes = append(indexes, t.Type(), grammar.AnyToken)
 	for _, index = range indexes {
 		r, f := s.Rules[index]
 		if f {
@@ -405,7 +405,7 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 		}
 
 		rs := s.MultiRules[index]
-		if rs != nil {
+		if len(rs) != 0 {
 			result := make([]appliedRule, len(rs))
 			for i, r := range rs {
 				result[i] = appliedRule{index, r.State, r.NonTerm}
@@ -436,7 +436,7 @@ func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 		result = pc.tokens[0]
 		pc.tokens = pc.tokens[1 :]
 		if result.Type() >= 0 {
-			groups := pc.parser.grammar.Terms[result.Type()].Groups
+			groups := pc.parser.grammar.Tokens[result.Type()].Groups
 			if groups & (1 << group) == 0 {
 				e = unexpectedGroupError(result, group)
 				result = nil
@@ -510,7 +510,7 @@ func (pc *ParseContext) fetchToken (group int) (*lexer.Token, error) {
 }
 
 func (pc *ParseContext) isAsideToken (t *lexer.Token) bool {
-	terms := pc.parser.grammar.Terms
+	tokens := pc.parser.grammar.Tokens
 	i := t.Type()
-	return (i >= 0 && i < len(terms) && terms[i].Flags & grammar.AsideTerm != 0)
+	return (i >= 0 && i < len(tokens) && tokens[i].Flags & grammar.AsideToken != 0)
 }
