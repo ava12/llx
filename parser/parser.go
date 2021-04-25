@@ -425,8 +425,10 @@ func (pc *ParseContext) getNonTermHook (nonTerm string) (res NonTermHookInstance
 	if f {
 		res, e = h(nonTerm, pc)
 	} else {
-		res = &defaultHookInstance{}
 		e = nil
+	}
+	if res == nil {
+		res = &defaultHookInstance{}
 	}
 	return
 }

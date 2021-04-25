@@ -310,3 +310,12 @@ func TestEofHooks (t *testing.T) {
 
 	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks)
 }
+
+func TestResolveAnyTokenEof (t *testing.T) {
+	name := "resolve * AnyToken * EoF"
+	grammar := "$name = /\\w+/; $op = /[()+]/; g = sum | call; sum = $name, ['+', $name]; call = $name, '(', $name, ')';"
+	samples := []srcErrSample{
+		{"foo(", UnexpectedEofError},
+	}
+	testErrorSamples(t, name, grammar, samples)
+}

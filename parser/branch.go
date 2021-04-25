@@ -102,6 +102,10 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 			return true
 		}
 
+		if isWildcard && b.nonTerm == nil {
+			return false
+		}
+
 		if !isSame {
 			gr := b.pc.parser.grammar
 			nt := gr.NonTerms[ar.nonTerm]
