@@ -1,0 +1,15 @@
+!aside $space;
+
+$space = /\s+/;
+$number = /-?\d+(?:\.\d+)?(?:[Ee]-?\d+)?/;
+$name = /[A-Za-z][A-Za-z0-9_-]*/;
+$op = /[(),=*\/^+-]/;
+
+calcGrammar = expr | assign | func;
+func = "func", $name, "(", [$name, {",", $name}], ")", expr;
+assign = $name, "=", expr;
+expr = ["-"], pro, {"+" | "-", pro};
+pro = pow, {"*" | "/", pow};
+pow = value, ["^", pow];
+value = $number | $name | call | ("(", expr, ")");
+call = $name, "(", [expr, {",", expr}], ")";
