@@ -10,6 +10,9 @@ const (
 	UnexpectedTokenError
 	UnexpectedGroupError
 	EmitWrongTokenError
+	UnknownTokenTypeError
+	UnknownTokenLiteralError
+	UnknownNonTermError
 )
 
 func unexpectedEofError (t *lexer.Token, expected string) *err.Error {
@@ -30,4 +33,16 @@ func unexpectedGroupError (t *lexer.Token, group int) *err.Error {
 
 func emitWrongTokenError (t *lexer.Token) *err.Error {
 	return err.FormatPos(t, EmitWrongTokenError, "cannot emit %s token (type %d)", t.TypeName(), t.Type())
+}
+
+func unknownTokenTypeError (typeName string) *err.Error {
+	return err.Format(UnknownTokenTypeError, "unknown token type key: %q", typeName)
+}
+
+func unknownTokenLiteralError (text string) *err.Error {
+	return err.Format(UnknownTokenLiteralError, "unknown literal token key: %q", text)
+}
+
+func unknownNonTermError (name string) *err.Error {
+	return err.Format(UnknownNonTermError, "unknown non-terminal key: %q", name)
 }

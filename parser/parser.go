@@ -37,14 +37,20 @@ func (dhi *defaultHookInstance) EndNonTerm () (result interface{}, e error) {
 	return dhi.result, nil
 }
 
-const AnyTokenType = -128
-const AnyNonTerm = ""
+const (
+	AnyToken   = ""
+	EofToken   = lexer.EofTokenName
+	AnyNonTerm = ""
+)
 
-type TokenHooks map[int]TokenHook
+const any = -1
+
+type TokenHooks map[string]TokenHook
 type NonTermHooks map[string]NonTermHook
 
 type Hooks struct {
 	Tokens   TokenHooks
+	Literals TokenHooks
 	NonTerms NonTermHooks
 }
 
@@ -54,9 +60,9 @@ type lexerRec struct {
 }
 
 type Parser struct {
-	grammar  *grammar.Grammar
-	literals map[string]int
-	lexers   []lexerRec
+	grammar *grammar.Grammar
+	names   map[string]int
+	lexers  []lexerRec
 }
 
 func New (g *grammar.Grammar) *Parser {
@@ -68,11 +74,18 @@ func New (g *grammar.Grammar) *Parser {
 		}
 	}
 	lrs := make([]lexerRec, maxGroup + 1)
-	ls := make(map[string]int)
+	names := make(map[string]int)
+	names[tokenKey(AnyToken)] = grammar.AnyToken
+	names[literalKey(AnyToken)] = grammar.AnyToken
+	names[AnyNonTerm] = -1
+	names[tokenKey(EofToken)] = lexer.EofTokenType
 	ms := make([][]string, maxGroup + 1)
+
 	for i, t := range g.Tokens {
 		if (t.Flags & grammar.LiteralToken) != 0 {
-			ls[t.Name] = i
+			names[literalKey(t.Name)] = i
+		} else if (t.Flags & grammar.ErrorToken) == 0 {
+			names[tokenKey(t.Name)] = i
 		}
 		if t.Re == "" {
 			continue
@@ -96,7 +109,19 @@ func New (g *grammar.Grammar) *Parser {
 		lrs[i].re = regexp.MustCompile("(?s:" + strings.Join(ms[i], "|") + ")")
 	}
 
-	return &Parser{g, ls, lrs}
+	for i, nt := range g.NonTerms {
+		names[nt.Name] = i
+	}
+
+	return &Parser{g, names, lrs}
+}
+
+func tokenKey (name string) string {
+	return "$" + name
+}
+
+func literalKey (text string) string {
+	return ":" + text
 }
 
 func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error) {
@@ -123,20 +148,25 @@ type ParseContext struct {
 	parser       *Parser
 	lexers       []*lexer.Lexer
 	queue        *source.Queue
-	tokenHooks   TokenHooks
-	nonTermHooks NonTermHooks
+	tokenHooks   []TokenHook
+	nonTermHooks []NonTermHook
 	tokens       []*lexer.Token
 	lastResult   interface{}
 	nonTerm      *nonTermRec
 }
+
+const (
+	tokenHooksOffset   = -lexer.EofTokenType
+	nonTermHooksOffset = -grammar.AnyToken
+)
 
 func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, error) {
 	result := &ParseContext{
 		parser:       p,
 		lexers:       make([]*lexer.Lexer, len(p.lexers)),
 		queue:        q,
-		tokenHooks:   hs.Tokens,
-		nonTermHooks: hs.NonTerms,
+		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
+		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
 		tokens:       make([]*lexer.Token, 0),
 	}
 
@@ -144,10 +174,51 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 		result.lexers[i] = lexer.New(lr.re, lr.types, q)
 	}
 
+	for k, th := range hs.Tokens {
+		i, f := p.names[tokenKey(k)]
+		if !f {
+			return nil, unknownTokenTypeError(k)
+		}
+
+		result.tokenHooks[i + tokenHooksOffset] = th
+	}
+
+	for k, th := range hs.Literals {
+		i, f := p.names[literalKey(k)]
+		if !f {
+			return nil, unknownTokenLiteralError(k)
+		}
+
+		result.tokenHooks[i + tokenHooksOffset] = th
+	}
+
+	for k, nth := range hs.NonTerms {
+		i, f := p.names[k]
+		if !f {
+			return nil, unknownNonTermError(k)
+		}
+
+		result.nonTermHooks[i + nonTermHooksOffset] = nth
+	}
+
 	e := result.pushNonTerm(grammar.RootNonTerm)
 	return result, e
 }
 
+func (pc *ParseContext) TokenType (typeName string) (typ int, valid bool) {
+	typ, valid = pc.parser.names[tokenKey(typeName)]
+	return
+}
+
+func (pc *ParseContext) LiteralType (text string) (typ int, valid bool) {
+	typ, valid = pc.parser.names[literalKey(text)]
+	return
+}
+
+func (pc *ParseContext) NonTerminalIndex (name string) (index int, valid bool) {
+	index, valid = pc.parser.names[name]
+	return
+}
 
 func (pc *ParseContext) EmitToken (t *lexer.Token) error {
 	if t.Type() >= len(pc.parser.grammar.Tokens) {
@@ -162,7 +233,7 @@ func (pc *ParseContext) EmitToken (t *lexer.Token) error {
 func (pc *ParseContext) pushNonTerm (index int) error {
 	gr := pc.parser.grammar
 	nt := gr.NonTerms[index]
-	hook, e := pc.getNonTermHook(nt.Name)
+	hook, e := pc.getNonTermHook(index)
 	if e != nil {
 		return e
 	}
@@ -393,7 +464,7 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	}
 
 	indexes := make([]int, 0, 3)
-	index, f := pc.parser.literals[t.Text()]
+	index, f := pc.parser.names[literalKey(t.Text())]
 	if f {
 		indexes = append(indexes, index)
 	}
@@ -417,13 +488,13 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	return nil
 }
 
-func (pc *ParseContext) getNonTermHook (nonTerm string) (res NonTermHookInstance, e error) {
-	h, f := pc.nonTermHooks[nonTerm]
-	if !f {
-		h, f = pc.nonTermHooks[AnyNonTerm]
+func (pc *ParseContext) getNonTermHook (ntIndex int) (res NonTermHookInstance, e error) {
+	h := pc.nonTermHooks[ntIndex + nonTermHooksOffset]
+	if h == nil {
+		h = pc.nonTermHooks[any + nonTermHooksOffset]
 	}
-	if f {
-		res, e = h(nonTerm, pc)
+	if h != nil {
+		res, e = h(pc.parser.grammar.NonTerms[ntIndex].Name, pc)
 	} else {
 		e = nil
 	}
@@ -458,16 +529,16 @@ func (pc *ParseContext) handleToken (tok *lexer.Token) error {
 	if tt < 0 {
 		tts = append(tts, tt)
 	} else {
-		i, f := pc.parser.literals[tok.Text()]
+		i, f := pc.parser.names[literalKey(tok.Text())]
 		if f {
 			tts = append(tts, i)
 		}
-		tts = append(tts, tok.Type(), AnyTokenType)
+		tts = append(tts, tok.Type(), any)
 	}
 
 	var h TokenHook
 	for _, i := range tts {
-		h = pc.tokenHooks[i]
+		h = pc.tokenHooks[i + tokenHooksOffset]
 		if h != nil {
 			break
 		}

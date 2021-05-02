@@ -19,12 +19,12 @@ type srcErrSample struct {
 }
 
 var testTokenHooks = TokenHooks{
-	AnyTokenType: func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
+	AnyToken: func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
 		return true, nil
 	},
 }
 
-func testGrammarSamplesWithHooks (t *testing.T, name, grammar string, samples []srcExprSample, hs TokenHooks) {
+func testGrammarSamplesWithHooks (t *testing.T, name, grammar string, samples []srcExprSample, ths, lhs TokenHooks) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
@@ -32,7 +32,7 @@ func testGrammarSamplesWithHooks (t *testing.T, name, grammar string, samples []
 	}
 
 	for i, sample := range samples {
-		n, e := parseAsTestNode(g, sample.src, hs)
+		n, e := parseAsTestNode(g, sample.src, ths, lhs)
 		if e != nil {
 			t.Errorf("grammar %q, sample #%d: got error: %s", name, i, e.Error())
 			continue
@@ -51,7 +51,7 @@ func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSa
 	if captureAside {
 		hs = testTokenHooks
 	}
-	testGrammarSamplesWithHooks(t, name, grammar, samples, hs)
+	testGrammarSamplesWithHooks(t, name, grammar, samples, hs, nil)
 }
 
 func testErrorSamples (t *testing.T, name, grammar string, samples []srcErrSample) {
@@ -62,7 +62,7 @@ func testErrorSamples (t *testing.T, name, grammar string, samples []srcErrSampl
 	}
 
 	for i, sample := range samples {
-		_, e := parseAsTestNode(g, sample.src, nil)
+		_, e := parseAsTestNode(g, sample.src, nil, nil)
 		if e == nil {
 			t.Errorf("grammar %q, sample #%d: expecting error code %d, got success", name, i, sample.err)
 			continue
@@ -91,6 +91,45 @@ func TestErrors (t *testing.T) {
 		{"foo(bar baz", UnexpectedTokenError},
 	}
 	testErrorSamples(t, name, grammar, samples)
+}
+
+func TestHandlerKeyErrors (t *testing.T) {
+	name := "handler key errors"
+	grammar := "$any = /./; g = $any;"
+	queue := source.NewQueue().Append(source.New("x", []byte("x")))
+	g, e := langdef.ParseString(name, grammar)
+	if e != nil {
+		t.Fatalf("unexpected error: %s", e)
+	}
+
+	parser := New(g)
+
+	samples := []struct{
+		hooks Hooks
+		err int
+	}{
+		{Hooks{TokenHooks{"space": nil}, nil, nil}, UnknownTokenTypeError},
+		{Hooks{nil, TokenHooks{"y": nil}, nil}, UnknownTokenLiteralError},
+		{Hooks{nil, nil, NonTermHooks{"foo": nil}}, UnknownNonTermError},
+	}
+
+	for i, sample := range samples {
+		_, e := parser.Parse(queue, &sample.hooks)
+		var (
+			ee *errors.Error
+			code int
+			f bool
+		)
+		if e != nil {
+			ee, f = e.(*errors.Error)
+			if f {
+				code = ee.Code
+			}
+		}
+		if e == nil || !f || code != sample.err {
+			t.Errorf("sample #%d: expecting error code %d, got: %s (code %d)", i, sample.err, e, code)
+		}
+	}
 }
 
 func TestUnexpectedGroupError (t *testing.T) {
@@ -232,35 +271,37 @@ func TestTokenShrinking (t *testing.T) {
 
 func TestTokenHooks (t *testing.T) {
 	name := "token hooks"
-	grammar := "$space = /\\s+/; $char = /[bcdf]|aa?|ee?/; !literal 'a' 'b' 'c' 'd' 'e' 'f';" +
+	grammar := "$space = /\\s+/; $char = /[bcdf]|aa?|ee?/; !literal 'a' 'b' 'c' 'd' 'e' 'f' 'aa' 'ee';" +
 		"g = {('b', 'aa') | ('b', 'ee', 'f') | ('f', 'a', 'c', 'e') | $space};"
 	samples := []srcExprSample{
 		{"fce baabbef baa", "f a c e _ b aa b ee f _ b aa"},
 	}
 
 	prevTokenText := ""
-	hooks := TokenHooks{
-		6: func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			if prevTokenText != "b" {
-				return true, nil
-			}
-
-			return false, pc.EmitToken(lexer.NewToken(6, "char", "ee", t)) // e -> ee
-		},
-		4: func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			return true, pc.EmitToken(lexer.NewToken(4, "char", "a", t)) // c -> a c
-		},
-		1: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+	ths := TokenHooks{
+		"char": func (t *lexer.Token, pc *ParseContext) (bool, error) {
 			f := (t.Text() != prevTokenText) // x x -> x
 			prevTokenText = t.Text()
 			return f, nil
 		},
-		AnyTokenType: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		AnyToken: func (t *lexer.Token, pc *ParseContext) (bool, error) {
 			return false, pc.EmitToken(lexer.NewToken(0, "space", "_", t)) // " " -> _
 		},
 	}
+	lhs := TokenHooks{
+		"e": func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			if prevTokenText != "b" {
+				return true, nil
+			}
 
-	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks)
+			return false, pc.EmitToken(lexer.NewToken(9, "char", "ee", t)) // e -> ee
+		},
+		"c": func (t *lexer.Token, pc *ParseContext) (bool, error) {
+			return true, pc.EmitToken(lexer.NewToken(2, "char", "a", t)) // c -> a c
+		},
+	}
+
+	testGrammarSamplesWithHooks(t, name, grammar, samples, ths, lhs)
 }
 
 func TestEofHooks (t *testing.T) {
@@ -281,7 +322,7 @@ func TestEofHooks (t *testing.T) {
 
 	prevIndent := 0
 	hooks := TokenHooks{
-		0: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		"indent": func (t *lexer.Token, pc *ParseContext) (bool, error) {
 			text := t.Text()
 			indent := len(text)
 			if text[0] == '\n' {
@@ -298,7 +339,7 @@ func TestEofHooks (t *testing.T) {
 			}
 			return false, e
 		},
-		lexer.EofTokenType: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		EofToken: func (t *lexer.Token, pc *ParseContext) (bool, error) {
 			var e error
 			for prevIndent > 0 {
 				e = pc.EmitToken(lexer.NewToken(4, "end", "}", t))
@@ -308,7 +349,7 @@ func TestEofHooks (t *testing.T) {
 		},
 	}
 
-	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks)
+	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks, nil)
 }
 
 func TestResolveAnyTokenEof (t *testing.T) {
