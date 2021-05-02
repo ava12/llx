@@ -2,7 +2,7 @@
 
 $space = /\s+/;
 $number = /-?\d+(?:\.\d+)?(?:[Ee]-?\d+)?/;
-$name = /[A-Za-z][A-Za-z0-9_-]*/;
+$name = /[A-Za-z][A-Za-z0-9_]*/;
 $op = /[(),=*\/^+-]/;
 
 calcGrammar = expr | assign | func;

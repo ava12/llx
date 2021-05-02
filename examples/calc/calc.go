@@ -41,8 +41,8 @@ Expressions can contain numbers, arithmetic operators (+, -, *, /),
   ^ for exponentiation, brackets, variable (or argument) names, and 
   function calls ( <name>(<arg>[,<arg>]) ). An argument can be any expression.
 
-Names must start with a letter and can contain letters, digits, underscores,
-  and hyphens. Names are case-sensitive, so F and f are two different names.
+Names must start with a letter and can contain letters, digits, and
+  underscores. Names are case-sensitive, so F and f are two different names.
 
 Variables and functions have separate namespaces, so you can have both 
   variable X and function X.

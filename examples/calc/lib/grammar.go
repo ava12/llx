@@ -7,7 +7,7 @@ var calcGrammar = &grammar.Grammar{
 	Tokens: []grammar.Token{
 		{Name: "space", Re: "\\s+", Groups: 1, Flags: 4},
 		{Name: "number", Re: "-?\\d+(?:\\.\\d+)?(?:[Ee]-?\\d+)?", Groups: 1, Flags: 0},
-		{Name: "name", Re: "[A-Za-z][A-Za-z0-9_-]*", Groups: 1, Flags: 0},
+		{Name: "name", Re: "[A-Za-z][A-Za-z0-9_]*", Groups: 1, Flags: 0},
 		{Name: "op", Re: "[(),=*\\/^+-]", Groups: 1, Flags: 0},
 		{Name: "func", Re: "", Groups: 1, Flags: 1},
 		{Name: "(", Re: "", Groups: 1, Flags: 1},
@@ -32,10 +32,10 @@ var calcGrammar = &grammar.Grammar{
 	},
 	States: []grammar.State{
 		{Group: 0, Rules: map[int]grammar.Rule{
+			9: {State: -1, NonTerm: 1},
 			1: {State: -1, NonTerm: 1},
 			4: {State: -1, NonTerm: 3},
 			5: {State: -1, NonTerm: 1},
-			9: {State: -1, NonTerm: 1},
 		}, MultiRules: map[int][]grammar.Rule{
 			2: {
 				{State: -1, NonTerm: 1},
@@ -43,8 +43,8 @@ var calcGrammar = &grammar.Grammar{
 			},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
-			9: {State: 2, NonTerm: -1},
 			-1: {State: 2, NonTerm: -1},
+			9: {State: 2, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			1: {State: 3, NonTerm: 4},
@@ -52,14 +52,14 @@ var calcGrammar = &grammar.Grammar{
 			5: {State: 3, NonTerm: 4},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			9: {State: 4, NonTerm: -1},
 			-1: {State: -1, NonTerm: -1},
 			10: {State: 4, NonTerm: -1},
-			9: {State: 4, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			1: {State: 3, NonTerm: 4},
 			2: {State: 3, NonTerm: 4},
 			5: {State: 3, NonTerm: 4},
-			1: {State: 3, NonTerm: 4},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			2: {State: 6, NonTerm: -1},
@@ -68,10 +68,10 @@ var calcGrammar = &grammar.Grammar{
 			8: {State: 7, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			5: {State: -1, NonTerm: 1},
 			9: {State: -1, NonTerm: 1},
 			1: {State: -1, NonTerm: 1},
 			2: {State: -1, NonTerm: 1},
-			5: {State: -1, NonTerm: 1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			4: {State: 9, NonTerm: -1},
@@ -90,10 +90,10 @@ var calcGrammar = &grammar.Grammar{
 			7: {State: 13, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			1: {State: -1, NonTerm: 1},
 			2: {State: -1, NonTerm: 1},
 			5: {State: -1, NonTerm: 1},
 			9: {State: -1, NonTerm: 1},
-			1: {State: -1, NonTerm: 1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			-1: {State: 12, NonTerm: -1},
@@ -118,18 +118,18 @@ var calcGrammar = &grammar.Grammar{
 			5: {State: 17, NonTerm: 5},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			5: {State: 20, NonTerm: 6},
 			1: {State: 20, NonTerm: 6},
 			2: {State: 20, NonTerm: 6},
-			5: {State: 20, NonTerm: 6},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			-1: {State: -1, NonTerm: -1},
 			13: {State: 21, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			1: {State: -1, NonTerm: 5},
 			2: {State: -1, NonTerm: 5},
 			5: {State: -1, NonTerm: 5},
-			1: {State: -1, NonTerm: 5},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			1: {State: -1, NonTerm: -1},
@@ -156,11 +156,11 @@ var calcGrammar = &grammar.Grammar{
 			5: {State: 27, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
+			-1: {State: 28, NonTerm: -1},
 			1: {State: 29, NonTerm: 1},
 			2: {State: 29, NonTerm: 1},
 			5: {State: 29, NonTerm: 1},
 			9: {State: 29, NonTerm: 1},
-			-1: {State: 28, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
 			7: {State: -1, NonTerm: -1},
@@ -170,10 +170,10 @@ var calcGrammar = &grammar.Grammar{
 			6: {State: 30, NonTerm: -1},
 		}},
 		{Group: 0, Rules: map[int]grammar.Rule{
-			9: {State: 29, NonTerm: 1},
 			1: {State: 29, NonTerm: 1},
 			2: {State: 29, NonTerm: 1},
 			5: {State: 29, NonTerm: 1},
+			9: {State: 29, NonTerm: 1},
 		}},
 	},
 }
