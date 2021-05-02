@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ava12/llx/errors"
 	"github.com/ava12/llx/examples/calc/lib"
@@ -29,7 +30,28 @@ func scan () (res string, e error) {
 	return
 }
 
+func showHelp () {
+	fmt.Print(`
+You can:
+  - compute an expression and show its result: <expression> (without brackets)
+  - set a variable: <var_name> = <expression>
+  - set a function: func <name> (<arg_name> [, <arg_name> ...]) <expression>
+
+Expressions can contain numbers, arithmetic operators (+, -, *, /),
+  ^ for exponentiation, brackets, variable (or argument) names, and 
+  function calls ( <name>(<arg>[,<arg>]) ). An argument can be any expression.
+
+Names must start with a letter and can contain letters, digits, underscores,
+  and hyphens. Names are case-sensitive, so F and f are two different names.
+
+Variables and functions have separate namespaces, so you can have both 
+  variable X and function X.
+
+`)
+}
+
 func main () {
+	fmt.Println("A simple line calculator. help for quick help, empty line to exit.")
 	prevInput := ""
 	appendInput := false
 
@@ -43,6 +65,12 @@ func main () {
 		input, e := scan()
 		if input == "" || e != nil {
 			break
+		}
+
+		if strings.Contains(input, "help") {
+			appendInput = false
+			showHelp()
+			continue
 		}
 
 		if appendInput {
