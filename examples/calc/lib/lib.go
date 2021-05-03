@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
 	"github.com/ava12/llx/source"
@@ -480,6 +481,11 @@ func init () {
 func Compute (text string) (float64, error) {
 	q := source.NewQueue().Append(source.New("input", []byte(text)))
 	x, e := calcParser.Parse(q, hooks)
+	if e == nil && !q.IsEmpty() {
+		p := q.SourcePos()
+		e = llx.FormatErrorPos(p, -1, "unexpected %q", string(p.Source().Content()[p.Pos() :]))
+	}
+
 	if e == nil {
 		return x.(expr).Compute(rootContext)
 	} else {

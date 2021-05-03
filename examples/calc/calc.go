@@ -38,20 +38,25 @@ You can:
   - set a function: func <name> (<arg_name> [, <arg_name> ...]) <expression>
 
 Expressions can contain numbers, arithmetic operators (+, -, *, /),
-  ^ for exponentiation, brackets, variable (or argument) names, and 
-  function calls ( <name>(<arg>[,<arg>]) ). An argument can be any expression.
+^ for exponentiation, brackets, variable (or argument) names, and 
+function calls ( <name>([<arg>[,<arg>]]) ). An argument can be any expression.
 
-Names must start with a letter and can contain letters, digits, and
-  underscores. Names are case-sensitive, so F and f are two different names.
+Unary minus must be the first part of (sub)expression. Inputs like
+"- x + y", "x / (-y)", or "x - (-(-y))" are correct, but "x * -y" or
+"x ^ (- - y)" are not.
 
-Variables and functions have separate namespaces, so you can have both 
-  variable X and function X.
+Names start with a letter and can contain letters, digits, and underscores.
+Names are case-sensitive, so F and f are two different names.
+
+Variables and functions use separate namespaces, so you can have both
+variable X and function X.
 
 `)
 }
 
 func main () {
 	fmt.Println("A simple line calculator. help for quick help, empty line to exit.")
+	fmt.Println()
 	prevInput := ""
 	appendInput := false
 
@@ -74,7 +79,7 @@ func main () {
 		}
 
 		if appendInput {
-			input = prevInput + " " + input
+			input = prevInput + "\n" + input
 			appendInput = false
 		}
 

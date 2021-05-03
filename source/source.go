@@ -121,6 +121,10 @@ func (p Pos) Source () *Source {
 	return p.src
 }
 
+func (p Pos) SourceName () string {
+	return p.src.Name()
+}
+
 func (p Pos) Pos () int {
 	return p.pos
 }
@@ -154,6 +158,10 @@ func NewQueue () *Queue {
 
 func (q *Queue) Source () *Source {
 	return q.source
+}
+
+func (q *Queue) SourceName () string {
+	return q.source.Name()
 }
 
 func (q *Queue) Pos () int {
@@ -286,4 +294,14 @@ func (q *Queue) LineCol (pos int) (line, col int) {
 	} else {
 		return q.source.LineCol(pos)
 	}
+}
+
+func (q *Queue) Line (pos int) (res int) {
+	res, _ = q.LineCol(q.Pos())
+	return
+}
+
+func (q *Queue) Col (pos int) (res int) {
+	res, _ = q.LineCol(q.Pos())
+	return
 }
