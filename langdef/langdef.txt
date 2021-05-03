@@ -38,7 +38,7 @@ $error = /["'!].{0,10}/;
 # E.g. for Python it could be feasible to track current indentation level
 # and emit fake $begin or $end when it changes.
 # External token types will be added to token list after defined types
-# and before literal tokens in order of appearance.
+# and before literal tokens, in order of appearance.
 !extern ;
 
 # Token types that can be split into smaller parts.

@@ -1,18 +1,14 @@
-package intset
+package llx
 
-import (
-	"github.com/ava12/llx/util"
-)
-
-const intShift = util.IntSizeShift
-const intSize = util.IntSize
+const IntSizeShift = 5 + (^uint(0) >> 32 & 1)
+const IntSize = 1 << IntSizeShift
 
 type setRec struct {
 	lowItem, highItem int
 	chunks            []uint
 }
 
-type T = *setRec
+type IntSet = *setRec
 
 func countBits (chunk uint) int {
 	result := 0
@@ -23,7 +19,7 @@ func countBits (chunk uint) int {
 	return result
 }
 
-func New (items ...int) T {
+func NewIntSet (items ...int) IntSet {
 	result := &setRec{0, 0, []uint{}}
 	if len(items) > 0 {
 		result.Add(items...)
@@ -31,8 +27,8 @@ func New (items ...int) T {
 	return result
 }
 
-func FromSlice (items []int) T {
-	return New(items...)
+func FromSlice (items []int) IntSet {
+	return NewIntSet(items...)
 }
 
 func (s *setRec) ToSlice () []int {
@@ -44,7 +40,7 @@ func (s *setRec) ToSlice () []int {
 	item := s.lowItem
 	index := 0
 	for _, chunk := range s.chunks {
-		for i := intSize; i > 0; i-- {
+		for i := IntSize; i > 0; i-- {
 			if chunk & 1 != 0 {
 				result[index] = item
 				index++
@@ -57,12 +53,12 @@ func (s *setRec) ToSlice () []int {
 }
 
 func (s *setRec) baseItem (item int) int {
-	return item & ^(intSize - 1)
+	return item & ^(IntSize - 1)
 }
 
 func (s *setRec) allocate (low, high int) {
 	lowItem := s.baseItem(low)
-	highItem := s.baseItem(high) + intSize
+	highItem := s.baseItem(high) + IntSize
 	if lowItem >= s.lowItem && highItem <= s.highItem {
 		return
 	}
@@ -74,10 +70,10 @@ func (s *setRec) allocate (low, high int) {
 		highItem = s.highItem
 	}
 
-	chunkCnt := (highItem - lowItem) >> intShift
+	chunkCnt := (highItem - lowItem) >> IntSizeShift
 	chunks := make([]uint, chunkCnt)
 	if s.lowItem != 0 || s.highItem != 0 {
-		offset := (s.lowItem - lowItem) >> intShift
+		offset := (s.lowItem - lowItem) >> IntSizeShift
 		copy(chunks[offset:], s.chunks)
 	}
 	s.chunks = chunks
@@ -86,11 +82,11 @@ func (s *setRec) allocate (low, high int) {
 }
 
 func (s *setRec) chunkIndex (item int) int {
-	return (item - s.lowItem) >> intShift
+	return (item - s.lowItem) >> IntSizeShift
 }
 
 func bitMask (item int) uint {
-	return 1 << (uint(item) & (intSize - 1))
+	return 1 << (uint(item) & (IntSize - 1))
 }
 
 func (s *setRec) doSet (item int, invert bool) {
@@ -116,7 +112,7 @@ func minMax (items []int) (min, max int) {
 	return
 }
 
-func (s *setRec) Add (items ...int) T {
+func (s *setRec) Add (items ...int) IntSet {
 	if len(items) == 0 {
 		return s
 	}
@@ -129,7 +125,7 @@ func (s *setRec) Add (items ...int) T {
 	return s
 }
 
-func (s *setRec) Remove (items ...int) T {
+func (s *setRec) Remove (items ...int) IntSet {
 	if len(items) == 0 {
 		return s
 	}
@@ -150,7 +146,7 @@ func (s *setRec) Contains (item int) bool {
 	}
 }
 
-func (s *setRec) Copy () T {
+func (s *setRec) Copy () IntSet {
 	items := make([]uint, len(s.chunks))
 	copy(items, s.chunks)
 	return &setRec{s.lowItem, s.highItem, items}
@@ -170,38 +166,38 @@ func (s *setRec) IsEmpty () bool {
 	return isEmpty(s.chunks)
 }
 
-func (s *setRec) IsEqual (t T) bool {
+func (s *setRec) IsEqual (t IntSet) bool {
 	var low, high, i int
 
 	if s.lowItem < t.lowItem {
 		low = t.lowItem
-		if !isEmpty(s.chunks[: (low - s.lowItem) >> intShift]) {
+		if !isEmpty(s.chunks[: (low - s.lowItem) >>IntSizeShift]) {
 			return false
 		}
 	} else {
 		low = s.lowItem
-		if !isEmpty(t.chunks[: (low - t.lowItem) >> intShift]) {
+		if !isEmpty(t.chunks[: (low - t.lowItem) >>IntSizeShift]) {
 			return false
 		}
 	}
 
 	if s.highItem > t.highItem {
 		high = t.highItem
-		i = len(s.chunks) - ((s.highItem - high) >> intShift)
+		i = len(s.chunks) - ((s.highItem - high) >> IntSizeShift)
 		if !isEmpty(s.chunks[i :]) {
 			return false
 		}
 	} else {
 		high = s.highItem
-		i = len(t.chunks) - ((t.highItem - high) >> intShift)
+		i = len(t.chunks) - ((t.highItem - high) >> IntSizeShift)
 		if !isEmpty(t.chunks[i :]) {
 			return false
 		}
 	}
 
-	firstIndex := (low - s.lowItem) >> intShift
-	lastIndex := firstIndex + ((high - low) >> intShift)
-	offset := (low - t.lowItem) >> intShift
+	firstIndex := (low - s.lowItem) >> IntSizeShift
+	lastIndex := firstIndex + ((high - low) >> IntSizeShift)
+	offset := (low - t.lowItem) >> IntSizeShift
 	for i = firstIndex; i < lastIndex; i++ {
 		if s.chunks[i] != t.chunks[offset] {
 			return false
@@ -212,19 +208,19 @@ func (s *setRec) IsEqual (t T) bool {
 	return true
 }
 
-func (s *setRec) fill (t T) {
+func (s *setRec) fill (t IntSet) {
 	s.lowItem = t.lowItem
 	s.highItem = t.highItem
 	s.chunks = t.chunks
 }
 
-func (s *setRec) Union (t T) T {
+func (s *setRec) Union (t IntSet) IntSet {
 	s.fill(Union(s, t))
 	return s
 }
 
-func Union (s, t T) T {
-	result := New()
+func Union (s, t IntSet) IntSet {
+	result := NewIntSet()
 
 	var low, high int
 	if s.lowItem < t.lowItem {
@@ -243,9 +239,9 @@ func Union (s, t T) T {
 	}
 
 	result.allocate(low, high - 1)
-	offset := (s.lowItem - low) >> intShift
+	offset := (s.lowItem - low) >> IntSizeShift
 	copy(result.chunks[offset:], s.chunks)
-	offset = (t.lowItem - low) >> intShift
+	offset = (t.lowItem - low) >> IntSizeShift
 	for _, chunk := range t.chunks {
 		result.chunks[offset] |= chunk
 		offset++
@@ -253,13 +249,13 @@ func Union (s, t T) T {
 	return result
 }
 
-func (s *setRec) Intersect (t T) T {
+func (s *setRec) Intersect (t IntSet) IntSet {
 	s.fill(Intersect(s, t))
 	return s
 }
 
-func Intersect (s, t T) T {
-	result := New()
+func Intersect (s, t IntSet) IntSet {
+	result := NewIntSet()
 
 	var low, high int
 	if s.lowItem > t.lowItem {
@@ -278,9 +274,9 @@ func Intersect (s, t T) T {
 	}
 
 	result.allocate(low, high - 1)
-	offset := (low - s.lowItem) >> intShift
+	offset := (low - s.lowItem) >> IntSizeShift
 	copy(result.chunks, s.chunks[offset:])
-	offset = (low - t.lowItem) >> intShift
+	offset = (low - t.lowItem) >> IntSizeShift
 	for i := range result.chunks {
 		result.chunks[i] &= t.chunks[offset]
 		offset++
@@ -288,12 +284,12 @@ func Intersect (s, t T) T {
 	return result
 }
 
-func (s *setRec) Subtract (t T) T {
+func (s *setRec) Subtract (t IntSet) IntSet {
 	s.fill(Subtract(s, t))
 	return s
 }
 
-func Subtract (s, t T) T {
+func Subtract (s, t IntSet) IntSet {
 	result := s.Copy()
 
 	var low, high int
@@ -312,9 +308,9 @@ func Subtract (s, t T) T {
 		return result
 	}
 
-	offset := (low - t.lowItem) >> intShift
-	firstIndex := (low - s.lowItem) >> intShift
-	lastIndex := firstIndex + (high - low) >> intShift
+	offset := (low - t.lowItem) >> IntSizeShift
+	firstIndex := (low - s.lowItem) >> IntSizeShift
+	lastIndex := firstIndex + (high - low) >>IntSizeShift
 	for i := firstIndex; i < lastIndex; i++ {
 		result.chunks[i] &= ^t.chunks[offset]
 		offset++

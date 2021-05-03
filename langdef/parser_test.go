@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	err "github.com/ava12/llx/errors"
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/source"
 )
 
@@ -31,7 +31,7 @@ func checkErrorCode (t *testing.T, samples []string, code int) {
 			return
 		}
 
-		pe, is := e.(*err.Error)
+		pe, is := e.(*llx.Error)
 		if !is {
 			t.Error(errPrefix + ": ParseError expected, got \"" + e.Error() + "\"")
 			return
@@ -102,7 +102,7 @@ func TestWrongRe (t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected error on re /%s/", re)
 		}
-		ee, f := e.(*err.Error)
+		ee, f := e.(*llx.Error)
 
 		if !f {
 			t.Fatalf("expected ParseError on re /%s/, got: %v", re, e)

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	err "github.com/ava12/llx/errors"
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/source"
 )
 
@@ -69,7 +69,7 @@ func TestBrokenToken (t *testing.T) {
 	if tok != nil {
 		t.Fatalf("expected error, got %q token", tok.TypeName())
 	}
-	ee, f := e.(*err.Error)
+	ee, f := e.(*llx.Error)
 	if !f || ee.Code != ErrBadToken {
 		t.Fatalf("expected WrongTokenError, got %v", e)
 	}

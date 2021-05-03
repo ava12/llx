@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ava12/llx/errors"
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/examples/calc/lib"
 	"github.com/ava12/llx/parser"
 )
@@ -82,7 +82,7 @@ func main () {
 		if e == nil {
 			writeNumber(res)
 		} else {
-			ee, f := e.(*errors.Error)
+			ee, f := e.(*llx.Error)
 			if f && ee.Code == parser.UnexpectedEofError {
 				appendInput = true
 				prevInput = input

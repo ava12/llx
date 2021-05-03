@@ -1,8 +1,8 @@
 package langdef
 
 import (
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/grammar"
-	"github.com/ava12/llx/util/intset"
 )
 
 type variantChunk struct {
@@ -13,8 +13,8 @@ func newVariantChunk () *variantChunk {
 	return &variantChunk{make([]chunk, 0)}
 }
 
-func (c *variantChunk) FirstTokens () intset.T {
-	result := intset.New()
+func (c *variantChunk) FirstTokens () llx.IntSet {
+	result := llx.NewIntSet()
 	for _, ch := range c.chunks {
 		result.Union(ch.FirstTokens())
 	}
@@ -57,8 +57,8 @@ func newGroupChunk (isOptional, isRepeated bool) *groupChunk {
 	return &groupChunk {[]chunk{}, isOptional, isRepeated}
 }
 
-func (c *groupChunk) FirstTokens () intset.T {
-	result := intset.New()
+func (c *groupChunk) FirstTokens () llx.IntSet {
+	result := llx.NewIntSet()
 	for _, ch := range c.chunks {
 		result.Union(ch.FirstTokens())
 		if !ch.IsOptional() {
@@ -114,8 +114,8 @@ func newTokenChunk (t int) tokenChunk {
 	return tokenChunk(t)
 }
 
-func (c tokenChunk) FirstTokens () intset.T {
-	return intset.New(int(c))
+func (c tokenChunk) FirstTokens () llx.IntSet {
+	return llx.NewIntSet(int(c))
 }
 
 func (c tokenChunk) IsOptional () bool {
@@ -136,7 +136,7 @@ func newNonTermChunk (name string, item *nonTermItem) *nonTermChunk {
 	return &nonTermChunk{name, item}
 }
 
-func (c *nonTermChunk) FirstTokens () intset.T {
+func (c *nonTermChunk) FirstTokens () llx.IntSet {
 	return c.item.FirstTokens
 }
 

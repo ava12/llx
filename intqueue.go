@@ -1,4 +1,4 @@
-package intqueue
+package llx
 
 type queueRec struct {
 	items      []int
@@ -6,9 +6,9 @@ type queueRec struct {
 	head, tail int
 }
 
-type T = *queueRec
+type IntQueue = *queueRec
 
-func New (items ...int) T {
+func NewIntQueue (items ...int) IntQueue {
 	result := &queueRec{}
 	l := len(items)
 	if l == 0 {
@@ -59,7 +59,7 @@ func (q *queueRec) resize () {
 	q.items = items
 }
 
-func (q *queueRec) Append (item int) T {
+func (q *queueRec) Append (item int) IntQueue {
 	q.items[q.tail] = item
 	q.tail = (q.tail + 1) & q.size
 	if q.tail == q.head {
@@ -68,7 +68,7 @@ func (q *queueRec) Append (item int) T {
 	return q
 }
 
-func (q *queueRec) Prepend (item int) T {
+func (q *queueRec) Prepend (item int) IntQueue {
 	q.head = (q.head - 1) & q.size
 	q.items[q.head] = item
 	if q.head == q.tail {

@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/ava12/llx/errors"
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
@@ -68,7 +68,7 @@ func testErrorSamples (t *testing.T, name, grammar string, samples []srcErrSampl
 			continue
 		}
 
-		le, f := e.(*errors.Error)
+		le, f := e.(*llx.Error)
 		if !f {
 			t.Errorf("grammar %q, sample #%d: expecting llx error code %d, got: %s", name, i, sample.err, e.Error())
 			continue
@@ -116,12 +116,12 @@ func TestHandlerKeyErrors (t *testing.T) {
 	for i, sample := range samples {
 		_, e := parser.Parse(queue, &sample.hooks)
 		var (
-			ee *errors.Error
+			ee *llx.Error
 			code int
 			f bool
 		)
 		if e != nil {
-			ee, f = e.(*errors.Error)
+			ee, f = e.(*llx.Error)
 			if f {
 				code = ee.Code
 			}
@@ -155,7 +155,7 @@ func TestUnexpectedGroupError (t *testing.T) {
 		t.Fatal("expecting UnexpectedGroupError, got success")
 	}
 
-	ee, f := e.(*errors.Error)
+	ee, f := e.(*llx.Error)
 	if !f || ee.Code != UnexpectedGroupError {
 		t.Fatal("expecting UnexpectedGroupError, got: " + e.Error())
 	}

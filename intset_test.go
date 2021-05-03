@@ -1,4 +1,4 @@
-package intset
+package llx
 
 import (
 	"sort"
@@ -11,7 +11,7 @@ func assert (t *testing.T, cond bool) {
 	}
 }
 
-func checkItems (t *testing.T, s T, first, last int, items []int) {
+func checkItems (t *testing.T, s IntSet, first, last int, items []int) {
 	index := make(map[int]bool, len(items))
 	for _, i := range items {
 		index[i] = true
@@ -21,7 +21,7 @@ func checkItems (t *testing.T, s T, first, last int, items []int) {
 	}
 }
 
-func assertItemSuite (t *testing.T, s T, items []int, index int) {
+func assertItemSuite (t *testing.T, s IntSet, items []int, index int) {
 	sort.Ints(items)
 	slice := s.ToSlice()
 	flag := (len(slice) == len(items))
@@ -38,7 +38,7 @@ func assertItemSuite (t *testing.T, s T, items []int, index int) {
 	}
 }
 
-func assertItems (t *testing.T, s T, items []int) {
+func assertItems (t *testing.T, s IntSet, items []int) {
 	assertItemSuite(t, s, items, 0)
 }
 
@@ -49,11 +49,11 @@ func TestIntSize (t *testing.T) {
 	} else {
 		realShift = 6
 	}
-	assert(t, realShift == intShift)
+	assert(t, realShift == IntSizeShift)
 }
 
 func TestEmpty (t *testing.T) {
-	s := New()
+	s := NewIntSet()
 	assert(t, s.IsEmpty())
 	s.Add(1)
 	assert(t, !s.IsEmpty())
@@ -97,7 +97,7 @@ func TestToSlice (t *testing.T) {
 }
 
 func TestAddRemove (t *testing.T) {
-	s := New()
+	s := NewIntSet()
 	s.Add(0)
 	s.Add(1)
 	s.Add(-1)
@@ -110,13 +110,13 @@ func TestAddRemove (t *testing.T) {
 }
 
 func TestAddAll (t *testing.T) {
-	s := New(-100, -3, 100, 2)
+	s := NewIntSet(-100, -3, 100, 2)
 	s.Add(-1, 0, 1, 2, 100, -200)
 	assertItems(t, s, []int{-200, -100, -3, -1, 0, 1, 2, 100})
 }
 
 func TestRemoveAll (t *testing.T) {
-	s := New(-100, -10, -1, 0, 1, 10, 100)
+	s := NewIntSet(-100, -10, -1, 0, 1, 10, 100)
 	s.Remove(-100, -1, 0, 10)
 	assertItems(t, s, []int{-10, 1, 100})
 }
@@ -202,7 +202,7 @@ var (
 	}
 )
 
-func checkLogic (t *testing.T, expected [][]int, f func (base, extra T) T) {
+func checkLogic (t *testing.T, expected [][]int, f func (base, extra IntSet) IntSet) {
 	base := FromSlice(logicBase)
 	for index, items := range logicExtra {
 		extra := FromSlice(items)
@@ -212,40 +212,40 @@ func checkLogic (t *testing.T, expected [][]int, f func (base, extra T) T) {
 }
 
 func TestUnion (t *testing.T) {
-	checkLogic(t, logicUnion, func (s, t T) T {
+	checkLogic(t, logicUnion, func (s, t IntSet) IntSet {
 		return Union(s, t)
 	})
 }
 
 func TestUnionReverse (t *testing.T) {
-	checkLogic(t, logicUnion, func (s, t T) T {
+	checkLogic(t, logicUnion, func (s, t IntSet) IntSet {
 		return Union(t, s)
 	})
 }
 
 func TestIntersect (t *testing.T) {
-	checkLogic(t, logicIntersect, func (s, t T) T {
+	checkLogic(t, logicIntersect, func (s, t IntSet) IntSet {
 		return Intersect(s, t)
 	})
 }
 
 func TestIntersectReverse (t *testing.T) {
-	checkLogic(t, logicIntersect, func (s, t T) T {
+	checkLogic(t, logicIntersect, func (s, t IntSet) IntSet {
 		return Intersect(t, s)
 	})
 }
 
 func TestSubtract (t *testing.T) {
-	checkLogic(t, logicSubtract, func (s, t T) T {
+	checkLogic(t, logicSubtract, func (s, t IntSet) IntSet {
 		return Subtract(s, t)
 	})
 }
 
-type logicFunc = func (s, t T) T
+type logicFunc = func (s, t IntSet) IntSet
 
 func TestLogicFunctionsHaveNoSideEffects (t *testing.T) {
-	s1 := New(1, 2, 3)
-	s2 := New(3, 4, 5)
+	s1 := NewIntSet(1, 2, 3)
+	s2 := NewIntSet(3, 4, 5)
 	funcs := []logicFunc{Union, Intersect, Subtract}
 	for n, f := range funcs {
 		f(s1, s2)
@@ -255,13 +255,13 @@ func TestLogicFunctionsHaveNoSideEffects (t *testing.T) {
 }
 
 func TestLogicMethodsHaveSideEffects (t *testing.T) {
-	unionFunc := func (s, t T) T {
+	unionFunc := func (s, t IntSet) IntSet {
 		return s.Union(t)
 	}
-	intersectFunc := func (s, t T) T {
+	intersectFunc := func (s, t IntSet) IntSet {
 		return s.Intersect(t)
 	}
-	subtractFunc := func (s, t T) T {
+	subtractFunc := func (s, t IntSet) IntSet {
 		return s.Subtract(t)
 	}
 
@@ -275,8 +275,8 @@ func TestLogicMethodsHaveSideEffects (t *testing.T) {
 	}
 
 	for n, s := range samples {
-		s1 := New(1, 2, 3)
-		s2 := New(3, 4, 5)
+		s1 := NewIntSet(1, 2, 3)
+		s2 := NewIntSet(3, 4, 5)
 		r := s.f(s1, s2)
 		assertItemSuite(t, r, s.r, n)
 		assertItemSuite(t, s1, s.r, n)

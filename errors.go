@@ -1,4 +1,4 @@
-package errors
+package llx
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ type SourcePos interface {
 	Col () int
 }
 
-func New (code int, msg, name string, line, col int) *Error {
+func NewError (code int, msg, name string, line, col int) *Error {
 	if name != "" && line != 0 && col != 0 {
 		msg += fmt.Sprintf(" in %s at line %d col %d", name, line, col)
 	}
@@ -28,16 +28,16 @@ func (e *Error) Error () string {
 	return e.Message
 }
 
-func Format (code int, msg string, params ...interface{}) *Error {
+func FormatError (code int, msg string, params ...interface{}) *Error {
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
-	return New(code, msg, "", 0, 0)
+	return NewError(code, msg, "", 0, 0)
 }
 
-func FormatPos (pos SourcePos, code int, msg string, params ...interface{}) *Error {
+func FormatErrorPos (pos SourcePos, code int, msg string, params ...interface{}) *Error {
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
-	return New(code, msg, pos.SourceName(), pos.Line(), pos.Col())
+	return NewError(code, msg, pos.SourceName(), pos.Line(), pos.Col())
 }

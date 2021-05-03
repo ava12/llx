@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	err "github.com/ava12/llx/errors"
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/source"
 )
 
@@ -52,18 +52,18 @@ func (l *Lexer) Advance (size int) {
 	l.queue.Skip(size)
 }
 
-func noSourceError () *err.Error {
-	return err.New(ErrNoSource, "no source code", "", 0, 0)
+func noSourceError () *llx.Error {
+	return llx.NewError(ErrNoSource, "no source code", "", 0, 0)
 }
 
-func wrongCharError (s *source.Source, content []byte, line, col int) *err.Error {
+func wrongCharError (s *source.Source, content []byte, line, col int) *llx.Error {
 	r, _ := utf8.DecodeRune(content)
 	msg := fmt.Sprintf("wrong char \"%c\" (u+%x)", r, r)
-	return err.New(ErrWrongChar, msg, s.Name(), line, col)
+	return llx.NewError(ErrWrongChar, msg, s.Name(), line, col)
 }
 
-func wrongTokenError (t *Token) *err.Error {
-	return err.FormatPos(t, ErrBadToken, "bad token %q", t.Text())
+func wrongTokenError (t *Token) *llx.Error {
+	return llx.FormatErrorPos(t, ErrBadToken, "bad token %q", t.Text())
 }
 
 func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token, error) {

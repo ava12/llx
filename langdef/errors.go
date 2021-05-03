@@ -3,7 +3,7 @@ package langdef
 import (
 	"strings"
 
-	err "github.com/ava12/llx/errors"
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/lexer"
 )
 
@@ -25,62 +25,62 @@ const (
 	UndefinedTokenError
 )
 
-func eofError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, UnexpectedEofError, "unexpected EoF")
+func eofError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, UnexpectedEofError, "unexpected EoF")
 }
 
-func unexpectedTokenError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, UnexpectedTokenError, "unexpected %s token", token.TypeName())
+func unexpectedTokenError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, UnexpectedTokenError, "unexpected %s token", token.TypeName())
 }
 
-func tokenError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, UnknownTokenError, "unknown token %q ", token.Text())
+func tokenError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, UnknownTokenError, "unknown token %q ", token.Text())
 }
 
-func wrongTokenError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, WrongTokenError, "cannot use token %q in definitions", token.Text())
+func wrongTokenError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, WrongTokenError, "cannot use token %q in definitions", token.Text())
 }
 
-func defTokenError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, TokenDefinedError, "token %q already defined", token.Text())
+func defTokenError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, TokenDefinedError, "token %q already defined", token.Text())
 }
 
-func defNonTermError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, NonTerminalDefinedError, "non-terminal %q already defined", token.Text())
+func defNonTermError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, NonTerminalDefinedError, "non-terminal %q already defined", token.Text())
 }
 
-func regexpError (token *lexer.Token, e error) *err.Error {
-	return err.FormatPos(token, WrongRegexpError, "incorrect RegExp %s (%s)", token.Text(), e.Error())
+func regexpError (token *lexer.Token, e error) *llx.Error {
+	return llx.FormatErrorPos(token, WrongRegexpError, "incorrect RegExp %s (%s)", token.Text(), e.Error())
 }
 
-func unknownNonTermError (names []string) *err.Error {
-	return err.Format(UnknownNonTerminalError, "undefined non-terminals: " + strings.Join(names, ", "))
+func unknownNonTermError (names []string) *llx.Error {
+	return llx.FormatError(UnknownNonTerminalError, "undefined non-terminals: " + strings.Join(names, ", "))
 }
 
-func unusedNonTermError (names []string) *err.Error {
-	return err.Format(UnusedNonTerminalError, "unused non-terminals: " + strings.Join(names, ", "))
+func unusedNonTermError (names []string) *llx.Error {
+	return llx.FormatError(UnusedNonTerminalError, "unused non-terminals: " + strings.Join(names, ", "))
 }
 
-func unresolvedError (names []string) *err.Error {
-	return err.Format(UnresolvedError, "cannot resolve dependencies for non-terminals: " + strings.Join(names, ", "))
+func unresolvedError (names []string) *llx.Error {
+	return llx.FormatError(UnresolvedError, "cannot resolve dependencies for non-terminals: " + strings.Join(names, ", "))
 }
 
-func recursionError (names []string) *err.Error {
-	return err.Format(RecursionError, "found left-recursive non-terminals: " + strings.Join(names, ", "))
+func recursionError (names []string) *llx.Error {
+	return llx.FormatError(RecursionError, "found left-recursive non-terminals: " + strings.Join(names, ", "))
 }
 
-func groupNumberError (token *lexer.Token) *err.Error {
-	return err.FormatPos(token, GroupNumberError, "too many token groups")
+func groupNumberError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, GroupNumberError, "too many token groups")
 }
 
-func unresolvedGroupsError (text string) *err.Error {
-	return err.Format(UnresolvedGroupsError, "cannot detect token groups for %q literal", text)
+func unresolvedGroupsError (text string) *llx.Error {
+	return llx.FormatError(UnresolvedGroupsError, "cannot detect token groups for %q literal", text)
 }
 
-func disjointGroupsError (nonTerm string, state int, token string) *err.Error {
-	return err.Format(DisjointGroupsError, "disjoint token groups for %q non-terminal, state %d, token %q", nonTerm, state, token)
+func disjointGroupsError (nonTerm string, state int, token string) *llx.Error {
+	return llx.FormatError(DisjointGroupsError, "disjoint token groups for %q non-terminal, state %d, token %q", nonTerm, state, token)
 }
 
-func undefinedTokenError (name string) *err.Error {
-	return err.Format(UndefinedTokenError, "token %q mentioned but not defined", name)
+func undefinedTokenError (name string) *llx.Error {
+	return llx.FormatError(UndefinedTokenError, "token %q mentioned but not defined", name)
 }
