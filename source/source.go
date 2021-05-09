@@ -197,8 +197,9 @@ func (q *Queue) Append (s *Source) *Queue {
 		return q
 	}
 
-	if q.source == nil || q.source.Len() == 0 {
+	if q.eof || q.source.Len() == 0 {
 		q.source = s
+		q.pos = 0
 	} else {
 		q.buffer[q.tail] = queueItem{s, 0}
 		q.tail = (q.tail + 1) & q.size
@@ -261,6 +262,12 @@ func (q *Queue) Skip (size int) {
 	}
 }
 
+func (q *Queue) Drop () {
+	if !q.eof {
+		q.Skip(q.source.Len())
+	}
+}
+
 func (q *Queue) Rewind (size int) {
 	if q.pos <= size {
 		q.pos = 0
@@ -294,14 +301,4 @@ func (q *Queue) LineCol (pos int) (line, col int) {
 	} else {
 		return q.source.LineCol(pos)
 	}
-}
-
-func (q *Queue) Line (pos int) (res int) {
-	res, _ = q.LineCol(q.Pos())
-	return
-}
-
-func (q *Queue) Col (pos int) (res int) {
-	res, _ = q.LineCol(q.Pos())
-	return
 }

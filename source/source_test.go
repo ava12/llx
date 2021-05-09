@@ -168,7 +168,7 @@ func sourceChain (queue *Queue) []string {
 		queue.Skip(len(src))
 	}
 }
-
+/*
 func nameChain (queue *Queue) []string {
 	res := []string{}
 	for {
@@ -182,7 +182,7 @@ func nameChain (queue *Queue) []string {
 		queue.Skip(len(src))
 	}
 }
-
+*/
 func cmp (a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -264,4 +264,51 @@ func TestResizeSource (t *testing.T) {
 	queue.Append(src("c")).Append(src("d")).Append(src("e")).Append(src("f")).
 		Append(src("g")).Prepend(src("b")).Append(src("h")).Prepend(src("a"))
 	assertChain(t, []string{"a", "b", "c", "d", "e", "f", "g", "h"}, sourceChain(queue))
+}
+
+func TestDropSource (t *testing.T) {
+	sources := []string {
+		"foo",
+		"bar",
+		"baz",
+		"qux",
+	}
+	samples := []struct {
+		skip int
+		name string
+	}{
+		{1, "bar"},
+		{4, "qux"},
+	}
+
+	queue := NewQueue()
+	for _, src := range sources {
+		queue.Append(New(src, []byte(src)))
+	}
+	for _, sample := range samples {
+		queue.Skip(sample.skip)
+		queue.Drop()
+		pos := queue.SourcePos()
+		if pos.SourceName() != sample.name || pos.pos != 0 {
+			t.Fatalf("expecting %q source at pos 0, got %q at pos %d", sample.name, pos.SourceName(), pos.pos)
+		}
+	}
+}
+
+func TestAddSourceAfterEof (t *testing.T) {
+	queue := NewQueue().Append(New("dropped", []byte("-")))
+	queue.Drop()
+	queue.Append(New("appended", []byte("foo")))
+	pos := queue.SourcePos()
+	if pos.SourceName() != "appended" || pos.pos != 0 {
+		t.Errorf("expecting appended source pos 0, got %s source pos %d", pos.SourceName(), pos.pos)
+	}
+
+	queue = NewQueue().Append(New("dropped", []byte("-")))
+	queue.Drop()
+	queue.Prepend(New("prepended", []byte("bar")))
+	pos = queue.SourcePos()
+	if pos.SourceName() != "prepended" || pos.pos != 0 {
+		t.Errorf("expecting prepended source pos 0, got %s source pos %d", pos.SourceName(), pos.pos)
+	}
 }
