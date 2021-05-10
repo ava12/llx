@@ -70,7 +70,7 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 	content = content[pos :]
 	match := l.re.FindSubmatchIndex(content)
 	if len(match) == 0 || match[0] != 0 || match[1] <= match[0] {
-		line, col := l.queue.LineCol(0)
+		line, col := l.queue.LineCol(pos)
 		return nil, wrongCharError(src, content, line, col)
 	}
 

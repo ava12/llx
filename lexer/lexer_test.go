@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -171,5 +172,48 @@ func TestShrinkToken (t *testing.T) {
 	tok, e = lexer.Shrink(tok)
 	if tok != nil || e != nil {
 		t.Fatalf("expecting nil, nil for single char token, got: %v, %v", tok, e)
+	}
+}
+
+func TestErrorPos (t *testing.T) {
+	re := regexp.MustCompile("(\\s+)|(\\w+)|(<\\w+>)|(<.+)")
+	types := []TokenType{
+		{0, "space"},
+		{1, "word"},
+		{2, "tag"},
+		{ErrorTokenType, ""},
+	}
+	samples := []struct {
+		src string
+		err, line, col int
+	}{
+		{"foo\n<bar> &baz", ErrWrongChar, 2, 7},
+		{"foo\n <bar\nbaz", ErrBadToken, 2, 2},
+	}
+	q := source.NewQueue()
+	l := New(re, types, q)
+	for i, s := range samples {
+		q.Drop()
+		q.Append(source.New("src", []byte(s.src)))
+		tok, e := l.Next()
+		for e == nil && tok != nil {
+			tok, e = l.Next()
+		}
+
+		if e == nil {
+			t.Errorf("sample %d: expecting an error, got EoF", i)
+			continue
+		}
+
+		ee, f := e.(*llx.Error)
+		if !f {
+			t.Errorf("sample %d: expecting *llx.Error, got: %s", i, e)
+			continue
+		}
+
+		tail := fmt.Sprintf("line %d col %d", s.line, s.col)
+		if ee.Code != s.err || !strings.HasSuffix(ee.Message, tail) {
+			t.Errorf("sample %d: expecting err %d at line %d col %d, got: %s", i, s.err, s.line, s.col, ee.Message)
+		}
 	}
 }
