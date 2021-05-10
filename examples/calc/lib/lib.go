@@ -2,8 +2,6 @@
 package lib
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"strconv"
 
@@ -13,19 +11,49 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-type function struct {
-	argNames []string
-	body expr
+const (
+	UnknownVarError = iota + 301
+	UnknownFuncError
+	WrongArgNumberError
+	ArgDefinedError
+	UnexpectedInputError
+)
+
+func unknownVarError (name string) *llx.Error {
+	return llx.FormatError(UnknownVarError, "unknown variable: %s", name)
 }
 
-func newFunc (body expr, argNames ... string) *function {
-	return &function{argNames, body}
+func unknownFuncError (name string) *llx.Error {
+	return llx.FormatError(UnknownFuncError, "unknown function: %s", name)
+}
+
+func wrongArgNumberError (name string, expected, got int) *llx.Error {
+	return llx.FormatError(WrongArgNumberError,"wrong number of arguments for %s: expecting %d, got %d", name, expected, got)
+}
+
+func argDefinedError (name string) *llx.Error {
+	return llx.FormatError(ArgDefinedError, "argument %s already defined", name)
+}
+
+func unexpectedInputError (pos llx.SourcePos, text string) *llx.Error {
+	return llx.FormatErrorPos(pos, UnexpectedInputError, "unexpected %q", text)
+}
+
+
+type function struct {
+	name     string
+	argNames []string
+	body     expr
+}
+
+func newFunc (name string, body expr, argNames ... string) *function {
+	return &function{name, argNames, body}
 }
 
 func (f *function) call (c *context, args []float64) (float64, error) {
 	argc := len(args)
 	if argc != len(f.argNames) {
-		return 0.0, fmt.Errorf("wrong number of arguments: expecting %d, got %d", len(f.argNames), argc)
+		return 0.0, wrongArgNumberError(f.name, len(f.argNames), argc)
 	}
 
 	newc := newContext(c)
@@ -52,7 +80,7 @@ func (c *context) variable (name string) (res float64, e error) {
 		if c.parent != nil {
 			res, e = c.parent.variable(name)
 		} else {
-			e = errors.New("unknown variable: " + name)
+			e = unknownVarError(name)
 		}
 	}
 	return
@@ -65,7 +93,7 @@ func (c *context) function (name string) (res *function, e error) {
 		if c.parent != nil {
 			res, e = c.parent.function(name)
 		} else {
-			e = errors.New("unknown function: " + name)
+			e = unknownFuncError(name)
 		}
 	}
 	return
@@ -95,14 +123,14 @@ func (n number) Compute (*context) (float64, error) {
 
 
 type opVal struct {
-	op rune
+	op    rune
 	value expr
 }
 
 type chain struct {
 	defaultOp, lastOp rune
-	value float64
-	opVals []opVal
+	value             float64
+	opVals            []opVal
 }
 
 func newChain (defaultOp rune) *chain {
@@ -240,7 +268,7 @@ func (v *varName) Compute (c *context) (float64, error) {
 
 
 type assignment struct {
-	name string
+	name  string
 	value expr
 }
 
@@ -280,9 +308,9 @@ func (a *assignment) EndNonTerm () (result interface{}, e error) {
 
 
 type funcDef struct {
-	name string
-	argNames []string
-	body expr
+	name      string
+	argNames  []string
+	body      expr
 	nameIndex map[string]bool
 }
 
@@ -295,7 +323,7 @@ func (fd *funcDef) IsNumber () bool {
 }
 
 func (fd *funcDef) Compute (c *context) (res float64, e error) {
-	c.functions[fd.name] = newFunc(fd.body, fd.argNames...)
+	c.functions[fd.name] = newFunc(fd.name, fd.body, fd.argNames...)
 	return 0.0, nil
 }
 
@@ -322,7 +350,7 @@ func (fd *funcDef) HandleToken (token *lexer.Token) (e error) {
 	}
 
 	if fd.nameIndex[name] {
-		return fmt.Errorf("argument %q already defined", name)
+		return argDefinedError(name)
 	}
 
 	fd.argNames = append(fd.argNames, token.Text())
@@ -483,7 +511,7 @@ func Compute (text string) (float64, error) {
 	x, e := calcParser.Parse(q, hooks)
 	if e == nil && !q.IsEmpty() {
 		p := q.SourcePos()
-		e = llx.FormatErrorPos(p, -1, "unexpected %q", string(p.Source().Content()[p.Pos() :]))
+		e = unexpectedInputError(p, string(p.Source().Content()[p.Pos() :]))
 	}
 
 	if e == nil {
