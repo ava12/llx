@@ -312,3 +312,25 @@ func TestAddSourceAfterEof (t *testing.T) {
 		t.Errorf("expecting prepended source pos 0, got %s source pos %d", pos.SourceName(), pos.pos)
 	}
 }
+
+func TestNormalizeNls (t *testing.T) {
+	samples := []struct {
+		src, res string
+	}{
+		{"foo bar\tbaz", "foo bar\tbaz"},
+		{"\nfoo\nbar\n\nbaz\n", "\nfoo\nbar\n\nbaz\n"},
+		{"\rfoo\rbar\r\rbaz\r", "\nfoo\nbar\n\nbaz\n"},
+		{"\r\nfoo\r\nbar\r\n\r\nbaz\r\n", "\nfoo\nbar\n\nbaz\n"},
+		{"\r\nfoo\nbar\r\r\nbaz\r\n", "\nfoo\nbar\n\nbaz\n"},
+		{"\n\r\r\r\n\n\n\r\n\r", "\n\n\n\n\n\n\n\n"},
+	}
+
+	for i, s := range samples {
+		c := []byte(s.src)
+		NormalizeNls(&c)
+		cs := string(c)
+		if cs != s.res {
+			t.Errorf("sample #%d: expecting %q, got %q", i, s.res, cs)
+		}
+	}
+}

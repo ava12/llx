@@ -302,3 +302,42 @@ func (q *Queue) LineCol (pos int) (line, col int) {
 		return q.source.LineCol(pos)
 	}
 }
+
+
+func NormalizeNls (content *[]byte) {
+	const (
+		LF = 10
+		CR = 13
+	)
+
+	wPos := 0
+	rPos := 0
+	crFound := false
+
+	for i, b := range *content {
+		switch b {
+		case LF:
+			if crFound {
+				crFound = false
+				if rPos != 0 {
+					copy((*content)[wPos :], (*content)[rPos : i])
+				}
+				wPos += i - rPos
+				rPos = i + 1
+			}
+
+		case CR:
+			crFound = true
+			(*content)[i] = LF
+
+		default:
+			crFound = false
+		}
+	}
+
+	l := len(*content)
+	if rPos != 0 && rPos < l {
+		copy((*content)[wPos :], (*content)[rPos : l])
+	}
+	*content = (*content)[ : l - rPos + wPos]
+}
