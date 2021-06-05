@@ -464,11 +464,16 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	}
 
 	indexes := make([]int, 0, 3)
-	index, f := pc.parser.names[literalKey(t.Text())]
+	literal := t.Text()
+	tt := t.Type()
+	if tt >= 0 && pc.parser.grammar.Tokens[tt].Flags & grammar.CaselessToken != 0 {
+		literal = strings.ToUpper(literal)
+	}
+	index, f := pc.parser.names[literalKey(literal)]
 	if f {
 		indexes = append(indexes, index)
 	}
-	indexes = append(indexes, t.Type(), grammar.AnyToken)
+	indexes = append(indexes, tt, grammar.AnyToken)
 	for _, index = range indexes {
 		r, f := s.Rules[index]
 		if f {

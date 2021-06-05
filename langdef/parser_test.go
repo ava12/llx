@@ -155,6 +155,7 @@ func TestGroupNumberError (t *testing.T) {
 func TestUnresolvedGroupsError (t *testing.T) {
 	samples := []string{
 		"$num = /\\d+/; $op = /[*\\/+-]/; g = 'x' | $num, $op, $num;",
+		"!caseless $key; $key = /\\w+/; g = 'x', $key;",
 	}
 	checkErrorCode(t, samples, UnresolvedGroupsError)
 }
@@ -183,7 +184,7 @@ func TestEmptyRepeatableError (t *testing.T) {
 func TestNoError (t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		toks + "!aside; !extern; !error; !shrink; !group; !literal; foo = 'foo';",
+		toks + "!aside; !extern; !error; !shrink; !group; !literal; !caseless; foo = 'foo';",
 		"!aside $space; !group $space $name; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 	}

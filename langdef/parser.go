@@ -3,6 +3,7 @@ package langdef
 import (
 	"math/bits"
 	"regexp"
+	"strings"
 
 	"github.com/ava12/llx"
 	"github.com/ava12/llx/grammar"
@@ -139,7 +140,7 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 		"\\s+|#.*?(?:\\n|$)|" +
 		"((?:\".*?\")|(?:'.*?'))|" +
 		"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
-		"(!(?:aside|error|extern|shrink)\\b)|" +
+		"(!(?:aside|caseless|error|extern|shrink)\\b)|" +
 		"(!literal\\b)|" +
 		"(!group\\b)|" +
 		"(\\$[a-zA-Z_][a-zA-Z_0-9-]*)|" +
@@ -382,6 +383,8 @@ func parseDir (name string, c *parseContext) error {
 	switch name {
 	case "!aside":
 		flag = grammar.AsideToken
+	case "!caseless":
+		flag = grammar.CaselessToken
 	case "!extern":
 		flag = grammar.ExternalToken
 	case "!error":
@@ -473,11 +476,7 @@ func parseNonTermDef (name string, c *parseContext) error {
 	e := skipOne(c.l, equTok, nil)
 	e = parseGroup(name, nt.Chunk, c, e)
 	e = skipOne(c.l, semicolonTok, e)
-	if e != nil {
-		return e
-	}
-
-	return nil
+	return e
 }
 
 func parseGroup (name string, group complexChunk, c *parseContext, e error) error {
@@ -793,18 +792,18 @@ func assignTokenGroups (g *grammar.Grammar, e error) error {
 	}
 
 	var (
-		rcnt, groups int
+		rcnt, allGroups int
 	)
 	res := make([]*regexp.Regexp, 0, len(g.Tokens))
 	ts := g.Tokens
 	for rcnt = 0; rcnt < len(g.Tokens) && ts[rcnt].Re != ""; rcnt++ {
 		res = append(res, regexp.MustCompile(ts[rcnt].Re))
-		groups |= ts[rcnt].Groups
+		allGroups |= ts[rcnt].Groups
 	}
 
 	rts := ts[: rcnt]
 	lts := ts[rcnt :]
-	defaultGroups := 1 << bits.Len(uint(groups))
+	defaultGroups := 1 << bits.Len(uint(allGroups))
 	for i, rt := range rts {
 		if rt.Groups == 0 {
 			rts[i].Groups = defaultGroups
@@ -812,8 +811,9 @@ func assignTokenGroups (g *grammar.Grammar, e error) error {
 	}
 
 	for i, lt := range lts {
+		caseless := (lt.Name == strings.ToUpper(lt.Name))
 		for j, rt := range rts {
-			if res[j].FindString(lt.Name) == lt.Name {
+			if (rt.Flags & grammar.CaselessToken == 0 || caseless) && res[j].FindString(lt.Name) == lt.Name {
 				lts[i].Groups |= rt.Groups
 			}
 		}

@@ -378,3 +378,13 @@ func TestRepeatAndOptionalMix (t *testing.T) {
 		testGrammarSamples(t, name + strconv.Itoa(i), s.grammar, []srcExprSample{{s.src, s.res}}, false)
 	}
 }
+
+func TestCaselessTokens (t *testing.T) {
+	name := "caseless tokens"
+	grammar := spaceDef + "$name = /\\w+/; !caseless $name; " +
+		"g = {[key], $name}; key = 'FOO' | 'BAR';"
+	samples := []srcExprSample{
+		{"foo BAR BAZ Bar foo FOO qux", "(key foo) BAR BAZ (key Bar) foo (key FOO) qux"},
+	}
+	testGrammarSamples(t, name, grammar, samples, false)
+}

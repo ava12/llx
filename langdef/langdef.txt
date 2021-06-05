@@ -15,7 +15,7 @@ $space = /[ \r\n\t\f]+/;
 $comment = /#.*?(?:\n|$)/;
 $string = /(?:".*?")|(?:'.*?')/;
 $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
-$type-dir = /!(?:aside|error|extern|group|shrink)\b/;
+$type-dir = /!(?:aside|caseless|error|extern|group|shrink)\b/;
 $literal-dir = /!literal\b/;
 $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
 $regexp = /\/(?:[^\\\/]|\\.)+\//;
@@ -34,22 +34,20 @@ $error = /["'!].{0,10}/;
 # E.g. line endings may be hooked to generate semicolons for JavaScript or Go.
 !aside $space $comment;
 
+# Case-insensitive token types, e. g. SQL keywords. Parser converts
+# caseless token text to uppercase before comparing it with a literal.
+!caseless ;
+
+# "Token" types indicating lexical errors, e. g. unmatched opening quote.
+# Can be used for more descriptive error messages.
+!error $error;
+
 # Token types that are not defined in grammar, but may be emitted by hooks.
 # E.g. for Python it could be feasible to track current indentation level
 # and emit fake $begin or $end when it changes.
 # External token types will be added to token list after defined types
 # and before literal tokens, in order of appearance.
 !extern ;
-
-# Token types that can be split into smaller parts.
-# By default lexer captures the longest possible character sequence
-# that matches a valid token, but sometimes it should capture a shorter one.
-# E. g. in C++ templates ">>" sequence should be split in ">" operators.
-!shrink ;
-
-# "Token" types indicating lexical errors, e. g. unmatched opening quote.
-# Can be used for more descriptive error messages.
-!error $error;
 
 # Define a separate group of token types. Empty lists are ignored.
 # Each directive defines a new group, all remaining tokens form
@@ -68,6 +66,12 @@ $error = /["'!].{0,10}/;
 # All literal tokens used in grammar rules but not listed with this directive
 # will be added to the end of token list.
 !literal ;
+
+# Token types that can be split into smaller parts.
+# By default lexer captures the longest possible character sequence
+# that matches a valid token, but sometimes it should capture a shorter one.
+# E. g. in C++ templates ">>" sequence should be split in ">" operators.
+!shrink ;
 
 
 # Non-terminal definitions. The first one is the root.

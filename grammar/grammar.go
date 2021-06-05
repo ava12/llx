@@ -75,6 +75,10 @@ const (
 
 	// ShrinkableToken is a token that can be split in smaller parts if there is no suitable rule.
 	ShrinkableToken
+
+	// CaselessToken text consists of case-insensitive symbols.
+	// Parser converts its text to uppercase before comparing it with a literal.
+	CaselessToken
 )
 
 // NonTerm contains information about some non-terminal.
