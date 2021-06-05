@@ -173,6 +173,13 @@ func TestUndefinedTokenError (t *testing.T) {
 	checkErrorCode(t, samples, UndefinedTokenError)
 }
 
+func TestEmptyRepeatableError (t *testing.T) {
+	samples := []string{
+		"$d = /\\d/; $s = /[a-z]/; g = {[$s], [$d]};",
+	}
+	checkErrorCode(t, samples, EmptyRepeatableError)
+}
+
 func TestNoError (t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",

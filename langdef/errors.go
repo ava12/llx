@@ -23,6 +23,7 @@ const (
 	UnresolvedGroupsError
 	DisjointGroupsError
 	UndefinedTokenError
+	EmptyRepeatableError
 )
 
 func eofError (token *lexer.Token) *llx.Error {
@@ -83,4 +84,8 @@ func disjointGroupsError (nonTerm string, state int, token string) *llx.Error {
 
 func undefinedTokenError (name string) *llx.Error {
 	return llx.FormatError(UndefinedTokenError, "token %q mentioned but not defined", name)
+}
+
+func emptyRepeatableError (nonTerm string) *llx.Error {
+	return llx.FormatError(EmptyRepeatableError, "%q non-terminal: cannot accept repeating group with potentially empty body", nonTerm)
 }

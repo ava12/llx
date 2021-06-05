@@ -1,10 +1,10 @@
 package langdef
 
 import (
-	"github.com/ava12/llx"
 	"math/bits"
 	"regexp"
 
+	"github.com/ava12/llx"
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
@@ -20,7 +20,7 @@ const (
 type chunk interface {
 	FirstTokens () llx.IntSet
 	IsOptional () bool
-	BuildStates (g *grammar.Grammar, stateIndex, nextIndex int)
+	BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) error
 }
 
 type complexChunk interface {
@@ -724,7 +724,15 @@ func buildStates (g *grammar.Grammar, nti nonTermIndex, e error) error {
 		})
 		item := nti[nt.Name]
 		g.NonTerms[i].FirstState = firstState
-		item.Chunk.BuildStates(g, firstState, grammar.FinalState)
+		e = item.Chunk.BuildStates(g, firstState, grammar.FinalState)
+		if e != nil {
+			ee, f := e.(*llx.Error)
+			if f && ee.Code == EmptyRepeatableError {
+				e = emptyRepeatableError(nt.Name)
+			}
+			return e
+		}
+
 		for i, state := range g.States[firstState :] {
 			if len(state.Rules) == 0 {
 				g.States[i + firstState].Rules = nil

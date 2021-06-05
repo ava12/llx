@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/ava12/llx"
@@ -359,4 +360,21 @@ func TestResolveAnyTokenEof (t *testing.T) {
 		{"foo(", UnexpectedEofError},
 	}
 	testErrorSamples(t, name, grammar, samples)
+}
+
+func TestRepeatAndOptionalMix (t *testing.T) {
+	name := "repeat * optional #"
+	tokens := "$d = /[0-9]/; $s = /[a-z]/; $c = /[A-Z]/; "
+	samples := []struct {
+		grammar, src, res string
+	}{
+		{tokens + "g = {[$d], $s};", "1ab2c", "1 a b 2 c"},
+		{tokens + "g = {$d, [$s]};", "1a23b", "1 a 2 3 b"},
+		{tokens + "g = [{$d}, $s], $c;", "12A", "1 2 A"},
+		{tokens + "g = [[$d], $s], $c;", "1A", "1 A"},
+	}
+
+	for i, s := range samples {
+		testGrammarSamples(t, name + strconv.Itoa(i), s.grammar, []srcExprSample{{s.src, s.res}}, false)
+	}
 }
