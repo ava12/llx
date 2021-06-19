@@ -1,5 +1,5 @@
 //go:generate llxgen grammar.llx
-package lib
+package internal
 
 import (
 	"math"

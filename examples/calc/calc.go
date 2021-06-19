@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/ava12/llx"
-	"github.com/ava12/llx/examples/calc/lib"
+	"github.com/ava12/llx/examples/calc/internal"
 	"github.com/ava12/llx/parser"
 )
 
@@ -83,7 +83,7 @@ func main () {
 			appendInput = false
 		}
 
-		res, e := lib.Compute(input)
+		res, e := internal.Compute(input)
 		if e == nil {
 			writeNumber(res)
 		} else {

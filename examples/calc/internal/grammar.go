@@ -1,5 +1,5 @@
 // Code generated with llxgen.
-package lib
+package internal
 
 import "github.com/ava12/llx/grammar"
 
