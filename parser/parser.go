@@ -356,10 +356,12 @@ func (pc *ParseContext) parse () (interface{}, error) {
 
 	if !tokenConsumed {
 		s := tok.Source()
-		if s != pc.queue.Source() {
-			pc.queue.Prepend(s)
+		if s != nil {
+			if s != pc.queue.Source() {
+				pc.queue.Prepend(s)
+			}
+			pc.queue.Seek(s.Pos(tok.Line(), tok.Col()))
 		}
-		pc.queue.Seek(s.Pos(tok.Line(), tok.Col()))
 	}
 
 	return pc.lastResult, nil
