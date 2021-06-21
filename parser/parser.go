@@ -137,11 +137,12 @@ func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error
 }
 
 type nonTermRec struct {
-	prev  *nonTermRec
-	hook  NonTermHookInstance
-	group int
-	index int
-	state int
+	prev   *nonTermRec
+	hook   NonTermHookInstance
+	asides []*lexer.Token
+	group  int
+	index  int
+	state  int
 }
 
 type ParseContext struct {
@@ -231,6 +232,11 @@ func (pc *ParseContext) EmitToken (t *lexer.Token) error {
 
 
 func (pc *ParseContext) pushNonTerm (index int) error {
+	e := pc.ntHandleAsides()
+	if e != nil {
+		return e
+	}
+
 	gr := pc.parser.grammar
 	nt := gr.NonTerms[index]
 	hook, e := pc.getNonTermHook(index)
@@ -238,7 +244,7 @@ func (pc *ParseContext) pushNonTerm (index int) error {
 		return e
 	}
 
-	pc.nonTerm = &nonTermRec{pc.nonTerm, hook, gr.States[nt.FirstState].Group, index, nt.FirstState}
+	pc.nonTerm = &nonTermRec{pc.nonTerm, hook, nil, gr.States[nt.FirstState].Group, index, nt.FirstState}
 	return nil
 }
 
@@ -248,8 +254,20 @@ func (pc *ParseContext) popNonTerm () error {
 		res interface{}
 	)
 
+	asides := pc.nonTerm.asides
+	pc.nonTerm.asides = nil
+
 	for e == nil && pc.nonTerm != nil && pc.nonTerm.state == grammar.FinalState {
 		nt := pc.nonTerm
+		if nt.prev == nil {
+			for _, t := range asides {
+				e = nt.hook.HandleToken(t)
+			}
+			if e != nil {
+				return e
+			}
+		}
+
 		pc.nonTerm = nt.prev
 		res, e = nt.hook.EndNonTerm()
 		pc.lastResult = res
@@ -260,6 +278,10 @@ func (pc *ParseContext) popNonTerm () error {
 		if e == nil {
 			e = pc.nonTerm.hook.HandleNonTerm(pc.parser.grammar.NonTerms[nt.index].Name, res)
 		}
+	}
+
+	if e == nil && pc.nonTerm != nil {
+		pc.nonTerm.asides = asides
 	}
 
 	return e
@@ -341,7 +363,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			if !sameNonTerm {
 				e = pc.pushNonTerm(rule.nonTerm)
 			} else if tokenConsumed {
-				e = pc.nonTerm.hook.HandleToken(tok)
+				e = pc.ntHandleToken(tok)
 			}
 
 			if e == nil && pc.nonTerm.state == grammar.FinalState {
@@ -593,4 +615,35 @@ func (pc *ParseContext) isAsideToken (t *lexer.Token) bool {
 	tokens := pc.parser.grammar.Tokens
 	i := t.Type()
 	return (i >= 0 && i < len(tokens) && tokens[i].Flags & grammar.AsideToken != 0)
+}
+
+func (pc *ParseContext) ntHandleAsides () (res error) {
+	ntr := pc.nonTerm
+	if ntr == nil || ntr.asides == nil {
+		return nil
+	}
+
+	for _, t := range ntr.asides {
+		res = ntr.hook.HandleToken(t)
+		if res != nil {
+			break
+		}
+	}
+	if res == nil {
+		ntr.asides = nil
+	}
+	return
+}
+
+func (pc *ParseContext) ntHandleToken (tok *lexer.Token) (res error) {
+	ntr := pc.nonTerm
+	if pc.isAsideToken(tok) {
+		ntr.asides = append(ntr.asides, tok)
+	} else {
+		res = pc.ntHandleAsides()
+		if res == nil {
+			res = ntr.hook.HandleToken(tok)
+		}
+	}
+	return
 }

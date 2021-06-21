@@ -16,7 +16,7 @@ type branch struct {
 }
 
 func createBranches (pc *ParseContext, nt *nonTermRec, ars []appliedRule) *branch {
-	ntCopy := &nonTermRec{nil, nil, nt.group, nt.index, nt.state}
+	ntCopy := &nonTermRec{nil, nil, nil, nt.group, nt.index, nt.state}
 	result := &branch{nil, 1, pc, []appliedRule{ars[0]}, nil, ntCopy, false}
 	result.split(ars)
 	return result
@@ -35,7 +35,7 @@ func (b *branch) split (ars []appliedRule) {
 		} else {
 			nars[ruleCnt - 1] = ars[i]
 		}
-		ntCopy := &nonTermRec{nt.prev, nil, nt.group, nt.index, nt.state}
+		ntCopy := &nonTermRec{nt.prev, nil, nil, nt.group, nt.index, nt.state}
 		current := &branch{prev.next, b.index + i, b.pc, nars, b.ntTree, ntCopy, false}
 		prev.next = current
 		prev = current
@@ -92,7 +92,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 				if ntr == nil {
 					b.nonTerm = nil
 				} else {
-					b.nonTerm = &nonTermRec{ntr.prev, nil, ntr.group, ntr.index, ntr.state}
+					b.nonTerm = &nonTermRec{ntr.prev, nil, nil, ntr.group, ntr.index, ntr.state}
 					b.ntTree = ntr.prev
 				}
 			}
@@ -110,7 +110,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 			gr := b.pc.parser.grammar
 			nt := gr.NonTerms[ar.nonTerm]
 			b.ntTree = b.nonTerm
-			b.nonTerm = &nonTermRec{b.nonTerm, nil, gr.States[nt.FirstState].Group, ar.nonTerm, nt.FirstState}
+			b.nonTerm = &nonTermRec{b.nonTerm, nil, nil, gr.States[nt.FirstState].Group, ar.nonTerm, nt.FirstState}
 		}
 	}
 

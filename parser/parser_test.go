@@ -388,3 +388,15 @@ func TestCaselessTokens (t *testing.T) {
 	}
 	testGrammarSamples(t, name, grammar, samples, false)
 }
+
+func TestTrailingAsides (t *testing.T) {
+	name := "(non)trailing aside tokens"
+	grammar := "!aside $space; $space = /-/; $char = /[a-z]/; $digit = /\\d/; $op = /\\[|\\]/; " +
+		"g = {ch | di | bl}; ch = $char, [$digit]; di = $digit; bl = '[', {ch | di | bl}, ']';"
+	samples := []srcExprSample{
+		{"--a--1--", "- - (ch a - - 1) - -"},
+		{"--a--b--", "- - (ch a) - - (ch b) - -"},
+		{"-[-a-1-[-b-]-]-", "- (bl [ - (ch a - 1) - (bl [ - (ch b) - ] ) - ] ) -"},
+	}
+	testGrammarSamples(t, name, grammar, samples, true)
+}
