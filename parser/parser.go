@@ -145,6 +145,10 @@ type nonTermRec struct {
 	state  int
 }
 
+type appliedRule struct {
+	token, state, nonTerm int
+}
+
 type ParseContext struct {
 	parser       *Parser
 	lexers       []*lexer.Lexer
@@ -152,6 +156,8 @@ type ParseContext struct {
 	tokenHooks   []TokenHook
 	nonTermHooks []NonTermHook
 	tokens       []*lexer.Token
+	appliedRules []appliedRule
+	tokenError   error
 	lastResult   interface{}
 	nonTerm      *nonTermRec
 }
@@ -169,6 +175,7 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
 		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
 		tokens:       make([]*lexer.Token, 0),
+		appliedRules: make([]appliedRule, 0),
 	}
 
 	for i, lr := range p.lexers {
@@ -287,10 +294,6 @@ func (pc *ParseContext) popNonTerm () error {
 	return e
 }
 
-type appliedRule struct {
-	token, state, nonTerm int
-}
-
 const repeatState = -128
 
 
@@ -298,57 +301,37 @@ func (pc *ParseContext) parse () (interface{}, error) {
 	var (
 		tok *lexer.Token
 		e error
+		tokenConsumed bool
 	)
 	gr := pc.parser.grammar
-	tokenConsumed := true
+
 	for pc.nonTerm != nil {
-		if tokenConsumed {
-			tok, e = pc.nextToken(pc.nonTerm.group)
-			tokenConsumed = false
-			if e != nil {
-				return nil, e
-			}
-		}
-
-		nt := pc.nonTerm
-		rules := pc.findRules(tok, gr.States[nt.state])
-		if rules == nil {
-			shrunk, e := pc.shrinkToken(tok, nt.group)
-			if e != nil {
-				return nil, e
-			}
-
-			if shrunk {
-				tokenConsumed = true
-				continue
-			}
-
-			expected := pc.getExpectedToken(gr.States[nt.state])
-			if tok.Type() == lexer.EofTokenType {
-				e = unexpectedEofError(tok, expected)
-			} else {
-				e = unexpectedTokenError(tok, expected)
-			}
+		tok, e = pc.nextToken(pc.nonTerm.group)
+		tokenConsumed = false
+		if e != nil {
 			return nil, e
 		}
 
-		if len(rules) > 1 {
-			rules = pc.resolve(tok, rules)
-			tokenConsumed = true
-		} else {
-			tokenConsumed = false
-		}
-
-		for _, rule := range rules {
-			if tokenConsumed {
-				tok, e = pc.nextToken(pc.nonTerm.group)
+		for !tokenConsumed && pc.nonTerm != nil {
+			nt := pc.nonTerm
+			rule, found := pc.nextRule(tok, gr.States[nt.state])
+			if !found {
+				shrunk, e := pc.shrinkToken(tok, nt.group)
 				if e != nil {
 					return nil, e
 				}
 
-				if tok.Type() == lexer.EofTokenType {
-					tokenConsumed = false
+				if shrunk {
+					break
 				}
+
+				expected := pc.getExpectedToken(gr.States[nt.state])
+				if tok.Type() == lexer.EofTokenType {
+					e = unexpectedEofError(tok, expected)
+				} else {
+					e = unexpectedTokenError(tok, expected)
+				}
+				return nil, e
 			}
 
 			sameNonTerm := (rule.nonTerm == grammar.SameNonTerm)
@@ -376,7 +359,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		}
 	}
 
-	if !tokenConsumed {
+	if !tokenConsumed && tok.Type() != lexer.EofTokenType {
 		s := tok.Source()
 		if s != nil {
 			if s != pc.queue.Source() {
@@ -405,7 +388,7 @@ func (pc *ParseContext) shrinkToken (tok *lexer.Token, group int) (bool, error) 
 	return (res != nil), e
 }
 
-func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedRule {
+func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) ([]*lexer.Token, []appliedRule) {
 	liveBranch := createBranches(pc, pc.nonTerm, ars)
 	tokens := make([]*lexer.Token, 0)
 	pc.tokens = append([]*lexer.Token{tok}, pc.tokens...)
@@ -417,8 +400,7 @@ func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedR
 		survivors := 0
 		tok, e := pc.nextToken(liveBranch.nextGroup())
 		if e != nil || tok == nil {
-			pc.tokens = append(pc.tokens, tokens...)
-			return liveBranch.applied
+			return tokens, liveBranch.applied
 		}
 
 		tokens = append(tokens, tok)
@@ -457,8 +439,7 @@ func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) []appliedR
 				}
 			}
 
-			pc.tokens = append(tokens, pc.tokens...)
-			return liveBranch.applied
+			return tokens, liveBranch.applied
 		}
 	}
 }
@@ -544,8 +525,36 @@ func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 				result = nil
 			}
 		}
+	} else if pc.tokenError != nil {
+		e = pc.tokenError
 	} else {
 		result, e = pc.fetchToken(group)
+	}
+
+	return
+}
+
+func (pc *ParseContext) nextRule (t *lexer.Token, s grammar.State) (r appliedRule, found bool) {
+	if len(pc.appliedRules) > 0 {
+		r = pc.appliedRules[0]
+		found = true
+		pc.appliedRules = pc.appliedRules[1:]
+		return
+	}
+
+	rules := pc.findRules(t, s)
+	if len(rules) == 0 {
+		return
+	}
+
+	found = true
+	if len(rules) == 1 {
+		r = rules[0]
+	} else {
+		tokens, rules := pc.resolve(t, rules)
+		r = rules[0]
+		pc.tokens = append(tokens[1 :], pc.tokens...)
+		pc.appliedRules = rules[1 :]
 	}
 
 	return
@@ -583,13 +592,17 @@ func (pc *ParseContext) handleToken (tok *lexer.Token) error {
 	}
 
 	emit, e := h(tok, pc)
-	if e != nil {
-		return e
-	}
-
 	if emit || tt < 0 {
 		pc.tokens = append(pc.tokens, tok)
 	}
+	if e != nil {
+		if len(pc.tokens) > 0 {
+			pc.tokenError = e
+		} else {
+			return e
+		}
+	}
+
 	return nil
 }
 
