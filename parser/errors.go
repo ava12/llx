@@ -13,6 +13,7 @@ const (
 	UnknownTokenTypeError
 	UnknownTokenLiteralError
 	UnknownNonTermError
+	IncludeUnresolvedError
 )
 
 func unexpectedEofError (t *lexer.Token, expected string) *llx.Error {
@@ -45,4 +46,8 @@ func unknownTokenLiteralError (text string) *llx.Error {
 
 func unknownNonTermError (name string) *llx.Error {
 	return llx.FormatError(UnknownNonTermError, "unknown non-terminal key: %q", name)
+}
+
+func includeUnresolvedError (ntName, sourceName string) *llx.Error {
+	return llx.FormatError(IncludeUnresolvedError, "cannot include %q source: resolving ambiguity for %q non-terminal", sourceName, ntName)
 }

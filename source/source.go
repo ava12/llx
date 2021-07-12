@@ -193,7 +193,7 @@ func (q *Queue) updateEof () {
 }
 
 func (q *Queue) Append (s *Source) *Queue {
-	if s.Len() == 0 && q.source != nil && q.source.Len() != 0 {
+	if s == nil || s.Len() == 0 && q.source != nil && q.source.Len() != 0 {
 		return q
 	}
 
@@ -212,7 +212,7 @@ func (q *Queue) Append (s *Source) *Queue {
 }
 
 func (q *Queue) Prepend (s *Source) *Queue {
-	if s.Len() == 0 && q.source != nil && q.source.Len() > 0 {
+	if s == nil || s.Len() == 0 && q.source != nil && q.source.Len() > 0 {
 		return q
 	}
 

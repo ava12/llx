@@ -237,6 +237,19 @@ func (pc *ParseContext) EmitToken (t *lexer.Token) error {
 	return nil
 }
 
+func (pc *ParseContext) IncludeSource (s *source.Source) error {
+	if len(pc.appliedRules) > 0 {
+		var ntName string
+		if pc.nonTerm != nil {
+			ntName = pc.parser.grammar.NonTerms[pc.nonTerm.index].Name
+		}
+		return includeUnresolvedError(ntName, s.Name())
+	}
+
+	pc.queue.Prepend(s)
+	return nil
+}
+
 
 func (pc *ParseContext) pushNonTerm (index int) error {
 	e := pc.ntHandleAsides()
@@ -295,7 +308,6 @@ func (pc *ParseContext) popNonTerm () error {
 }
 
 const repeatState = -128
-
 
 func (pc *ParseContext) parse () (interface{}, error) {
 	var (
