@@ -145,10 +145,6 @@ type nonTermRec struct {
 	state  int
 }
 
-type appliedRule struct {
-	token, state, nonTerm int
-}
-
 type ParseContext struct {
 	parser       *Parser
 	lexers       []*lexer.Lexer
@@ -156,7 +152,7 @@ type ParseContext struct {
 	tokenHooks   []TokenHook
 	nonTermHooks []NonTermHook
 	tokens       []*lexer.Token
-	appliedRules []appliedRule
+	appliedRules []grammar.Rule
 	tokenError   error
 	lastResult   interface{}
 	nonTerm      *nonTermRec
@@ -175,7 +171,7 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
 		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
 		tokens:       make([]*lexer.Token, 0),
-		appliedRules: make([]appliedRule, 0),
+		appliedRules: make([]grammar.Rule, 0),
 	}
 
 	for i, lr := range p.lexers {
@@ -346,17 +342,17 @@ func (pc *ParseContext) parse () (interface{}, error) {
 				return nil, e
 			}
 
-			sameNonTerm := (rule.nonTerm == grammar.SameNonTerm)
-			tokenConsumed = (sameNonTerm && rule.token != grammar.AnyToken)
-			if rule.state != repeatState {
-				pc.nonTerm.state = rule.state
-				if rule.state != grammar.FinalState {
-					pc.nonTerm.group = gr.States[rule.state].Group
+			sameNonTerm := (rule.NonTerm == grammar.SameNonTerm)
+			tokenConsumed = (sameNonTerm && rule.Token != grammar.AnyToken)
+			if rule.State != repeatState {
+				pc.nonTerm.state = rule.State
+				if rule.State != grammar.FinalState {
+					pc.nonTerm.group = gr.States[rule.State].Group
 				}
 			}
 
 			if !sameNonTerm {
-				e = pc.pushNonTerm(rule.nonTerm)
+				e = pc.pushNonTerm(rule.NonTerm)
 			} else if tokenConsumed {
 				e = pc.ntHandleToken(tok)
 			}
@@ -400,7 +396,7 @@ func (pc *ParseContext) shrinkToken (tok *lexer.Token, group int) (bool, error) 
 	return (res != nil), e
 }
 
-func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) ([]*lexer.Token, []appliedRule) {
+func (pc *ParseContext) resolve (tok *lexer.Token, ars []grammar.Rule) ([]*lexer.Token, []grammar.Rule) {
 	liveBranch := createBranches(pc, pc.nonTerm, ars)
 	tokens := make([]*lexer.Token, 0)
 	pc.tokens = append([]*lexer.Token{tok}, pc.tokens...)
@@ -457,17 +453,22 @@ func (pc *ParseContext) resolve (tok *lexer.Token, ars []appliedRule) ([]*lexer.
 }
 
 func (pc *ParseContext) getExpectedToken (s grammar.State) string {
-	var i int
-	for i = 0; i < len(pc.parser.grammar.Tokens); i++ {
-		_, f := s.Rules[i]
-		if !f {
-			_, f = s.MultiRules[i]
-		}
-		if f {
-			break
+	g := pc.parser.grammar
+	index := 0
+	if s.HighRule > s.LowRule {
+		index = g.Rules[s.LowRule].Token
+		if index < 0 && s.HighRule > s.LowRule + 1 {
+			index = g.Rules[s.LowRule + 1].Token
 		}
 	}
-	token := pc.parser.grammar.Tokens[i]
+	if s.HighMultiRule > s.LowMultiRule {
+		i := g.MultiRules[s.LowMultiRule].Token
+		if i < index {
+			index = i
+		}
+	}
+
+	token := g.Tokens[index]
 	if (token.Flags & grammar.LiteralToken) != 0 {
 		return token.Name
 	} else {
@@ -475,15 +476,18 @@ func (pc *ParseContext) getExpectedToken (s grammar.State) string {
 	}
 }
 
-func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRule {
+func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []grammar.Rule {
 	if pc.isAsideToken(t) {
-		return []appliedRule{{t.Type(), repeatState, grammar.SameNonTerm}}
+		return []grammar.Rule{{t.Type(), repeatState, grammar.SameNonTerm}}
 	}
 
+	g := pc.parser.grammar
+	rules := g.Rules[s.LowRule : s.HighRule]
+	multiRules := g.MultiRules[s.LowMultiRule : s.HighMultiRule]
 	indexes := make([]int, 0, 3)
 	literal := t.Text()
 	tt := t.Type()
-	if tt >= 0 && pc.parser.grammar.Tokens[tt].Flags & grammar.CaselessToken != 0 {
+	if tt >= 0 && g.Tokens[tt].Flags & grammar.CaselessToken != 0 {
 		literal = strings.ToUpper(literal)
 	}
 	index, f := pc.parser.names[literalKey(literal)]
@@ -492,18 +496,40 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []appliedRul
 	}
 	indexes = append(indexes, tt, grammar.AnyToken)
 	for _, index = range indexes {
-		r, f := s.Rules[index]
-		if f {
-			return []appliedRule{{index, r.State, r.NonTerm}}
+		if index == grammar.AnyToken && rules[0].Token == index {
+			return rules[0 : 1]
 		}
 
-		rs := s.MultiRules[index]
-		if len(rs) != 0 {
-			result := make([]appliedRule, len(rs))
-			for i, r := range rs {
-				result[i] = appliedRule{index, r.State, r.NonTerm}
+		l := 0
+		h := len(rules)
+		for l < h {
+			i := (l + h) >> 1
+			r := rules[i]
+			if r.Token == index {
+				return rules[i : i + 1]
 			}
-			return result
+
+			if index < r.Token {
+				h = i
+			} else {
+				l = i + 1
+			}
+		}
+
+		l = 0
+		h = len(multiRules)
+		for l < h {
+			i := (l + h) >> 1
+			m := multiRules[i]
+			if m.Token == index {
+				return g.Rules[m.LowRule : m.HighRule]
+			}
+
+			if index < m.Token {
+				h = i
+			} else {
+				l = i + 1
+			}
 		}
 	}
 
@@ -546,7 +572,7 @@ func (pc *ParseContext) nextToken (group int) (result *lexer.Token, e error) {
 	return
 }
 
-func (pc *ParseContext) nextRule (t *lexer.Token, s grammar.State) (r appliedRule, found bool) {
+func (pc *ParseContext) nextRule (t *lexer.Token, s grammar.State) (r grammar.Rule, found bool) {
 	if len(pc.appliedRules) > 0 {
 		r = pc.appliedRules[0]
 		found = true

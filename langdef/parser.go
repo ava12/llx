@@ -3,6 +3,7 @@ package langdef
 import (
 	"math/bits"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/ava12/llx"
@@ -17,11 +18,33 @@ const (
 	maxGroup    = 30
 )
 
+type stateEntry struct {
+	Group      int
+	Rules      map[int]grammar.Rule
+	MultiRules map[int][]grammar.Rule
+}
+
+type nonTermItem struct {
+	Index       int
+	DependsOn   llx.IntSet
+	FirstTokens llx.IntSet
+	Chunk       *groupChunk
+}
+
+type tokenIndex map[string]int
+type nonTermIndex map[string]*nonTermItem
+
+type parseResult struct {
+	Tokens   []grammar.Token
+	NonTerms []grammar.NonTerm
+	States   []stateEntry
+	NTIndex  nonTermIndex
+}
 
 type chunk interface {
 	FirstTokens () llx.IntSet
 	IsOptional () bool
-	BuildStates (g *grammar.Grammar, stateIndex, nextIndex int) error
+	BuildStates (g *parseResult, stateIndex, nextIndex int) error
 }
 
 type complexChunk interface {
@@ -37,40 +60,21 @@ func ParseBytes (name string, content []byte) (*grammar.Grammar, error) {
 	return Parse(source.New(name, content))
 }
 
-type nonTermItem struct {
-	Index       int
-	DependsOn   llx.IntSet
-	FirstTokens llx.IntSet
-	Chunk       *groupChunk
-}
-
-type tokenIndex map[string]int
-type nonTermIndex map[string]*nonTermItem
-
-
 func Parse (s *source.Source) (*grammar.Grammar, error) {
-	result := &grammar.Grammar{
-		Tokens:   make([]grammar.Token, 0),
-		NonTerms: make([]grammar.NonTerm, 0),
-	}
-
-	nti := nonTermIndex{}
-	var e error
-
-	e = parseLangDef(s, result, nti)
-	e = assignTokenGroups(result, e)
-	e = findUndefinedNonTerminals(nti, e)
-	e = findUnusedNonTerminals(result.NonTerms, nti, e)
-	e = resolveDependencies(result.NonTerms, nti, e)
-	e = buildStates(result, nti, e)
-	e = findRecursions(result, e)
-	e = assignStateGroups(result, e)
-
+	result, e := parseLangDef(s)
 	if e != nil {
 		return nil, e
 	}
 
-	return result, nil
+	e = assignTokenGroups(result, e)
+	e = findUndefinedNonTerminals(result.NTIndex, e)
+	e = findUnusedNonTerminals(result.NonTerms, result.NTIndex, e)
+	e = resolveDependencies(result.NonTerms, result.NTIndex, e)
+	e = buildStates(result, e)
+	e = findRecursions(result, e)
+	e = assignStateGroups(result, e)
+
+	return buildGrammar(result, e)
 }
 
 const (
@@ -110,10 +114,9 @@ type extraToken struct {
 
 type parseContext struct {
 	l            *lexer.Lexer
-	g            *grammar.Grammar
+	g            *parseResult
 	lts          []string
 	ti, lti      tokenIndex
-	nti          nonTermIndex
 	ets          []extraToken
 	eti          map[string]int
 	currentGroup int
@@ -133,7 +136,7 @@ func init () {
 	}
 }
 
-func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error {
+func parseLangDef (s *source.Source) (*parseResult, error) {
 	var e error
 
 	re := regexp.MustCompile(
@@ -153,13 +156,14 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 	eti := make(map[string]int)
 	ti := tokenIndex{}
 	lti := tokenIndex{}
-	c := &parseContext{l, g, make([]string, 0), ti, lti, nti, ets, eti, 0}
+	g := &parseResult{make([]grammar.Token, 0), make([]grammar.NonTerm, 0), make([]stateEntry, 0), make(nonTermIndex)}
+	c := &parseContext{l, g, make([]string, 0), ti, lti, ets, eti, 0}
 
 	var t *lexer.Token
 	for e == nil {
 		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, literalDirTok, tokenNameTok}, true, nil)
 		if e != nil {
-			return e
+			return nil, e
 		}
 
 		if t == nil || t.TypeName() == nameTok {
@@ -184,13 +188,13 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 			name := t.Text()[1:]
 			i, has := ti[name]
 			if has && g.Tokens[i].Re != "" {
-				return defTokenError(t)
+				return nil, defTokenError(t)
 			}
 			e = parseTokenDef(name, c)
 		}
 	}
 	if e != nil {
-		return e
+		return nil, e
 	}
 
 	for _, et := range c.ets {
@@ -199,7 +203,7 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 			if et.flags & grammar.ExternalToken != 0 {
 				addToken(et.name, "", et.groups, et.flags, c)
 			} else {
-				return undefinedTokenError(et.name)
+				return nil, undefinedTokenError(et.name)
 			}
 		}
 	}
@@ -210,10 +214,11 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 		c.lti[name] = i + firstLiteral
 	}
 
+	nti := g.NTIndex
 	for e == nil && t != nil && t.Type() != lexer.EofTokenType {
 		_, has := nti[t.Text()]
 		if has && nti[t.Text()].Chunk != nil {
-			return defNonTermError(t)
+			return nil, defNonTermError(t)
 		}
 
 		e = parseNonTermDef(t.Text(), c)
@@ -222,7 +227,7 @@ func parseLangDef (s *source.Source, g *grammar.Grammar, nti nonTermIndex) error
 		}
 	}
 
-	return e
+	return g, e
 }
 
 var savedToken *lexer.Token
@@ -457,7 +462,7 @@ func addNonTerm (name string, c *parseContext, define bool) *nonTermItem {
 	if define {
 		group = newGroupChunk(false, false)
 	}
-	result := c.nti[name]
+	result := c.g.NTIndex[name]
 	if result != nil {
 		if result.Chunk == nil && define {
 			result.Chunk = group
@@ -466,7 +471,7 @@ func addNonTerm (name string, c *parseContext, define bool) *nonTermItem {
 	}
 
 	result = &nonTermItem{len(c.g.NonTerms), llx.NewIntSet(), llx.NewIntSet(), group}
-	c.nti[name] = result
+	c.g.NTIndex[name] = result
 	c.g.NonTerms = append(c.g.NonTerms, grammar.NonTerm{name, 0})
 	return result
 }
@@ -540,7 +545,7 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 	switch t.TypeName() {
 	case nameTok:
 		nt := addNonTerm(t.Text(), c, false)
-		c.nti[name].DependsOn.Add(nt.Index)
+		c.g.NTIndex[name].DependsOn.Add(nt.Index)
 		return newNonTermChunk(t.Text(), nt), nil
 
 	case tokenNameTok:
@@ -709,14 +714,15 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	return nil
 }
 
-func buildStates (g *grammar.Grammar, nti nonTermIndex, e error) error {
+func buildStates (g *parseResult, e error) error {
 	if e != nil {
 		return e
 	}
 
+	nti := g.NTIndex
 	for i, nt := range g.NonTerms {
 		firstState := len(g.States)
-		g.States = append(g.States, grammar.State{
+		g.States = append(g.States, stateEntry{
 			noGroup,
 			map[int]grammar.Rule{},
 			map[int][]grammar.Rule{},
@@ -745,7 +751,7 @@ func buildStates (g *grammar.Grammar, nti nonTermIndex, e error) error {
 	return nil
 }
 
-func findRecursions (g *grammar.Grammar, e error) error {
+func findRecursions (g *parseResult, e error) error {
 	if e != nil {
 		return e
 	}
@@ -764,7 +770,7 @@ func findRecursions (g *grammar.Grammar, e error) error {
 	}
 }
 
-func ntIsRecursive (g *grammar.Grammar, index int, visited llx.IntSet) bool {
+func ntIsRecursive (g *parseResult, index int, visited llx.IntSet) bool {
 	visited.Add(index)
 	st := g.States[g.NonTerms[index].FirstState]
 	if len(st.Rules) > 0 {
@@ -786,7 +792,7 @@ func ntIsRecursive (g *grammar.Grammar, index int, visited llx.IntSet) bool {
 	return false
 }
 
-func assignTokenGroups (g *grammar.Grammar, e error) error {
+func assignTokenGroups (g *parseResult, e error) error {
 	if e != nil {
 		return e
 	}
@@ -825,7 +831,7 @@ func assignTokenGroups (g *grammar.Grammar, e error) error {
 	return nil
 }
 
-func assignStateGroups (g *grammar.Grammar, e error) error {
+func assignStateGroups (g *parseResult, e error) error {
 	if e != nil {
 		return e
 	}
@@ -874,4 +880,61 @@ func nonTermNames (nts []grammar.NonTerm, ntis llx.IntSet) []string {
 		names[i] = nts[index].Name
 	}
 	return names
+}
+
+func buildGrammar (pr *parseResult, e error) (*grammar.Grammar, error) {
+	if e != nil {
+		return nil, e
+	}
+
+	g := &grammar.Grammar{Tokens: pr.Tokens, NonTerms: pr.NonTerms, States: make([]grammar.State, len(pr.States))}
+
+	for i, se := range pr.States {
+		rlen := len(g.Rules)
+		mlen := len(g.MultiRules)
+		erlen := len(se.Rules)
+		emlen := len(se.MultiRules)
+
+		g.States[i] = grammar.State{se.Group, 0, 0, rlen, rlen + erlen}
+		if erlen == 0 {
+			g.States[i].LowRule = 0
+			g.States[i].HighRule = 0
+		}
+		if emlen != 0 {
+			g.States[i].LowMultiRule = mlen
+			g.States[i].HighMultiRule = mlen + emlen
+		}
+
+		keys := make([]int, 0, erlen)
+		k := 0
+		for k = range se.Rules {
+			keys = append(keys, k)
+		}
+		sort.Ints(keys)
+		for _, k = range keys {
+			r := se.Rules[k]
+			r.Token = k
+			g.Rules = append(g.Rules, r)
+		}
+
+		rlen = len(g.Rules)
+		keys = make([]int, 0, emlen)
+		for k = range se.MultiRules {
+			keys = append(keys, k)
+		}
+		sort.Ints(keys)
+		for _, k = range keys {
+			rs := se.MultiRules[k]
+			mrlen := len(rs)
+			g.MultiRules = append(g.MultiRules, grammar.MultiRule{k, rlen, rlen + mrlen})
+			rlen += mrlen
+
+			for _, r := range rs {
+				r.Token = k
+				g.Rules = append(g.Rules, r)
+			}
+		}
+	}
+
+	return g, nil
 }

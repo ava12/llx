@@ -9,7 +9,7 @@
 # Definitions must not contain capturing groups.
 
 # Every defined token type will be added to 0-based token list
-# in order of appearance. E. g. 5 token types will have indexes 0-4.
+# in order of appearance. E.g. 5 token types will have indexes 0-4.
 
 $space = /[ \r\n\t\f]+/;
 $comment = /#.*?(?:\n|$)/;
@@ -31,15 +31,14 @@ $error = /["'!].{0,10}/;
 # Token types that may be found in source text, but are not used
 # in syntax rules. May be hooked. Unhandled aside tokens are
 # not emitted to parser.
-# E.g. line endings may be hooked to generate semicolons for JavaScript or Go.
 !aside $space $comment;
 
-# Case-insensitive token types, e. g. SQL keywords. Parser converts
+# Case-insensitive token types, e.g. SQL keywords. Parser converts
 # caseless token text to uppercase before comparing it with a literal.
 !caseless ;
 
-# "Token" types indicating lexical errors, e. g. unmatched opening quote.
-# Can be used for more descriptive error messages.
+# "Token" types indicating lexical errors, e.g. unmatched opening quote.
+# Used for more descriptive error messages.
 !error $error;
 
 # Token types that are not defined in grammar, but may be emitted by hooks.
@@ -70,17 +69,15 @@ $error = /["'!].{0,10}/;
 # Token types that can be split into smaller parts.
 # By default lexer captures the longest possible character sequence
 # that matches a valid token, but sometimes it should capture a shorter one.
-# E. g. in C++ templates ">>" sequence should be split in ">" operators.
+# E.g. in C++ templates ">>" sequence should be split in ">" operators.
 !shrink ;
 
 
 # Non-terminal definitions. The first one is the root.
 # Definitions may contain string literals. All new literals (not listed in
 # !literal directive) will be added to token list in order of appearance.
-# NB: all variants of the same item have equal precedence.
-# When parser encounters an ambiguous rule, it traces all possible branches
-# simultaneously, killing those which generate errors,
-# until there is only one (or none) branch left.
+# When parser encounters an ambiguous rule, i.e. two or more variants have
+# the same prefix, the one that consumes the longest run of tokens is chosen.
 
 langdef = {directive | token-definition}, definition, {definition};
 directive = type-directive | literal-directive;

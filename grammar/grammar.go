@@ -90,8 +90,23 @@ type NonTerm struct {
 	FirstState int
 }
 
+const (
+	// AnyToken stored in Rule.Token matches any token except EoF.
+	// Used for fallback rules to skip optional or repeated parts of non-terminals.
+	AnyToken    = -1
+
+	// FinalState stored in Rule.State means that current non-terminal must be finalized and popped.
+	FinalState  = -1
+
+	// SameNonTerm stored in Rule.NonTerm means that no nested non-terminal is pushed at this point.
+	SameNonTerm = -1
+)
+
 // Rule contains a grammar rule for some set of tokens at some parsing state.
 type Rule struct {
+	// Token is either an index in Grammar.Tokens slice or AnyToken.
+	Token   int
+
 	// State is the index of next state or FinalState if this rule is the final one for non-terminal.
 	State   int
 
@@ -99,41 +114,57 @@ type Rule struct {
 	NonTerm int
 }
 
-const (
-	// SameNonTerm stored in Rule.NonTerm means that no nested non-terminal is pushed at this point.
-	SameNonTerm = -1
+type MultiRule struct {
+	// Token is an index in Grammar.Tokens slice.
+	Token     int
 
-	// FinalState stored in Rule.State means that current non-terminal must be finalized and popped.
-	FinalState  = -1
-)
+	// LowRule is the low index of the rule sub-slice for this token type.
+	LowRule   int
+
+	// HighRule is the high index of the rule sub-slice for this token type.
+	HighRule  int
+}
 
 // State represents a parsing state for some nonTerminal.
 type State struct {
 	// Group is 0-based index of token group shared by all tokens
 	// that are acceptable at this point.
-	Group      int            `json:",omitempty"`
+	Group         int `json:",omitempty"`
 
-	// Rules map every acceptable token index and/or AnyToken to a single grammar rule.
-	Rules      map[int]Rule   `json:",omitempty"`
+	// LowMultiRule is the low index of the multi-rule sub-slice for this token type.
+	// 0 if not used.
+	LowMultiRule  int `json:",omitempty"`
 
-	// MultiRules map every acceptable token index to a set of ambiguous grammar rules.
-	// Every token index is present either in Rules or in MultiRules, but not in both.
-	MultiRules map[int][]Rule `json:",omitempty"`
+	// HighMultiRule is the high index of the multi-rule sub-slice for this token type.
+	// 0 if not used.
+	HighMultiRule int `json:",omitempty"`
+
+	// LowRule is the low index of the rule sub-slice for this token type.
+	// 0 if not used.
+	LowRule       int `json:",omitempty"`
+
+	// HighRule is the high index of the rule sub-slice for this token type.
+	// 0 if not used.
+	HighRule      int `json:",omitempty"`
 }
-
-// AnyToken as a key for State.Rules matches any token except EoF.
-// Used for fallback rules to skip optional or repeated parts of non-terminals.
-const AnyToken = -1
 
 // Grammar holds all information required to make a parser.
 type Grammar struct {
 	// Tokens is a list of tokens defined in grammar.
 	// First go defined token types, then external tokens, and the last are literals.
-	Tokens []Token
+	Tokens     []Token
 
 	// NonTerms is a list of non-terminals.
-	NonTerms []NonTerm
+	NonTerms   []NonTerm
 
-	// States is a list of all parsing states for all non-terminals.
-	States   []State
+	// States is a list of all parsing states for all non-terminals, grouped by non-terminal.
+	States     []State
+
+	// MultiRules is a list of all ambiguous rule entries for all states.
+	// Grouped by state, entries in a group are sorted by Token field.
+	MultiRules []MultiRule
+
+	// Rules is a list of all parsing rules for all states.
+	// Grouped by state, entries in a group are sorted by Token field.
+	Rules      []Rule
 }

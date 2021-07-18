@@ -72,7 +72,7 @@ func checkNonTerm (g *grammar.Grammar, nti int, ent nonTerm) error {
 	}
 
 	for i, s := range states {
-		e := checkState(s, firstState, ent.states[i])
+		e := checkState(g, s, firstState, ent.states[i])
 		if e != nil {
 			return errors.New("state " + strconv.Itoa(i) + ": " + e.Error())
 		}
@@ -81,14 +81,23 @@ func checkNonTerm (g *grammar.Grammar, nti int, ent nonTerm) error {
 	return nil
 }
 
-func checkState (s grammar.State, firstState int, es state) error {
-	l := len(s.Rules) + len(s.MultiRules)
+func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) error {
+	l := s.HighRule - s.LowRule + s.HighMultiRule - s.LowMultiRule
 	el := len(es)
+	rules := make(map[int]grammar.Rule, s.HighRule - s.LowRule)
+	for _, r := range g.Rules[s.LowRule : s.HighRule] {
+		rules[r.Token] = r
+	}
+	multiRules := make(map[int][]grammar.Rule)
+	for _, mr := range g.MultiRules[s.LowMultiRule : s.HighMultiRule] {
+		multiRules[mr.Token] = g.Rules[mr.LowRule : mr.HighRule]
+	}
+
 	if el > l {
 		for k := range es {
-			_, f := s.Rules[k]
+			_, f := rules[k]
 			if !f {
-				_, f = s.MultiRules[k]
+				_, f = multiRules[k]
 				if !f {
 					return errors.New(fmt.Sprintf("missing rule for %d", k))
 				}
@@ -96,7 +105,7 @@ func checkState (s grammar.State, firstState int, es state) error {
 		}
 	}
 
-	for k, r := range s.Rules {
+	for k, r := range rules {
 		ers, f := es[k]
 		if !f {
 			return errors.New(fmt.Sprintf("unexpected rule for %d", k))
@@ -115,7 +124,7 @@ func checkState (s grammar.State, firstState int, es state) error {
 		}
 	}
 
-	for k, rs := range s.MultiRules {
+	for k, rs := range multiRules {
 		ers, f := es[k]
 		if !f {
 			return errors.New(fmt.Sprintf("unexpected rules for %d", k))
@@ -188,7 +197,7 @@ func (s sample) nts () nonTerms {
 				indexes := make([]grammar.Rule, 0, len(indexDefs))
 				for _, indexDef := range indexDefs {
 					indexPair := strings.Split(indexDef, ",")
-					indexes = append(indexes, grammar.Rule{atoi(indexPair[0]), atoi(indexPair[1])})
+					indexes = append(indexes, grammar.Rule{atoi(rulePair[0]), atoi(indexPair[0]), atoi(indexPair[1])})
 				}
 				rules[atoi(rulePair[0])] = indexes
 			}

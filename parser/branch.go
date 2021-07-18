@@ -9,26 +9,26 @@ type branch struct {
 	next    *branch
 	index   int
 	pc      *ParseContext
-	applied []appliedRule
+	applied []grammar.Rule
 	ntTree  *nonTermRec
 	nonTerm *nonTermRec
 	inited  bool
 }
 
-func createBranches (pc *ParseContext, nt *nonTermRec, ars []appliedRule) *branch {
+func createBranches (pc *ParseContext, nt *nonTermRec, ars []grammar.Rule) *branch {
 	ntCopy := &nonTermRec{nil, nil, nil, nt.group, nt.index, nt.state}
-	result := &branch{nil, 1, pc, []appliedRule{ars[0]}, nil, ntCopy, false}
+	result := &branch{nil, 1, pc, []grammar.Rule{ars[0]}, nil, ntCopy, false}
 	result.split(ars)
 	return result
 }
 
-func (b *branch) split (ars []appliedRule) {
+func (b *branch) split (ars []grammar.Rule) {
 	prev := b
 	nt := b.nonTerm
 	b.index *= 100
 	ruleCnt := len(b.applied)
 	for i := 1; i < len(ars); i++ {
-		nars := make([]appliedRule, ruleCnt)
+		nars := make([]grammar.Rule, ruleCnt)
 		copy(nars, b.applied)
 		if b.inited {
 			nars = append(nars, ars[i])
@@ -48,11 +48,11 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 	}
 
 	if b.pc.isAsideToken(tok) {
-		b.applied = append(b.applied, appliedRule{tok.Type(), repeatState, grammar.SameNonTerm})
+		b.applied = append(b.applied, grammar.Rule{tok.Type(), repeatState, grammar.SameNonTerm})
 		return true
 	}
 
-	var ars []appliedRule
+	var ars []grammar.Rule
 	gr := b.pc.parser.grammar
 	for b.nonTerm != nil {
 		if b.inited {
@@ -77,13 +77,13 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 			b.inited = true
 		}
 
-		isWildcard := (ar.token == grammar.AnyToken)
-		isFinal := (ar.state == grammar.FinalState)
-		isSame := (ar.nonTerm == grammar.SameNonTerm)
+		isWildcard := (ar.Token == grammar.AnyToken)
+		isFinal := (ar.State == grammar.FinalState)
+		isSame := (ar.NonTerm == grammar.SameNonTerm)
 
-		b.nonTerm.state = ar.state
-		if ar.state != grammar.FinalState {
-			b.nonTerm.group = gr.States[ar.state].Group
+		b.nonTerm.state = ar.State
+		if ar.State != grammar.FinalState {
+			b.nonTerm.group = gr.States[ar.State].Group
 		}
 
 		if isFinal && isSame {
@@ -108,9 +108,9 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 
 		if !isSame {
 			gr := b.pc.parser.grammar
-			nt := gr.NonTerms[ar.nonTerm]
+			nt := gr.NonTerms[ar.NonTerm]
 			b.ntTree = b.nonTerm
-			b.nonTerm = &nonTermRec{b.nonTerm, nil, nil, gr.States[nt.FirstState].Group, ar.nonTerm, nt.FirstState}
+			b.nonTerm = &nonTermRec{b.nonTerm, nil, nil, gr.States[nt.FirstState].Group, ar.NonTerm, nt.FirstState}
 		}
 	}
 
