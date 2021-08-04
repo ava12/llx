@@ -23,10 +23,7 @@ var reader = bufio.NewReader(os.Stdin)
 
 func scan () (res string, e error) {
 	res, e = reader.ReadString('\n')
-	l := len(res)
-	if l > 0 && res[l - 1] == '\n' {
-		res = res[: l - 1]
-	}
+	res = strings.TrimRight(res, "\r\n")
 	return
 }
 

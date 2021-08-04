@@ -486,7 +486,7 @@ func TestIncludeSourceError (t *testing.T) {
 	}
 	hs := &Hooks{
 		NonTerms: NonTermHooks{
-			"inc": func (nonTerm string, pc *ParseContext) (NonTermHookInstance, error) {
+			"inc": func (nonTerm string, t *lexer.Token, pc *ParseContext) (NonTermHookInstance, error) {
 				return &includeHook{pc, sources, 0}, nil
 			},
 		},

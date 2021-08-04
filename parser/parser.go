@@ -18,7 +18,7 @@ type NonTermHookInstance interface {
 	EndNonTerm () (result interface{}, e error)
 }
 
-type NonTermHook = func (nonTerm string, pc *ParseContext) (NonTermHookInstance, error)
+type NonTermHook = func (nonTerm string, token *lexer.Token, pc *ParseContext) (NonTermHookInstance, error)
 
 type defaultHookInstance struct {
 	result interface{}
@@ -205,7 +205,7 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 		result.nonTermHooks[i + nonTermHooksOffset] = nth
 	}
 
-	e := result.pushNonTerm(grammar.RootNonTerm)
+	e := result.pushNonTerm(grammar.RootNonTerm, lexer.NewToken(grammar.AnyToken, "", "", q.SourcePos()))
 	return result, e
 }
 
@@ -247,7 +247,7 @@ func (pc *ParseContext) IncludeSource (s *source.Source) error {
 }
 
 
-func (pc *ParseContext) pushNonTerm (index int) error {
+func (pc *ParseContext) pushNonTerm (index int, tok *lexer.Token) error {
 	e := pc.ntHandleAsides()
 	if e != nil {
 		return e
@@ -255,7 +255,7 @@ func (pc *ParseContext) pushNonTerm (index int) error {
 
 	gr := pc.parser.grammar
 	nt := gr.NonTerms[index]
-	hook, e := pc.getNonTermHook(index)
+	hook, e := pc.getNonTermHook(index, tok)
 	if e != nil {
 		return e
 	}
@@ -269,6 +269,7 @@ func (pc *ParseContext) popNonTerm () error {
 		e error
 		res interface{}
 	)
+	nts := pc.parser.grammar.NonTerms
 
 	asides := pc.nonTerm.asides
 	pc.nonTerm.asides = nil
@@ -292,7 +293,7 @@ func (pc *ParseContext) popNonTerm () error {
 		}
 
 		if e == nil {
-			e = pc.nonTerm.hook.HandleNonTerm(pc.parser.grammar.NonTerms[nt.index].Name, res)
+			e = pc.nonTerm.hook.HandleNonTerm(nts[nt.index].Name, res)
 		}
 	}
 
@@ -352,7 +353,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			}
 
 			if !sameNonTerm {
-				e = pc.pushNonTerm(rule.NonTerm)
+				e = pc.pushNonTerm(rule.NonTerm, tok)
 			} else if tokenConsumed {
 				e = pc.ntHandleToken(tok)
 			}
@@ -536,13 +537,13 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []grammar.Ru
 	return nil
 }
 
-func (pc *ParseContext) getNonTermHook (ntIndex int) (res NonTermHookInstance, e error) {
+func (pc *ParseContext) getNonTermHook (ntIndex int, tok *lexer.Token) (res NonTermHookInstance, e error) {
 	h := pc.nonTermHooks[ntIndex + nonTermHooksOffset]
 	if h == nil {
 		h = pc.nonTermHooks[any + nonTermHooksOffset]
 	}
 	if h != nil {
-		res, e = h(pc.parser.grammar.NonTerms[ntIndex].Name, pc)
+		res, e = h(pc.parser.grammar.NonTerms[ntIndex].Name, tok, pc)
 	} else {
 		e = nil
 	}

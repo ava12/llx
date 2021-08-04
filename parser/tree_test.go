@@ -41,7 +41,7 @@ func (n *treeNode) EndNonTerm () (result interface{}, e error) {
 	return n, nil
 }
 
-func nodeHook (nonTerm string, pc *ParseContext) (NonTermHookInstance, error) {
+func nodeHook (nonTerm string, t *lexer.Token, pc *ParseContext) (NonTermHookInstance, error) {
 	return nonTermNode(nonTerm), nil
 }
 

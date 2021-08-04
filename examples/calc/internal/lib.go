@@ -472,7 +472,7 @@ func (v *value) EndNonTerm () (result interface{}, e error) {
 
 var hooks = &parser.Hooks{
 	NonTerms: parser.NonTermHooks{
-		parser.AnyNonTerm: func (nonTerm string, pc *parser.ParseContext) (res parser.NonTermHookInstance, e error) {
+		parser.AnyNonTerm: func (nonTerm string, t *lexer.Token, pc *parser.ParseContext) (res parser.NonTermHookInstance, e error) {
 			switch nonTerm {
 			case "calcGrammar":
 				res = newRootNT()
@@ -507,7 +507,9 @@ func init () {
 }
 
 func Compute (text string) (float64, error) {
-	q := source.NewQueue().Append(source.New("input", []byte(text)))
+	input := []byte(text)
+	source.NormalizeNls(&input)
+	q := source.NewQueue().Append(source.New("input", input))
 	x, e := calcParser.Parse(q, hooks)
 	if e == nil && !q.IsEmpty() {
 		p := q.SourcePos()
