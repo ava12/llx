@@ -42,7 +42,7 @@ then captured tokens and rules are «replayed».
   - [x] external tokens
   - [x] token hooks
   - [x] non-terminal hooks
-  - [ ] parse tree generation and manipulation
+  - [x] parse tree generation and manipulation
   - [ ] error recovery
 
 ## Implemented features
