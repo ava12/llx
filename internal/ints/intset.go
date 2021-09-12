@@ -1,14 +1,12 @@
-package llx
+package ints
 
 const IntSizeShift = 5 + (^uint(0) >> 32 & 1)
 const IntSize = 1 << IntSizeShift
 
-type setRec struct {
+type Set struct {
 	lowItem, highItem int
 	chunks            []uint
 }
-
-type IntSet = *setRec
 
 func countBits (chunk uint) int {
 	result := 0
@@ -19,19 +17,19 @@ func countBits (chunk uint) int {
 	return result
 }
 
-func NewIntSet (items ...int) IntSet {
-	result := &setRec{0, 0, []uint{}}
+func NewSet (items ...int) *Set {
+	result := &Set{0, 0, []uint{}}
 	if len(items) > 0 {
 		result.Add(items...)
 	}
 	return result
 }
 
-func FromSlice (items []int) IntSet {
-	return NewIntSet(items...)
+func FromSlice (items []int) *Set {
+	return NewSet(items...)
 }
 
-func (s *setRec) ToSlice () []int {
+func (s *Set) ToSlice () []int {
 	bitCnt := 0
 	for _, chunk := range s.chunks {
 		bitCnt += countBits(chunk)
@@ -52,11 +50,11 @@ func (s *setRec) ToSlice () []int {
 	return result
 }
 
-func (s *setRec) baseItem (item int) int {
+func (s *Set) baseItem (item int) int {
 	return item & ^(IntSize - 1)
 }
 
-func (s *setRec) allocate (low, high int) {
+func (s *Set) allocate (low, high int) {
 	lowItem := s.baseItem(low)
 	highItem := s.baseItem(high) + IntSize
 	if lowItem >= s.lowItem && highItem <= s.highItem {
@@ -81,7 +79,7 @@ func (s *setRec) allocate (low, high int) {
 	s.highItem = highItem
 }
 
-func (s *setRec) chunkIndex (item int) int {
+func (s *Set) chunkIndex (item int) int {
 	return (item - s.lowItem) >> IntSizeShift
 }
 
@@ -89,7 +87,7 @@ func bitMask (item int) uint {
 	return 1 << (uint(item) & (IntSize - 1))
 }
 
-func (s *setRec) doSet (item int, invert bool) {
+func (s *Set) doSet (item int, invert bool) {
 	if invert {
 		s.chunks[s.chunkIndex(item)] &= ^bitMask(item)
 	} else {
@@ -112,7 +110,7 @@ func minMax (items []int) (min, max int) {
 	return
 }
 
-func (s *setRec) Add (items ...int) IntSet {
+func (s *Set) Add (items ...int) *Set {
 	if len(items) == 0 {
 		return s
 	}
@@ -125,7 +123,7 @@ func (s *setRec) Add (items ...int) IntSet {
 	return s
 }
 
-func (s *setRec) Remove (items ...int) IntSet {
+func (s *Set) Remove (items ...int) *Set {
 	if len(items) == 0 {
 		return s
 	}
@@ -138,7 +136,7 @@ func (s *setRec) Remove (items ...int) IntSet {
 	return s
 }
 
-func (s *setRec) Contains (item int) bool {
+func (s *Set) Contains (item int) bool {
 	if item < s.lowItem || item >= s.highItem {
 		return false
 	} else {
@@ -146,10 +144,10 @@ func (s *setRec) Contains (item int) bool {
 	}
 }
 
-func (s *setRec) Copy () IntSet {
+func (s *Set) Copy () *Set {
 	items := make([]uint, len(s.chunks))
 	copy(items, s.chunks)
-	return &setRec{s.lowItem, s.highItem, items}
+	return &Set{s.lowItem, s.highItem, items}
 }
 
 func isEmpty (chunks []uint) bool {
@@ -162,11 +160,11 @@ func isEmpty (chunks []uint) bool {
 	return true
 }
 
-func (s *setRec) IsEmpty () bool {
+func (s *Set) IsEmpty () bool {
 	return isEmpty(s.chunks)
 }
 
-func (s *setRec) IsEqual (t IntSet) bool {
+func (s *Set) IsEqual (t *Set) bool {
 	var low, high, i int
 
 	if s.lowItem < t.lowItem {
@@ -208,19 +206,19 @@ func (s *setRec) IsEqual (t IntSet) bool {
 	return true
 }
 
-func (s *setRec) fill (t IntSet) {
+func (s *Set) fill (t *Set) {
 	s.lowItem = t.lowItem
 	s.highItem = t.highItem
 	s.chunks = t.chunks
 }
 
-func (s *setRec) Union (t IntSet) IntSet {
+func (s *Set) Union (t *Set) *Set {
 	s.fill(Union(s, t))
 	return s
 }
 
-func Union (s, t IntSet) IntSet {
-	result := NewIntSet()
+func Union (s, t *Set) *Set {
+	result := NewSet()
 
 	var low, high int
 	if s.lowItem < t.lowItem {
@@ -249,13 +247,13 @@ func Union (s, t IntSet) IntSet {
 	return result
 }
 
-func (s *setRec) Intersect (t IntSet) IntSet {
+func (s *Set) Intersect (t *Set) *Set {
 	s.fill(Intersect(s, t))
 	return s
 }
 
-func Intersect (s, t IntSet) IntSet {
-	result := NewIntSet()
+func Intersect (s, t *Set) *Set {
+	result := NewSet()
 
 	var low, high int
 	if s.lowItem > t.lowItem {
@@ -284,12 +282,12 @@ func Intersect (s, t IntSet) IntSet {
 	return result
 }
 
-func (s *setRec) Subtract (t IntSet) IntSet {
+func (s *Set) Subtract (t *Set) *Set {
 	s.fill(Subtract(s, t))
 	return s
 }
 
-func Subtract (s, t IntSet) IntSet {
+func Subtract (s, t *Set) *Set {
 	result := s.Copy()
 
 	var low, high int

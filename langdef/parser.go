@@ -8,6 +8,7 @@ import (
 
 	"github.com/ava12/llx"
 	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/internal/ints"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
 )
@@ -26,8 +27,8 @@ type stateEntry struct {
 
 type nonTermItem struct {
 	Index       int
-	DependsOn   llx.IntSet
-	FirstTokens llx.IntSet
+	DependsOn   *ints.Set
+	FirstTokens *ints.Set
 	Chunk       *groupChunk
 }
 
@@ -42,7 +43,7 @@ type parseResult struct {
 }
 
 type chunk interface {
-	FirstTokens () llx.IntSet
+	FirstTokens () *ints.Set
 	IsOptional () bool
 	BuildStates (g *parseResult, stateIndex, nextIndex int) error
 }
@@ -470,7 +471,7 @@ func addNonTerm (name string, c *parseContext, define bool) *nonTermItem {
 		return result
 	}
 
-	result = &nonTermItem{len(c.g.NonTerms), llx.NewIntSet(), llx.NewIntSet(), group}
+	result = &nonTermItem{len(c.g.NonTerms), ints.NewSet(), ints.NewSet(), group}
 	c.g.NTIndex[name] = result
 	c.g.NonTerms = append(c.g.NonTerms, grammar.NonTerm{name, 0})
 	return result
@@ -614,11 +615,11 @@ func findUnusedNonTerminals (nts []grammar.NonTerm, nti nonTermIndex, e error) e
 		return e
 	}
 
-	unreachedNts := llx.NewIntSet()
+	unreachedNts := ints.NewSet()
 	for i := 0; i < len(nts); i++ {
 		unreachedNts.Add(i)
 	}
-	searchQueue := llx.NewIntQueue(0)
+	searchQueue := ints.NewQueue(0)
 	for !searchQueue.IsEmpty() {
 		index := searchQueue.Head()
 		if !unreachedNts.Contains(index) {
@@ -644,7 +645,7 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	}
 
 	affects := make(map[int][]int)
-	queue := llx.NewIntQueue()
+	queue := ints.NewQueue()
 
 	for _, item := range nti {
 		if item.DependsOn.IsEmpty() {
@@ -693,7 +694,7 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 		for _, index := range indexes {
 			item := nti[nts[index].Name]
 			firstTokens := item.Chunk.FirstTokens()
-			if !firstTokens.IsEmpty() && !llx.Subtract(firstTokens, item.FirstTokens).IsEmpty() {
+			if !firstTokens.IsEmpty() && !ints.Subtract(firstTokens, item.FirstTokens).IsEmpty() {
 				item.FirstTokens.Union(firstTokens)
 				tokenAdded = true
 			}
@@ -756,9 +757,9 @@ func findRecursions (g *parseResult, e error) error {
 		return e
 	}
 
-	ntis := llx.NewIntSet()
+	ntis := ints.NewSet()
 	for i := range g.NonTerms {
-		if ntIsRecursive(g, i, llx.NewIntSet()) {
+		if ntIsRecursive(g, i, ints.NewSet()) {
 			ntis.Add(i)
 		}
 	}
@@ -770,7 +771,7 @@ func findRecursions (g *parseResult, e error) error {
 	}
 }
 
-func ntIsRecursive (g *parseResult, index int, visited llx.IntSet) bool {
+func ntIsRecursive (g *parseResult, index int, visited *ints.Set) bool {
 	visited.Add(index)
 	st := g.States[g.NonTerms[index].FirstState]
 	if len(st.Rules) > 0 {
@@ -873,7 +874,7 @@ func assignStateGroups (g *parseResult, e error) error {
 	return nil
 }
 
-func nonTermNames (nts []grammar.NonTerm, ntis llx.IntSet) []string {
+func nonTermNames (nts []grammar.NonTerm, ntis *ints.Set) []string {
 	indexes := ntis.ToSlice()
 	names := make([]string, len(indexes))
 	for i, index := range indexes {

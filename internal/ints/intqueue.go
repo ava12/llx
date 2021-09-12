@@ -1,15 +1,13 @@
-package llx
+package ints
 
-type queueRec struct {
+type Queue struct {
 	items      []int
 	size       int
 	head, tail int
 }
 
-type IntQueue = *queueRec
-
-func NewIntQueue (items ...int) IntQueue {
-	result := &queueRec{}
+func NewQueue (items ...int) *Queue {
+	result := &Queue{}
 	l := len(items)
 	if l == 0 {
 		result.size = 3
@@ -27,15 +25,15 @@ func NewIntQueue (items ...int) IntQueue {
 	return result
 }
 
-func (q *queueRec) IsEmpty () bool {
+func (q *Queue) IsEmpty () bool {
 	return (q.head == q.tail)
 }
 
-func (q *queueRec) Len () int {
+func (q *Queue) Len () int {
 	return (q.tail + q.size + 1 - q.head) & q.size
 }
 
-func (q *queueRec) Items () []int {
+func (q *Queue) Items () []int {
 	if q.tail >= q.head {
 		return q.items[q.head : q.tail]
 	}
@@ -47,7 +45,7 @@ func (q *queueRec) Items () []int {
 	return result
 }
 
-func (q *queueRec) resize () {
+func (q *Queue) resize () {
 	items := make([]int, (q.size + 1) << 1)
 	copy(items, q.items[q.head :])
 	if q.head > 0 {
@@ -59,7 +57,7 @@ func (q *queueRec) resize () {
 	q.items = items
 }
 
-func (q *queueRec) Append (item int) IntQueue {
+func (q *Queue) Append (item int) *Queue {
 	q.items[q.tail] = item
 	q.tail = (q.tail + 1) & q.size
 	if q.tail == q.head {
@@ -68,7 +66,7 @@ func (q *queueRec) Append (item int) IntQueue {
 	return q
 }
 
-func (q *queueRec) Prepend (item int) IntQueue {
+func (q *Queue) Prepend (item int) *Queue {
 	q.head = (q.head - 1) & q.size
 	q.items[q.head] = item
 	if q.head == q.tail {
@@ -77,7 +75,7 @@ func (q *queueRec) Prepend (item int) IntQueue {
 	return q
 }
 
-func (q *queueRec) Head () int {
+func (q *Queue) Head () int {
 	if q.head == q.tail {
 		return 0
 	}
@@ -87,7 +85,7 @@ func (q *queueRec) Head () int {
 	return result
 }
 
-func (q *queueRec) Tail () int {
+func (q *Queue) Tail () int {
 	if q.head == q.tail {
 		return 0
 	}
