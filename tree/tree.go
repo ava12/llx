@@ -416,7 +416,7 @@ func (s *Selector) Extract (ne NodeExtractor) *Selector {
 	})
 }
 
-func (s *Selector) Search (nf NodeFilter, deepSearch bool) *Selector {
+func (s *Selector) search (nf NodeFilter, deepSearch bool) *Selector {
 	return s.Use(func (n Node) []Node {
 		res := make([]Node, 0)
 		visitNode(n, func (nn Node) (vc, vs bool) {
@@ -431,6 +431,13 @@ func (s *Selector) Search (nf NodeFilter, deepSearch bool) *Selector {
 	})
 }
 
+func (s *Selector) Search (nf NodeFilter) *Selector {
+	return s.search(nf, false)
+}
+
+func (s *Selector) DeepSearch (nf NodeFilter) *Selector {
+	return s.search(nf, true)
+}
 
 func IsNot (f NodeFilter) NodeFilter {
 	return func (n Node) bool {
@@ -490,10 +497,35 @@ func IsALiteral (texts ... string) NodeFilter {
 	}
 }
 
-func Any (nss ...NodeExtractor) NodeExtractor {
+func HasAny (ne NodeExtractor, nf NodeFilter) NodeFilter {
+	return func (n Node) bool {
+		ns := ne(n)
+		for _, nn := range ns {
+			if nf(nn) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func HasAll (ne NodeExtractor, nf NodeFilter) NodeFilter {
+	return func (n Node) bool {
+		ns := ne(n)
+		for _, nn := range ns {
+			if !nf(nn) {
+				return false
+			}
+		}
+		return (len(ns) > 0)
+	}
+}
+
+
+func Any (nes ...NodeExtractor) NodeExtractor {
 	return func (n Node) (res []Node) {
-		for _, ns := range nss {
-			res = ns(n)
+		for _, ne := range nes {
+			res = ne(n)
 			if len(res) > 0 {
 				break
 			}
@@ -502,10 +534,10 @@ func Any (nss ...NodeExtractor) NodeExtractor {
 	}
 }
 
-func All (nss ...NodeExtractor) NodeExtractor {
+func All (nes ...NodeExtractor) NodeExtractor {
 	return func (n Node) (res []Node) {
-		for _, ns := range nss {
-			res = append(res, ns(n) ...)
+		for _, ne := range nes {
+			res = append(res, ne(n) ...)
 		}
 		return
 	}

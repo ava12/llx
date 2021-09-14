@@ -284,8 +284,8 @@ func TestSearch (t *testing.T) {
 	expect0 := "(bar) (qux) (c)"
 	expect1 := "(bar) (qux) (x) (c)"
 	nodes := Children(parseTreeDescription(t, src))
-	got0 := NewSelector().Search(f, false).Apply(nodes ...)
-	got1 := NewSelector().Search(f, true).Apply(nodes ...)
+	got0 := NewSelector().Search(f).Apply(nodes ...)
+	got1 := NewSelector().DeepSearch(f).Apply(nodes ...)
 	matchNodes(t, expect0, got0 ...)
 	matchNodes(t, expect1, got1 ...)
 }
@@ -355,6 +355,24 @@ func TestIsALiteral (t *testing.T) {
 	assert(t, ff(&tn1))
 	assert(t, ff(&tn2))
 	assert(t, !ff(&nt))
+}
+
+func TestHasAny (t *testing.T) {
+	ff := HasAny(Children, IsALiteral("x"))
+	_, i := buildTree(t, "(foo y x) (bar z) (baz)")
+	assert(t, ff(i["foo"]))
+	assert(t, !ff(i["x"]))
+	assert(t, !ff(i["bar"]))
+	assert(t, !ff(i["baz"]))
+}
+
+func TestHasAll (t *testing.T) {
+	ff := HasAll(Children, IsALiteral("x"))
+	_, i := buildTree(t, "(foo x x) (bar x y) (baz)")
+	assert(t, ff(i["foo"]))
+	assert(t, !ff(i["x"]))
+	assert(t, !ff(i["bar"]))
+	assert(t, !ff(i["baz"]))
 }
 
 func TestAny (t *testing.T) {
