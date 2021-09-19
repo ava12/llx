@@ -65,14 +65,14 @@ func TestUnexpectedToken (t *testing.T) {
 	checkErrorCode(t, samples, UnexpectedTokenError)
 }
 
-func TestUnknownTokeninal (t *testing.T) {
+func TestUnknownToken (t *testing.T) {
 	samples := []string{
 		"foo = $foo;",
 	}
 	checkErrorCode(t, samples, UnknownTokenError)
 }
 
-func TestWrongTokeninal (t *testing.T) {
+func TestWrongToken (t *testing.T) {
 	samples := []string{
 		"!aside $foo; $foo = /foo/; bar = $foo;",
 		"!error $foo; $foo = /foo/; bar = $foo;",
@@ -207,5 +207,29 @@ func TestNoDuplicateLiterals (t *testing.T) {
 			names[i] = tok.Name
 		}
 		t.Fatalf("expecting %d toks, got %d toks: %q", expectedTokCnt, tokCnt, names)
+	}
+}
+
+func TestTokenDefOrder (t *testing.T) {
+	sample := "!literal 'foo'; $x = /\\w+/; !extern $y; $z = /#/; s = $x | $z | 'bar' | 'foo';"
+	names := []string{"x", "z", "y", "foo", "bar"}
+	g, e := ParseString("", sample)
+	if e != nil {
+		t.Fatalf("unexpected error: %s", e.Error())
+	}
+
+	got := make([]string, len(g.Tokens))
+	for i, tok := range g.Tokens {
+		got[i] = tok.Name
+	}
+
+	if len(names) != len(g.Tokens) {
+		t.Fatalf("expecting %d tokens, got %d (%v)", len(names), len(g.Tokens), got)
+	}
+
+	for i, name := range got {
+		if name != names[i] {
+			t.Fatalf("expecting %v, got %v", names, got)
+		}
 	}
 }

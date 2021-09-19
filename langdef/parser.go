@@ -113,10 +113,15 @@ type extraToken struct {
 	flags  grammar.TokenFlags
 }
 
+type literalToken struct {
+	 name  string
+	 flags grammar.TokenFlags
+}
+
 type parseContext struct {
 	l            *lexer.Lexer
 	g            *parseResult
-	lts          []string
+	lts          []literalToken
 	ti, lti      tokenIndex
 	ets          []extraToken
 	eti          map[string]int
@@ -158,7 +163,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 	ti := tokenIndex{}
 	lti := tokenIndex{}
 	g := &parseResult{make([]grammar.Token, 0), make([]grammar.NonTerm, 0), make([]stateEntry, 0), make(nonTermIndex)}
-	c := &parseContext{l, g, make([]string, 0), ti, lti, ets, eti, 0}
+	c := &parseContext{l, g, make([]literalToken, 0), ti, lti, ets, eti, 0}
 
 	var t *lexer.Token
 	for e == nil {
@@ -209,10 +214,9 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 		}
 	}
 
-	firstLiteral := len(c.g.Tokens)
-	for i, name := range c.lts {
-		addLiteralToken(name, c)
-		c.lti[name] = i + firstLiteral
+	c.lti = make(tokenIndex)
+	for _, lt := range c.lts {
+		useLiteralToken(lt.name, lt.flags, c)
 	}
 
 	nti := g.NTIndex
@@ -335,14 +339,22 @@ func addToken (name, re string, groups int, flags grammar.TokenFlags, c *parseCo
 	return index
 }
 
-func addLiteralToken (name string, c *parseContext) int {
+func addLiteralToken (name string, c *parseContext) {
+	_, has := c.lti[name]
+	if !has {
+		c.lti[name] = len(c.lts)
+		c.lts = append(c.lts, literalToken{name, 0})
+	}
+}
+
+func useLiteralToken (name string, flags grammar.TokenFlags, c *parseContext) int {
 	i, has := c.lti[name]
 	if has {
 		return i
 	}
 
 	i = len(c.g.Tokens)
-	c.g.Tokens = append(c.g.Tokens, grammar.Token{name, "", 0, grammar.LiteralToken})
+	c.g.Tokens = append(c.g.Tokens, grammar.Token{name, "", 0, flags | grammar.LiteralToken})
 	c.lti[name] = i
 	return i
 }
@@ -565,7 +577,7 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 		name = t.Text()[1 : len(t.Text()) - 1]
 		index, f = c.lti[name]
 		if !f {
-			index = addLiteralToken(name, c)
+			index = useLiteralToken(name, 0, c)
 		}
 		return newTokenChunk(index), nil
 	}
