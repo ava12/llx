@@ -485,17 +485,23 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []grammar.Ru
 	g := pc.parser.grammar
 	rules := g.Rules[s.LowRule : s.HighRule]
 	multiRules := g.MultiRules[s.LowMultiRule : s.HighMultiRule]
+
 	indexes := make([]int, 0, 3)
 	literal := t.Text()
 	tt := t.Type()
 	if tt >= 0 && g.Tokens[tt].Flags & grammar.CaselessToken != 0 {
 		literal = strings.ToUpper(literal)
 	}
-	index, f := pc.parser.names[literalKey(literal)]
-	if f {
+	index, literalFound := pc.parser.names[literalKey(literal)]
+	literalFound = literalFound && (index >= 0)
+	if literalFound {
 		indexes = append(indexes, index)
 	}
-	indexes = append(indexes, tt, grammar.AnyToken)
+	if !literalFound || index < 0 || (g.Tokens[index].Flags & grammar.ReservedToken) == 0 {
+		indexes = append(indexes, tt)
+	}
+	indexes = append(indexes, grammar.AnyToken)
+
 	for _, index = range indexes {
 		if index == grammar.AnyToken && rules[0].Token == index {
 			return rules[0 : 1]

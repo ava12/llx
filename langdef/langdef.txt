@@ -16,7 +16,7 @@ $comment = /#.*?(?:\n|$)/;
 $string = /(?:".*?")|(?:'.*?')/;
 $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
 $type-dir = /!(?:aside|caseless|error|extern|group|shrink)\b/;
-$literal-dir = /!literal\b/;
+$literal-dir = /!(?:literal|reserved)\b/;
 $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
 $regexp = /\/(?:[^\\\/]|\\.)+\//;
 $op = /[(){}\[\]=|,;]/;
@@ -59,12 +59,21 @@ $error = /["'!].{0,10}/;
 # All tokens allowed at some parsing state must belong to the same group.
 !group ;
 
-# Define literal tokens. Every literal must match at least one token type.
+# Define literal tokens. The list consists of strings.
+# Every literal must match at least one token type.
 # All literals will be added to the end of token list after defined
 # and external token types, in order of appearance.
 # All literal tokens used in grammar rules but not listed with this directive
 # will be added to the end of token list.
 !literal ;
+
+# Define reserved literal tokens. The list consists of strings.
+# Every literal must match at least one token type.
+# All literals will be added to the end of token list after defined
+# and external token types, in order of appearance.
+# Parser will ignore token type rules when incoming token's text
+# equals to some reserved literal.
+!reserved ;
 
 # Token types that can be split into smaller parts.
 # By default lexer captures the longest possible character sequence

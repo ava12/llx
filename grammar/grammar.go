@@ -7,8 +7,10 @@ and saved states. Each non-terminal has its own subset of states.
 
 State contains map of transition rules (or ambiguous variants of rules).
 A key is either a token type id, a literal token id, or AnyToken value.
-When parser tries to match a rule for current token
-literals are the highest priority and AnyToken is the lowest.
+When parser tries to match a rule for current token the priorities are:
+  - a literal token id;
+  - a token type id (unless the token text matches some reserved literal);
+  - AnyToken.
 
 Transition rule contains the next state index (or FinalState value
 if parsing of current non-terminal is finished) and nested non-terminal id
@@ -79,6 +81,9 @@ const (
 	// CaselessToken text consists of case-insensitive symbols.
 	// Parser converts its text to uppercase before comparing it with a literal.
 	CaselessToken
+
+	// ReservedToken marks literal tokens that represent reserved words.
+	ReservedToken
 )
 
 // NonTerm contains information about some non-terminal.

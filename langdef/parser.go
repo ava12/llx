@@ -150,7 +150,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 		"((?:\".*?\")|(?:'.*?'))|" +
 		"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(!(?:aside|caseless|error|extern|shrink)\\b)|" +
-		"(!literal\\b)|" +
+		"(!(?:literal|reserved)\\b)|" +
 		"(!group\\b)|" +
 		"(\\$[a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(/(?:[^\\\\/]|\\\\.)+/)|" +
@@ -188,7 +188,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 			}
 
 		case literalDirTok:
-			e = parseLiteralDir(c)
+			e = parseLiteralDir(t.Text(), c)
 
 		case tokenNameTok:
 			name := t.Text()[1:]
@@ -339,11 +339,11 @@ func addToken (name, re string, groups int, flags grammar.TokenFlags, c *parseCo
 	return index
 }
 
-func addLiteralToken (name string, c *parseContext) {
+func addLiteralToken (name string, flags grammar.TokenFlags, c *parseContext) {
 	_, has := c.lti[name]
 	if !has {
 		c.lti[name] = len(c.lts)
-		c.lts = append(c.lts, literalToken{name, 0})
+		c.lts = append(c.lts, literalToken{name, flags})
 	}
 }
 
@@ -437,7 +437,11 @@ func parseGroupDir (c *parseContext) error {
 	return nil
 }
 
-func parseLiteralDir (c *parseContext) error {
+func parseLiteralDir (dir string, c *parseContext) error {
+	flags := grammar.LiteralToken
+	if dir == "!reserved" {
+		flags |= grammar.ReservedToken
+	}
 	tokens, e := fetchAll(c.l, []string{stringTok}, nil)
 	e = skipOne(c.l, semicolonTok, e)
 	if e != nil {
@@ -446,7 +450,7 @@ func parseLiteralDir (c *parseContext) error {
 
 	for _, t := range tokens {
 		text := t.Text()
-		addLiteralToken(text[1 : len(text) - 1], c)
+		addLiteralToken(text[1 : len(text) - 1], flags, c)
 	}
 	return nil
 }

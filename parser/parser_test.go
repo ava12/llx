@@ -493,3 +493,12 @@ func TestIncludeSourceError (t *testing.T) {
 	}
 	testErrorSamplesWithHooks(t, name, grammar, samples, hs)
 }
+
+func TestReservedLiterals (t *testing.T) {
+	g0 := "!aside $space; $space = /\\s+/; $name = /\\w+/; g = 'var', $name;"
+	g1 := "!reserved 'var'; " + g0
+	src := "var var"
+	expected := "var var"
+	testGrammarSamples(t, "correct", g0, []srcExprSample{{src, expected}}, false)
+	testErrorSamples(t, "reserved", g1, []srcErrSample{{src, UnexpectedTokenError}})
+}

@@ -2,6 +2,7 @@ package langdef
 
 import (
 	"fmt"
+	gr "github.com/ava12/llx/grammar"
 	"strconv"
 	"strings"
 	"testing"
@@ -184,7 +185,7 @@ func TestEmptyRepeatableError (t *testing.T) {
 func TestNoError (t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		toks + "!aside; !extern; !error; !shrink; !group; !literal; !caseless; foo = 'foo';",
+		toks + "!aside; !extern; !error; !shrink; !group; !literal; !caseless; !reserved; foo = 'foo';",
 		"!aside $space; !group $space $name; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 	}
@@ -231,5 +232,44 @@ func TestTokenDefOrder (t *testing.T) {
 		if name != names[i] {
 			t.Fatalf("expecting %v, got %v", names, got)
 		}
+	}
+}
+
+func TestTokenFlags (t *testing.T) {
+	nd := "$name = /\\w+/; "
+	gd := " g = 'foo';"
+	samples := []struct{
+		src   string
+		name  string
+		flags gr.TokenFlags
+	}{
+		{nd + gd, "foo", gr.LiteralToken},
+		{nd + "!aside $sp; $sp = /\\s+/;" + gd, "sp", gr.AsideToken},
+		{nd + "!caseless $name; g = 'FOO';", "name", gr.CaselessToken},
+		{nd + "!error $e; $e = /\\W/;" + gd, "e", gr.ErrorToken},
+		{nd + "!extern $foo;" + gd, "foo", gr.ExternalToken},
+		{nd + "!literal 'foo';" + gd, "foo", gr.LiteralToken},
+		{nd + "!reserved 'foo';" + gd, "foo", gr.LiteralToken | gr.ReservedToken},
+		{nd + "!shrink $name;" + gd, "name", gr.ShrinkableToken},
+	}
+
+	sampleLoop:
+	for i, s := range samples {
+		g, e := ParseString("", s.src)
+		if e != nil {
+			t.Errorf("sample #%d: unexpected error: %s", i, e.Error())
+			continue
+		}
+
+		for _, tok := range g.Tokens {
+			if tok.Name == s.name {
+				if tok.Flags != s.flags {
+					t.Errorf("sample #%d: %q token: expecting flags=%d, got %d", i, s.name, s.flags, tok.Flags)
+				}
+				continue sampleLoop
+			}
+		}
+
+		t.Errorf("sample #%d: %q token not found", i, s.name)
 	}
 }
