@@ -1,0 +1,17 @@
+!aside $space $indent $comment;
+
+$indent = /\n[ \t]*/;
+$space = /[ \t]+/;
+$comment = /\/\*.*?\*\//;
+$number = /\d+/;
+$name = /[A-Za-z_][A-Za-z_0-9]*/;
+$op = /[{}\[\],;]/;
+
+cDataGrammar = var-def | type-def, {var-def | type-def};
+var-def = type, name, {size-def}, {',', name, {size-def}}, ';';
+type-def = 'typedef', type, name, {size-def}, ';';
+type = simple-type | struct-type;
+name = $name;
+simple-type = $name;
+struct-type = 'struct', '{', var-def, {var-def}, '}';
+size-def = '[', $number, ']';
