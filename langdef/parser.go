@@ -834,8 +834,18 @@ func assignTokenGroups (g *parseResult, e error) error {
 	lts := ts[rcnt :]
 	defaultGroups := 1 << bits.Len(uint(allGroups))
 	for i, ret := range rets {
-		if ret.Groups == 0 {
+		if ret.Groups == 0 && (ret.Flags & grammar.AsideToken) == 0 {
 			rets[i].Groups = defaultGroups
+			allGroups |= defaultGroups
+		}
+	}
+	for i, ret := range rets {
+		if (ret.Flags & grammar.AsideToken) != 0 {
+			if ret.Groups == 0 {
+				rets[i].Groups = allGroups
+			} else {
+				return asideGroupError(ret.Name)
+			}
 		}
 	}
 

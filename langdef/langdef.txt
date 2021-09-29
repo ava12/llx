@@ -51,6 +51,7 @@ $error = /["'!].{0,10}/;
 # Define a separate group of token types. Empty lists are ignored.
 # Each directive defines a new group, all remaining tokens form
 # "default" group. A token type can belong to different groups.
+# Every aside token belongs to all groups.
 # Literal token groups are detected automatically.
 # Each group effectively constructs a separate lexer. This can be used
 # when tokenization result depends on context.

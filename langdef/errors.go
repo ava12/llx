@@ -24,6 +24,7 @@ const (
 	DisjointGroupsError
 	UndefinedTokenError
 	EmptyRepeatableError
+	AsideGroupError
 )
 
 func eofError (token *lexer.Token) *llx.Error {
@@ -88,4 +89,8 @@ func undefinedTokenError (name string) *llx.Error {
 
 func emptyRepeatableError (nonTerm string) *llx.Error {
 	return llx.FormatError(EmptyRepeatableError, "%q non-terminal: cannot accept repeating group with potentially empty body", nonTerm)
+}
+
+func asideGroupError (name string) *llx.Error {
+	return llx.FormatError(AsideGroupError, "cannot assign %q token to a separate group: aside tokens belong to all groups", name)
 }

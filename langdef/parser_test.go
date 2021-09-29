@@ -182,11 +182,18 @@ func TestEmptyRepeatableError (t *testing.T) {
 	checkErrorCode(t, samples, EmptyRepeatableError)
 }
 
+func TestAsideTokenError (t *testing.T) {
+	samples := []string{
+		"!aside $sp; !group $sp; $sp = /\\s/; $name = /\\w+/; g = {$name};",
+	}
+	checkErrorCode(t, samples, AsideGroupError)
+}
+
 func TestNoError (t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
 		toks + "!aside; !extern; !error; !shrink; !group; !literal; !caseless; !reserved; foo = 'foo';",
-		"!aside $space; !group $space $name; $space = /\\s/; $name = /\\w/; g = {$name};",
+		"!aside $space; !group $name; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 	}
 	checkErrorCode(t, samples, 0)
@@ -281,6 +288,10 @@ func TestTokenGroups (t *testing.T) {
 	}{
 		{"!extern $ex; !group $name; $name = /\\w+/; $num = /\\d+/; g = $name, $ex, $num, 'foo';",
 			[]int{1, 2, 2, 1}},
+		{"!aside $sp; !group $name; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
+			[]int{3, 1, 2}},
+		{"!aside $sp; !group $name; !group $num; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
+			[]int{3, 1, 2}},
 	}
 
 	for i, s := range samples {
