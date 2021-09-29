@@ -273,3 +273,27 @@ func TestTokenFlags (t *testing.T) {
 		t.Errorf("sample #%d: %q token not found", i, s.name)
 	}
 }
+
+func TestTokenGroups (t *testing.T) {
+	samples := []struct{
+		src string
+		groups []int
+	}{
+		{"!extern $ex; !group $name; $name = /\\w+/; $num = /\\d+/; g = $name, $ex, $num, 'foo';",
+			[]int{1, 2, 2, 1}},
+	}
+
+	for i, s := range samples {
+		g, e := ParseString("", s.src)
+		if e != nil {
+			t.Errorf("sample #%d: unexpected error: %s", i, e.Error())
+			continue
+		}
+
+		for j, gs := range s.groups {
+			if g.Tokens[j].Groups != gs {
+				t.Errorf("sample #%d: token #%d: expecting groups=%d, got %d", i, j, gs, g.Tokens[j].Groups)
+			}
+		}
+	}
+}

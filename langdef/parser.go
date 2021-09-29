@@ -825,11 +825,17 @@ func assignTokenGroups (g *parseResult, e error) error {
 	}
 
 	rts := ts[: rcnt]
+	for rcnt < len(g.Tokens) && (ts[rcnt].Flags & grammar.LiteralToken) == 0 {
+		allGroups |= ts[rcnt].Groups
+		rcnt++
+	}
+
+	rets := ts[: rcnt]
 	lts := ts[rcnt :]
 	defaultGroups := 1 << bits.Len(uint(allGroups))
-	for i, rt := range rts {
-		if rt.Groups == 0 {
-			rts[i].Groups = defaultGroups
+	for i, ret := range rets {
+		if ret.Groups == 0 {
+			rets[i].Groups = defaultGroups
 		}
 	}
 
