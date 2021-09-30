@@ -1,4 +1,4 @@
-//go:generate llxgen grammar.llx
+//go:generate ../../../bin/llxgen grammar.llx
 package internal
 
 import (

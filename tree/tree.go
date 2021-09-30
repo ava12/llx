@@ -301,7 +301,7 @@ func AppendChild (parent NonTermNode, node Node) {
 	parent.AppendChild(node)
 }
 
-type NodeVisitor func (n Node) (walkChildren, walkSiblings bool)
+type NodeVisitor func (n Node) (visitChildren, visitSiblings bool)
 
 type WalkMode int
 const (
