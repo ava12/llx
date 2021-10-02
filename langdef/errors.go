@@ -25,6 +25,7 @@ const (
 	UndefinedTokenError
 	EmptyRepeatableError
 	AsideGroupError
+	UnknownLiteralError
 )
 
 func eofError (token *lexer.Token) *llx.Error {
@@ -93,4 +94,8 @@ func emptyRepeatableError (nonTerm string) *llx.Error {
 
 func asideGroupError (name string) *llx.Error {
 	return llx.FormatError(AsideGroupError, "cannot assign %q token to a separate group: aside tokens belong to all groups", name)
+}
+
+func unknownLiteralError (text string) *llx.Error {
+	return llx.FormatError(UnknownLiteralError, "cannot use %q literal: it is not whitelisted", text)
 }

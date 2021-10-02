@@ -157,6 +157,7 @@ func TestUnresolvedGroupsError (t *testing.T) {
 	samples := []string{
 		"$num = /\\d+/; $op = /[*\\/+-]/; g = 'x' | $num, $op, $num;",
 		"!caseless $key; $key = /\\w+/; g = 'x', $key;",
+		"!literal $num; $num = /\\d+/; $name = /\\w+/; g = 'foo' | $name | $num;",
 	}
 	checkErrorCode(t, samples, UnresolvedGroupsError)
 }
@@ -189,12 +190,20 @@ func TestAsideTokenError (t *testing.T) {
 	checkErrorCode(t, samples, AsideGroupError)
 }
 
+func TestUnknownLiteralError (t *testing.T) {
+	samples := []string{
+		"!literal 'foo'; $name = /\\w+/; g = $name | 'foo' | 'bar';",
+	}
+	checkErrorCode(t, samples, UnknownLiteralError)
+}
+
 func TestNoError (t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
 		toks + "!aside; !extern; !error; !shrink; !group; !literal; !caseless; !reserved; foo = 'foo';",
 		"!aside $space; !group $name; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
+		"!literal $name 'a' 'b'; $name = /\\w+/; g = $name | 'a' | 'b';",
 	}
 	checkErrorCode(t, samples, 0)
 }
@@ -219,7 +228,7 @@ func TestNoDuplicateLiterals (t *testing.T) {
 }
 
 func TestTokenDefOrder (t *testing.T) {
-	sample := "!literal 'foo'; $x = /\\w+/; !extern $y; $z = /#/; s = $x | $z | 'bar' | 'foo';"
+	sample := "!reserved 'foo'; $x = /\\w+/; !extern $y; $z = /#/; s = $x | $z | 'bar' | 'foo';"
 	names := []string{"x", "z", "y", "foo", "bar"}
 	g, e := ParseString("", sample)
 	if e != nil {

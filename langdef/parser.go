@@ -83,6 +83,7 @@ const (
 	nameTok       = "name"
 	dirTok        = "dir"
 	literalDirTok = "literal"
+	mixedDirTok   = "mixed"
 	groupDirTok   = "group-dir"
 	tokenNameTok  = "token-name"
 	regexpTok     = "regexp"
@@ -126,6 +127,8 @@ type parseContext struct {
 	ets          []extraToken
 	eti          map[string]int
 	currentGroup int
+	restrictLtts bool
+	restrictLs   bool
 }
 
 func init () {
@@ -134,10 +137,11 @@ func init () {
 		{2, nameTok},
 		{3, dirTok},
 		{4, literalDirTok},
-		{5, groupDirTok},
-		{6, tokenNameTok},
-		{7, regexpTok},
-		{8, opTok},
+		{5, mixedDirTok},
+		{6, groupDirTok},
+		{7, tokenNameTok},
+		{8, regexpTok},
+		{9, opTok},
 		{lexer.ErrorTokenType, wrongTok},
 	}
 }
@@ -150,7 +154,8 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 		"((?:\".*?\")|(?:'.*?'))|" +
 		"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(!(?:aside|caseless|error|extern|shrink)\\b)|" +
-		"(!(?:literal|reserved)\\b)|" +
+		"(!reserved\\b)|" +
+		"(!literal\\b)|" +
 		"(!group\\b)|" +
 		"(\\$[a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(/(?:[^\\\\/]|\\\\.)+/)|" +
@@ -163,11 +168,11 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 	ti := tokenIndex{}
 	lti := tokenIndex{}
 	g := &parseResult{make([]grammar.Token, 0), make([]grammar.NonTerm, 0), make([]stateEntry, 0), make(nonTermIndex)}
-	c := &parseContext{l, g, make([]literalToken, 0), ti, lti, ets, eti, 0}
+	c := &parseContext{l, g, make([]literalToken, 0), ti, lti, ets, eti, 0, false, false}
 
 	var t *lexer.Token
 	for e == nil {
-		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, literalDirTok, tokenNameTok}, true, nil)
+		t, e = fetch(l, []string{nameTok, dirTok, groupDirTok, literalDirTok, mixedDirTok, tokenNameTok}, true, nil)
 		if e != nil {
 			return nil, e
 		}
@@ -190,6 +195,9 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 		case literalDirTok:
 			e = parseLiteralDir(t.Text(), c)
 
+		case mixedDirTok:
+			e = parseMixedDir(t.Text(), c)
+
 		case tokenNameTok:
 			name := t.Text()[1:]
 			i, has := ti[name]
@@ -210,6 +218,22 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 				addToken(et.name, "", et.groups, et.flags, c)
 			} else {
 				return nil, undefinedTokenError(et.name)
+			}
+		}
+	}
+
+	if c.restrictLtts {
+		for i, t := range g.Tokens {
+			if (t.Flags & grammar.LiteralToken) != 0 {
+				break
+			}
+
+			if (t.Flags & grammar.AsideToken) != 0 {
+				if (t.Flags & grammar.NoLiteralsToken) != 0 {
+					g.Tokens[i].Flags ^= grammar.NoLiteralsToken
+				}
+			} else {
+				g.Tokens[i].Flags ^= grammar.NoLiteralsToken
 			}
 		}
 	}
@@ -455,6 +479,23 @@ func parseLiteralDir (dir string, c *parseContext) error {
 	return nil
 }
 
+func parseMixedDir (dir string, c *parseContext) error {
+	tokens, e := fetchAll(c.l, []string{stringTok, tokenNameTok}, nil)
+	e = skipOne(c.l, semicolonTok, e)
+
+	for _, t := range tokens {
+		text := t.Text()
+		if t.TypeName() == tokenNameTok {
+			c.restrictLtts = true
+			addTokenFlag(text[1 :], grammar.NoLiteralsToken, c)
+		} else {
+			c.restrictLs = true
+			addLiteralToken(text[1 : len(text) - 1], 0, c)
+		}
+	}
+	return nil
+}
+
 func parseTokenDef (name string, c *parseContext) error {
 	e := skipOne(c.l, equTok, nil)
 	token, e := fetchOne(c.l, regexpTok, true, e)
@@ -581,6 +622,10 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 		name = t.Text()[1 : len(t.Text()) - 1]
 		index, f = c.lti[name]
 		if !f {
+			if c.restrictLs {
+				return nil, unknownLiteralError(name)
+			}
+
 			index = useLiteralToken(name, 0, c)
 		}
 		return newTokenChunk(index), nil
@@ -816,12 +861,21 @@ func assignTokenGroups (g *parseResult, e error) error {
 
 	var (
 		rcnt, allGroups int
+		t grammar.Token
 	)
-	res := make([]*regexp.Regexp, 0, len(g.Tokens))
+	res := make(map[int]*regexp.Regexp)
 	ts := g.Tokens
-	for rcnt = 0; rcnt < len(g.Tokens) && ts[rcnt].Re != ""; rcnt++ {
-		res = append(res, regexp.MustCompile(ts[rcnt].Re))
-		allGroups |= ts[rcnt].Groups
+	for rcnt, t = range ts {
+		if t.Re == "" {
+			break
+		}
+
+		if t.Flags & (grammar.AsideToken | grammar.NoLiteralsToken) != 0 {
+			continue
+		}
+
+		res[rcnt] = regexp.MustCompile(t.Re)
+		allGroups |= t.Groups
 	}
 
 	rts := ts[: rcnt]
@@ -851,8 +905,9 @@ func assignTokenGroups (g *parseResult, e error) error {
 
 	for i, lt := range lts {
 		caseless := (lt.Name == strings.ToUpper(lt.Name))
-		for j, rt := range rts {
-			if (rt.Flags & grammar.CaselessToken == 0 || caseless) && res[j].FindString(lt.Name) == lt.Name {
+		for j, re := range res {
+			rt := rts[j]
+			if (rt.Flags & grammar.CaselessToken == 0 || caseless) && re.FindString(lt.Name) == lt.Name {
 				lts[i].Groups |= rt.Groups
 			}
 		}

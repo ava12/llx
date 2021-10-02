@@ -64,14 +64,14 @@ const (
 
 	// ExternalToken is a token type that is not actually present in source code,
 	// but can be emitted by token hooks.
-	// E. g. fake $begin and $end can be emitted when source code indentation level changes.
+	// E.g. fake $begin and $end can be emitted when source code indentation level changes.
 	ExternalToken
 
 	// AsideToken is a token type that does not affect syntax and thus
-	// not fed to parser normally, but can be hooked. E. g. space or comment.
+	// not fed to parser normally, but can be hooked. E.g. space or comment.
 	AsideToken
 
-	// ErrorToken is a token type that represents some lexical error, e. g. unmatched opening quote.
+	// ErrorToken is a token type that represents some lexical error, e.g. unmatched opening quote.
 	// This token automatically generates an error message containing captured text.
 	ErrorToken
 
@@ -84,6 +84,9 @@ const (
 
 	// ReservedToken marks literal tokens that represent reserved words.
 	ReservedToken
+
+	// NoLiteralsToken marks token type that cannot match any literal, e.g. raw text in HTML.
+	NoLiteralsToken
 )
 
 // NonTerm contains information about some non-terminal.
@@ -121,13 +124,13 @@ type Rule struct {
 
 type MultiRule struct {
 	// Token is an index in Grammar.Tokens slice.
-	Token     int
+	Token    int
 
 	// LowRule is the low index of the rule sub-slice for this token type.
-	LowRule   int
+	LowRule  int
 
 	// HighRule is the high index of the rule sub-slice for this token type.
-	HighRule  int
+	HighRule int
 }
 
 // State represents a parsing state for some nonTerminal.

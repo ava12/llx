@@ -3,6 +3,7 @@ package parser
 import (
 	"math/bits"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/ava12/llx/grammar"
@@ -482,65 +483,68 @@ func (pc *ParseContext) findRules (t *lexer.Token, s grammar.State) []grammar.Ru
 		return []grammar.Rule{{t.Type(), repeatState, grammar.SameNonTerm}}
 	}
 
+	keys := pc.possibleRuleKeys(t)
 	g := pc.parser.grammar
 	rules := g.Rules[s.LowRule : s.HighRule]
 	multiRules := g.MultiRules[s.LowMultiRule : s.HighMultiRule]
+	rlen := len(rules)
+	mrlen := len(multiRules)
 
-	indexes := make([]int, 0, 3)
-	literal := t.Text()
-	tt := t.Type()
-	if tt >= 0 && g.Tokens[tt].Flags & grammar.CaselessToken != 0 {
-		literal = strings.ToUpper(literal)
-	}
-	index, literalFound := pc.parser.names[literalKey(literal)]
-	literalFound = literalFound && (index >= 0)
-	if literalFound {
-		indexes = append(indexes, index)
-	}
-	if !literalFound || index < 0 || (g.Tokens[index].Flags & grammar.ReservedToken) == 0 {
-		indexes = append(indexes, tt)
-	}
-	indexes = append(indexes, grammar.AnyToken)
-
-	for _, index = range indexes {
-		if index == grammar.AnyToken && rules[0].Token == index {
+	for _, key := range keys {
+		if key == grammar.AnyToken && rules[0].Token == key {
 			return rules[0 : 1]
 		}
 
-		l := 0
-		h := len(rules)
-		for l < h {
-			i := (l + h) >> 1
-			r := rules[i]
-			if r.Token == index {
-				return rules[i : i + 1]
-			}
-
-			if index < r.Token {
-				h = i
-			} else {
-				l = i + 1
-			}
+		index := sort.Search(rlen, func (i int) bool {
+			return rules[i].Token >= key
+		})
+		if index < rlen && rules[index].Token == key {
+			return rules[index : index + 1]
 		}
 
-		l = 0
-		h = len(multiRules)
-		for l < h {
-			i := (l + h) >> 1
-			m := multiRules[i]
-			if m.Token == index {
-				return g.Rules[m.LowRule : m.HighRule]
-			}
-
-			if index < m.Token {
-				h = i
-			} else {
-				l = i + 1
-			}
+		index = sort.Search(mrlen, func (i int) bool {
+			return multiRules[i].Token >= key
+		})
+		if index < mrlen && multiRules[index].Token == key {
+			mr := multiRules[index]
+			return g.Rules[mr.LowRule : mr.HighRule]
 		}
 	}
 
 	return nil
+}
+
+func (pc *ParseContext) possibleRuleKeys (t *lexer.Token) []int {
+	keys := make([]int, 0, 3)
+	tt := t.Type()
+	var tf grammar.TokenFlags
+	tokens := pc.parser.grammar.Tokens
+	if tt >= 0 {
+		tf = tokens[tt].Flags
+	} else {
+		tf = grammar.NoLiteralsToken
+	}
+
+	literalFound := false
+	literalIndex := 0
+	if (tf & grammar.NoLiteralsToken) == 0 {
+		literal := t.Text()
+		if tf & grammar.CaselessToken != 0 {
+			literal = strings.ToUpper(literal)
+		}
+		literalIndex, literalFound = pc.parser.names[literalKey(literal)]
+		literalFound = literalFound && (literalIndex >= 0)
+		if literalFound {
+			keys = append(keys, literalIndex)
+		}
+	}
+
+	if !literalFound || literalIndex < 0 || (tokens[literalIndex].Flags & grammar.ReservedToken) == 0 {
+		keys = append(keys, tt)
+	}
+	keys = append(keys, grammar.AnyToken)
+
+	return keys
 }
 
 func (pc *ParseContext) getNonTermHook (ntIndex int, tok *lexer.Token) (res NonTermHookInstance, e error) {
