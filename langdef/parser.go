@@ -228,11 +228,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 				break
 			}
 
-			if (t.Flags & grammar.AsideToken) != 0 {
-				if (t.Flags & grammar.NoLiteralsToken) != 0 {
-					g.Tokens[i].Flags ^= grammar.NoLiteralsToken
-				}
-			} else {
+			if (t.Flags &grammar.LiteralToken) == 0 || (t.Flags & grammar.NoLiteralsToken) != 0 {
 				g.Tokens[i].Flags ^= grammar.NoLiteralsToken
 			}
 		}
@@ -482,6 +478,9 @@ func parseLiteralDir (dir string, c *parseContext) error {
 func parseMixedDir (dir string, c *parseContext) error {
 	tokens, e := fetchAll(c.l, []string{stringTok, tokenNameTok}, nil)
 	e = skipOne(c.l, semicolonTok, e)
+	if e != nil {
+		return e
+	}
 
 	for _, t := range tokens {
 		text := t.Text()
@@ -870,12 +869,14 @@ func assignTokenGroups (g *parseResult, e error) error {
 			break
 		}
 
-		if t.Flags & (grammar.AsideToken | grammar.NoLiteralsToken) != 0 {
+		if (t.Flags & grammar.AsideToken) != 0 {
 			continue
 		}
 
-		res[rcnt] = regexp.MustCompile(t.Re)
 		allGroups |= t.Groups
+		if (t.Flags & grammar.NoLiteralsToken) == 0 {
+			res[rcnt] = regexp.MustCompile(t.Re)
+		}
 	}
 
 	rts := ts[: rcnt]

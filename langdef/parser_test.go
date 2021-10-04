@@ -301,6 +301,8 @@ func TestTokenGroups (t *testing.T) {
 			[]int{3, 1, 2}},
 		{"!aside $sp; !group $name; !group $num; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
 			[]int{3, 1, 2}},
+		{"!aside $sp; !literal $op; !group $name; $sp = /\\s+/; $name = /\\w+/; $op = /=/; g = $name, '=', $name;",
+			[]int{3, 1, 2}},
 	}
 
 	for i, s := range samples {
