@@ -683,7 +683,7 @@ func (ntn *nonTermNode) SetParent (p NonTermNode) {
 
 func (ntn *nonTermNode) SetFirstChild (c Node) {
 	ntn.firstChild = c
-	if ntn.lastChild == nil {
+	if ntn.lastChild == nil || c == nil {
 		ntn.lastChild = c
 	}
 	if c != nil {

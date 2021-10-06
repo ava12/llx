@@ -235,6 +235,7 @@ func TestDetach (t *testing.T) {
 	assert(t, second.Prev() == nil)
 	assert(t, second.Next() == nil)
 	assert(t, root.FirstChild() == nil)
+	assert(t, root.LastChild() == nil)
 }
 
 func TestReplace (t *testing.T) {
