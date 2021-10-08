@@ -5,8 +5,9 @@ bin/llxgen : llxgen/llxgen.go llxgen/version
 
 generate:
 	go generate ./examples/calc/internal
+	go generate ./examples/conf-edit/internal
 	go generate ./examples/style-check/internal
 
 test:
 	go test ./internal/ints ./source ./lexer ./langdef ./parser ./tree
-	go test ./examples/calc/internal ./examples/style-check/internal
+	go test ./examples/calc/internal ./examples/conf-edit/internal ./examples/style-check/internal
