@@ -22,7 +22,7 @@ type treeDefHook struct {
 }
 
 func (h *treeDefHook) HandleNonTerm (nonTerm string, result interface{}) error {
-	h.nt.AppendChild(result.(Node))
+	h.nt.AddChild(result.(Node), nil)
 	return nil
 }
 
@@ -30,7 +30,7 @@ func (h *treeDefHook) HandleToken (token *lexer.Token) error {
 	t := token.Text()
 	if t != "(" && t != ")" {
 		if h.gotName {
-			h.nt.AppendChild(NewTokenNode(token))
+			h.nt.AddChild(NewTokenNode(token), nil)
 		} else {
 			h.nt.typeName = t
 			h.gotName = true
@@ -182,9 +182,9 @@ func matchNodes (t *testing.T, expected string, ns ... Node) {
 	for _, n := range ns {
 		if n.IsNonTerm() {
 			ntn := n.(NonTermNode)
-			root.AppendChild(&nonTermNode{typeName: ntn.TypeName()})
+			root.AddChild(&nonTermNode{typeName: ntn.TypeName()}, nil)
 		} else {
-			root.AppendChild(&tokenNode{token: n.Token()})
+			root.AddChild(&tokenNode{token: n.Token()}, nil)
 		}
 	}
 	got := serialize(root)

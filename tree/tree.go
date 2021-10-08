@@ -28,8 +28,8 @@ type NonTermNode interface {
 	Node
 	FirstChild () Node
 	LastChild () Node
-	SetFirstChild (Node)
-	AppendChild (Node)
+	AddChild (n, before Node)
+	RemoveChild (Node)
 }
 
 
@@ -218,23 +218,7 @@ func Detach (n Node) {
 		return
 	}
 
-	np := n.Prev()
-	nn := n.Next()
-
-	if np == nil {
-		p := n.Parent()
-		if p != nil {
-			p.SetFirstChild(nn)
-		}
-	} else {
-		np.SetNext(nn)
-		n.SetPrev(nil)
-	}
-	if nn != nil {
-		nn.SetPrev(np)
-		n.SetNext(nil)
-	}
-	n.SetParent(nil)
+	n.Parent().RemoveChild(n)
 }
 
 func Replace (old, n Node) {
@@ -244,18 +228,10 @@ func Replace (old, n Node) {
 	}
 
 	pa := old.Parent()
-	pr := old.Prev()
 	ne := old.Next()
 	Detach(old)
 	Detach(n)
-	if pr != nil {
-		AppendSibling(pr, n)
-	} else if ne != nil {
-		PrependSibling(ne, n)
-	} else {
-		n.SetParent(pa)
-		pa.SetFirstChild(n)
-	}
+	pa.AddChild(n, ne)
 }
 
 func AppendSibling (prev, node Node) {
@@ -265,12 +241,16 @@ func AppendSibling (prev, node Node) {
 
 	Detach(node)
 	next := prev.Next()
-	node.SetParent(prev.Parent())
-	node.SetPrev(prev)
-	node.SetNext(next)
-	prev.SetNext(node)
-	if next != nil {
-		next.SetPrev(node)
+	parent := prev.Parent()
+	if parent == nil {
+		node.SetPrev(prev)
+		node.SetNext(next)
+		prev.SetNext(node)
+		if next != nil {
+			next.SetPrev(node)
+		}
+	} else {
+		parent.AddChild(node, next)
 	}
 }
 
@@ -280,15 +260,17 @@ func PrependSibling (next, node Node) {
 	}
 
 	Detach(node)
-	prev := next.Prev()
-	node.SetParent(next.Parent())
-	node.SetPrev(prev)
-	node.SetNext(next)
-	next.SetPrev(node)
-	if prev == nil {
-		node.Parent().SetFirstChild(node)
+	parent := next.Parent()
+	if parent == nil {
+		prev := next.Prev()
+		node.SetPrev(prev)
+		node.SetNext(next)
+		next.SetPrev(node)
+		if prev != nil {
+			prev.SetNext(node)
+		}
 	} else {
-		prev.SetNext(node)
+		parent.AddChild(node, next)
 	}
 }
 
@@ -298,7 +280,7 @@ func AppendChild (parent NonTermNode, node Node) {
 	}
 
 	Detach(node)
-	parent.AppendChild(node)
+	parent.AddChild(node, nil)
 }
 
 type NodeVisitor func (n Node) (visitChildren, visitSiblings bool)
@@ -681,22 +663,53 @@ func (ntn *nonTermNode) SetParent (p NonTermNode) {
 	ntn.parent = p
 }
 
-func (ntn *nonTermNode) SetFirstChild (c Node) {
-	ntn.firstChild = c
-	if ntn.lastChild == nil || c == nil {
-		ntn.lastChild = c
+func (ntn *nonTermNode) AddChild (c, before Node) {
+	if c == nil || (before != nil && before.Parent() != ntn) {
+		return
 	}
-	if c != nil {
-		c.SetParent(ntn)
+
+	c.SetParent(ntn)
+	if before == nil {
+		if ntn.lastChild == nil {
+			ntn.firstChild = c
+		} else {
+			c.SetPrev(ntn.lastChild)
+			ntn.lastChild.SetNext(c)
+		}
+		ntn.lastChild = c
+		return
+	}
+
+	prev := before.Prev()
+	before.SetPrev(c)
+	c.SetNext(before)
+	c.SetPrev(prev)
+	if prev == nil {
+		ntn.firstChild = c
+	} else {
+		prev.SetNext(c)
 	}
 }
 
-func (ntn *nonTermNode) AppendChild (c Node) {
-	if ntn.firstChild == nil {
-		ntn.SetFirstChild(c)
+func (ntn *nonTermNode) RemoveChild (c Node) {
+	if c == nil || c.Parent() != ntn {
+		return
+	}
+
+	prev := c.Prev()
+	next := c.Next()
+	c.SetParent(nil)
+	c.SetPrev(nil)
+	c.SetNext(nil)
+	if prev == nil {
+		ntn.firstChild = next
 	} else {
-		AppendSibling(ntn.lastChild, c)
-		ntn.lastChild = c
+		prev.SetNext(next)
+	}
+	if next == nil {
+		ntn.lastChild = prev
+	} else {
+		next.SetPrev(prev)
 	}
 }
 
@@ -730,12 +743,12 @@ func (hi *HookInstance) HandleNonTerm (nonTerm string, result interface{}) error
 		return errors.New("non-terminal " + nonTerm + " is not a tree.Node")
 	}
 
-	hi.node.AppendChild(node)
+	hi.node.AddChild(node, nil)
 	return nil
 }
 
 func (hi *HookInstance) HandleToken (token *lexer.Token) error {
-	hi.node.AppendChild(NewTokenNode(token))
+	hi.node.AddChild(NewTokenNode(token), nil)
 	return nil
 }
 
