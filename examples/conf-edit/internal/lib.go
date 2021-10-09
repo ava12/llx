@@ -379,7 +379,7 @@ func Serialize (root tree.Node, w io.Writer) (written int, err error) {
 }
 
 func SaveFile (name string, root tree.Node) (int, error) {
-	f, e := os.OpenFile(name, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0755)
+	f, e := os.OpenFile(name, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0644)
 	if e != nil {
 		return 0, e
 	}
