@@ -9,7 +9,6 @@ import (
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
-	"github.com/ava12/llx/source"
 )
 
 const treeGrammarDef = "!aside $space; $space = /\\s+/; " +
@@ -101,9 +100,7 @@ type parsingSample struct {
 }
 
 func checkParsingSample (t *testing.T, p *parser.Parser, sampleNo int, s parsingSample) {
-	q := source.NewQueue().Append(source.New("parsingSample", []byte(s.src)))
-
-	root, e := p.Parse(q, treeHooks)
+	root, e := p.ParseString("parsingSample", s.src, treeHooks)
 	if e != nil {
 		t.Errorf("parsingSample #%d: unexpected error: %s", sampleNo, e)
 		return
@@ -153,8 +150,7 @@ func parseTreeDescription (t *testing.T, src string) NonTermNode {
 		t.Fatal("cannot parse tree")
 	}
 
-	q := source.NewQueue().Append(source.New("src", []byte(src)))
-	res, e := treeParser.Parse(q, treeDefHooks)
+	res, e := treeParser.ParseString("src", src, treeDefHooks)
 	if e != nil {
 		t.Fatal("error: " + e.Error())
 	}

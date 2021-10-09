@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/ava12/llx"
-	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
 	"github.com/ava12/llx/source"
 )
@@ -184,7 +183,7 @@ func (ch *chain) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (ch *chain) HandleToken (token *lexer.Token) error {
+func (ch *chain) HandleToken (token *parser.Token) error {
 	ch.lastOp = rune(token.Text()[0])
 	return nil
 }
@@ -232,7 +231,7 @@ func (p *power) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (p *power) HandleToken (token *lexer.Token) error {
+func (p *power) HandleToken (token *parser.Token) error {
 	return nil
 }
 
@@ -295,7 +294,7 @@ func (a *assignment) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (a *assignment) HandleToken (token *lexer.Token) error {
+func (a *assignment) HandleToken (token *parser.Token) error {
 	if token.TypeName() == "name" {
 		a.name = token.Text()
 	}
@@ -334,7 +333,7 @@ func (fd *funcDef) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (fd *funcDef) HandleToken (token *lexer.Token) (e error) {
+func (fd *funcDef) HandleToken (token *parser.Token) (e error) {
 	if token.TypeName() != "name" {
 		return
 	}
@@ -403,7 +402,7 @@ func (fc *funcCall) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (fc *funcCall) HandleToken (token *lexer.Token) error {
+func (fc *funcCall) HandleToken (token *parser.Token) error {
 	if token.TypeName() == "name" {
 		fc.name = token.Text()
 	}
@@ -428,7 +427,7 @@ func (r *rootNT) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (r *rootNT) HandleToken (token *lexer.Token) error {
+func (r *rootNT) HandleToken (token *parser.Token) error {
 	return nil
 }
 
@@ -450,7 +449,7 @@ func (v *value) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (v *value) HandleToken (token *lexer.Token) error {
+func (v *value) HandleToken (token *parser.Token) error {
 	switch token.TypeName() {
 	case "name":
 		v.body = newVarName(token.Text())
@@ -472,7 +471,7 @@ func (v *value) EndNonTerm () (result interface{}, e error) {
 
 var hooks = &parser.Hooks{
 	NonTerms: parser.NonTermHooks{
-		parser.AnyNonTerm: func (nonTerm string, t *lexer.Token, pc *parser.ParseContext) (res parser.NonTermHookInstance, e error) {
+		parser.AnyNonTerm: func (nonTerm string, t *parser.Token, pc *parser.ParseContext) (res parser.NonTermHookInstance, e error) {
 			switch nonTerm {
 			case "calcGrammar":
 				res = newRootNT()

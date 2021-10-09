@@ -1,6 +1,6 @@
 !aside $space $comment;
 !literal $op;
-!group $sec-name $nl;
+!group $sec-name $op;
 !group $value $nl;
 !group $nl $name $op;
 

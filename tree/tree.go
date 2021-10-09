@@ -2,9 +2,9 @@ package tree
 
 import (
 	"errors"
-	"github.com/ava12/llx/parser"
 
 	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/parser"
 )
 
 type StringWriter interface {
