@@ -44,7 +44,7 @@ func assertItems (t *testing.T, s *Set, items []int) {
 
 func TestIntSize (t *testing.T) {
 	var realShift uint
-	if ^0 == 0xffffffff {
+	if ^uint(0) == 0xffffffff {
 		realShift = 5
 	} else {
 		realShift = 6
