@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ava12/llx"
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/internal/ints"
 	"github.com/ava12/llx/lexer"
@@ -45,7 +44,7 @@ type parseResult struct {
 type chunk interface {
 	FirstTokens () *ints.Set
 	IsOptional () bool
-	BuildStates (g *parseResult, stateIndex, nextIndex int) error
+	BuildStates (g *parseResult, stateIndex, nextIndex int)
 }
 
 type complexChunk interface {
@@ -790,22 +789,14 @@ func buildStates (g *parseResult, e error) error {
 		})
 		item := nti[nt.Name]
 		g.NonTerms[i].FirstState = firstState
-		e = item.Chunk.BuildStates(g, firstState, grammar.FinalState)
-		if e != nil {
-			ee, f := e.(*llx.Error)
-			if f && ee.Code == EmptyRepeatableError {
-				e = emptyRepeatableError(nt.Name)
-			}
-			return e
+		item.Chunk.BuildStates(g, firstState, grammar.FinalState)
+	}
+	for i, state := range g.States {
+		if len(state.Rules) == 0 {
+			g.States[i].Rules = nil
 		}
-
-		for i, state := range g.States[firstState :] {
-			if len(state.Rules) == 0 {
-				g.States[i + firstState].Rules = nil
-			}
-			if len(state.MultiRules) == 0 {
-				g.States[i + firstState].MultiRules = nil
-			}
+		if len(state.MultiRules) == 0 {
+			g.States[i].MultiRules = nil
 		}
 	}
 

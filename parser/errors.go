@@ -25,15 +25,15 @@ func unexpectedTokenError (t *lexer.Token, expected string) *llx.Error {
 	if len(text) > 10 {
 		text = text[: 7] + "..."
 	}
-	return llx.FormatErrorPos(t, UnexpectedTokenError, "unexpected token %s (%q), expecting %s", t.TypeName(), text, expected)
+	return llx.FormatErrorPos(t, UnexpectedTokenError, "unexpected token $%s (%q), expecting %s", t.TypeName(), text, expected)
 }
 
 func unexpectedGroupError (t *lexer.Token, group int) *llx.Error {
-	return llx.FormatErrorPos(t, UnexpectedGroupError, "expecting token group %d, got %s token", group, t.TypeName())
+	return llx.FormatErrorPos(t, UnexpectedGroupError, "expecting token group %d, got $%s token", group, t.TypeName())
 }
 
 func emitWrongTokenError (t *lexer.Token) *llx.Error {
-	return llx.FormatErrorPos(t, EmitWrongTokenError, "cannot emit %s token (type %d)", t.TypeName(), t.Type())
+	return llx.FormatErrorPos(t, EmitWrongTokenError, "cannot emit $%s token (type %d)", t.TypeName(), t.Type())
 }
 
 func unknownTokenTypeError (typeName string) *llx.Error {

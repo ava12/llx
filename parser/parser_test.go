@@ -369,23 +369,6 @@ func TestResolveAnyTokenEof (t *testing.T) {
 	testErrorSamples(t, name, grammar, samples)
 }
 
-func TestRepeatAndOptionalMix (t *testing.T) {
-	name := "repeat * optional #"
-	tokens := "$d = /[0-9]/; $s = /[a-z]/; $c = /[A-Z]/; "
-	samples := []struct {
-		grammar, src, res string
-	}{
-		{tokens + "g = {[$d], $s};", "1ab2c", "1 a b 2 c"},
-		{tokens + "g = {$d, [$s]};", "1a23b", "1 a 2 3 b"},
-		{tokens + "g = [{$d}, $s], $c;", "12A", "1 2 A"},
-		{tokens + "g = [[$d], $s], $c;", "1A", "1 A"},
-	}
-
-	for i, s := range samples {
-		testGrammarSamples(t, name + strconv.Itoa(i), s.grammar, []srcExprSample{{s.src, s.res}}, false)
-	}
-}
-
 func TestCaselessTokens (t *testing.T) {
 	name := "caseless tokens"
 	grammar := spaceDef + "$name = /\\w+/; !caseless $name; " +
@@ -501,4 +484,51 @@ func TestReservedLiterals (t *testing.T) {
 	expected := "var var"
 	testGrammarSamples(t, "correct", g0, []srcExprSample{{src, expected}}, false)
 	testErrorSamples(t, "reserved", g1, []srcErrSample{{src, UnexpectedTokenError}})
+}
+
+func TestBypass (t *testing.T) {
+	toks := "$w =/\\w/; "
+	samples := []struct{
+		grammar string
+		correct, wrong []string
+	}{
+		{toks + "g = {['a'], 'b'};", []string{"", "abb", "bab"}, []string{"a", "aba", "aab"}},
+		{toks + "g = {{'a'}, 'b'};", []string{"", "bb", "aabb"}, []string{"aba"}},
+		{toks + "g = {'a', ['b']};", []string{"", "aa", "aba"}, []string{"abb"}},
+		{toks + "g = {'a', {'b'}};", []string{"", "aa", "abba"}, []string{"b"}},
+		{toks + "g = [['a'], 'b'];", []string{"", "ab", "b"}, []string{"a", "bb"}},
+
+		{toks + "g = [{'a'}, 'b'];", []string{"", "b", "aab"}, []string{"abab", "abb"}},
+		{toks + "g = ['a', ['b']];", []string{"", "a", "ab"}, []string{"aa", "aba"}},
+		{toks + "g = ['a', {'b'}];", []string{"", "a", "ab", "abb"}, []string{"aba"}},
+		{toks + "g = {['a'], ['b'], 'c'}, ['d'];", []string{"abc", "acc", "bcd", "cc", "d"}, []string{"ca", "ad", "bd"}},
+		{toks + "g = {'a', 'b'}, 'a', 'c';", []string{"ac", "abac", "ababac"}, []string{"abc"}},
+
+		{toks + "g = {['a'], 'b'}, 'a', 'c';", []string{"ac", "bbac", "abbac"}, []string{"aac", "abc"}},
+	}
+
+	for i, s := range samples {
+		g, e := langdef.ParseString("", s.grammar)
+		if e != nil {
+			t.Fatalf("sample #%d: unexpected grammar error: %s", i, e)
+		}
+
+		p := New(g)
+		for j, src := range s.correct {
+			q := source.NewQueue().Append(source.New("", []byte(src)))
+			_, e = p.Parse(q, nil)
+			if e != nil {
+				t.Errorf("sample #%d, correct example #%d: unexpected error: %s", i, j, e)
+			} else if !q.IsEmpty() {
+				t.Errorf("sample #%d, correct example #%d: input left: %q", i, j, q.Source().Content())
+			}
+		}
+		for j, src := range s.wrong {
+			q := source.NewQueue().Append(source.New("", []byte(src)))
+			_, e = p.Parse(q, nil)
+			if e == nil && q.IsEmpty() {
+				t.Errorf("sample #%d, wrong example #%d: expecting error or input left, got success", i, j)
+			}
+		}
+	}
 }

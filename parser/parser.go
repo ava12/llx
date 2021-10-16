@@ -498,7 +498,7 @@ func (pc *ParseContext) findRules (t *Token, s grammar.State) []grammar.Rule {
 	mrlen := len(multiRules)
 
 	for _, key := range keys {
-		if key == grammar.AnyToken && rules[0].Token == key {
+		if key == grammar.AnyToken && rlen > 0 && rules[0].Token == key {
 			return rules[0 : 1]
 		}
 

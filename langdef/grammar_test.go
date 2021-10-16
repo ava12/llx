@@ -68,7 +68,7 @@ func checkNonTerm (g *grammar.Grammar, nti int, ent nonTerm) error {
 	states := g.States[firstState : lastState]
 
 	if len(states) != len(ent.states) {
-		return errors.New(fmt.Sprintf("state lengths differ: %d(%d)", len(states), len(ent.states)))
+		return errors.New(fmt.Sprintf("state lengths differ: %d (expecting %d)", len(states), len(ent.states)))
 	}
 
 	for i, s := range states {
@@ -108,7 +108,7 @@ func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) 
 	for k, r := range rules {
 		ers, f := es[k]
 		if !f {
-			return errors.New(fmt.Sprintf("unexpected rule for %d", k))
+			return errors.New(fmt.Sprintf("unexpected rule for %d (%v)", k, r))
 		}
 
 		if len(ers) != 1 {
@@ -120,7 +120,7 @@ func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) 
 			er.State += firstState
 		}
 		if r.State != er.State || r.NonTerm != er.NonTerm {
-			return errors.New(fmt.Sprintf("rules for %d differ: %v (%v)", k, r, er))
+			return errors.New(fmt.Sprintf("rules for %d differ: %v (expecting %v)", k, r, er))
 		}
 	}
 
@@ -218,32 +218,37 @@ func atoi (a string) int {
 
 func TestGrammar (t *testing.T) {
 	tokens := "$tok = /\\S+/; "
+	dl := "$d = /[0-9]/; $l = /[a-z]/; "
 	samples := []sample{
 		{tokens + "foo = 'bar';", "foo:1=-1,-1"},
 		{tokens + "foo = 'bar' | 'baz';", "foo:1=-1,-1&2=-1,-1"},
 		{tokens + "foo = bar|baz; bar='bar'; baz='baz';", "foo:1=-1,1&2=-1,2; bar:1=-1,-1; baz:2=-1,-1"},
-		{tokens + "foo = ['bar'], 'baz';", "foo:-1=1,-1&1=1,-1/2=-1,-1"},
+		{tokens + "foo = ['bar'], 'baz';", "foo:1=1,-1&2=-1,-1/2=-1,-1"},
 		{tokens + "foo = 'bar', ['baz'];", "foo:1=1,-1/-1=-1,-1&2=-1,-1"},
-		{tokens + "foo = 'bar', {'baz'};", "foo:1=1,-1/2=1,-1&-1=-1,-1"},
-		{tokens + "foo = 'bar', {'baz'}, 'qux';", "foo:1=1,-1/2=1,-1&-1=2,-1/3=-1,-1"},
+
+		{tokens + "foo = 'bar', {'baz'};", "foo: 1=1,-1 / 2=1,-1&-1=-1,-1"},
+		{tokens + "foo = 'bar', {'baz'}, 'qux';", "foo:1=1,-1 / 2=1,-1&3=-1,-1 / 3=-1,-1"},
 		{
 			"$num=/\\d+/; $op=/[()^*\\/+-]/;" +
 				"ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num|('(',sum,')');",
 			// $num $op + - *   / ^ ( )
 			"ari: 0=-1,1 & 7=-1,1;" +
-				"sum: 0=1,2&7=1,2 / -1=-1,-1&2=2,-1&3=2,-1 / 0=1,2&7=1,2;" +
-				"pro: 0=1,3&7=1,3 / -1=-1,-1&4=2,-1&5=2,-1 / 0=1,3&7=1,3;" +
-				"pow: 0=1,4&7=1,4 / -1=-1,-1&6=2,-1 / 0=1,4&7=1,4;" +
-				"val: 0=-1,-1&7=1,-1 / 0=2,1 & 7=2,1 / 8=-1,-1",
+				"sum: 0=1,2&7=1,2 / -1=-1,-1&2=3,-1&3=3,-1 / 2=3,-1&3=3,-1 / 0=1,2&7=1,2;" +
+				"pro: 0=1,3&7=1,3 / -1=-1,-1&4=3,-1&5=3,-1 / 4=3,-1&5=3,-1 / 0=1,3&7=1,3;" +
+				"pow: 0=1,4&7=1,4 / -1=-1,-1&6=3,-1 / 6=3,-1 / 0=1,4&7=1,4;" +
+				"val: 0=-1,-1&7=1,-1 / 0=2,1&7=2,1 / 8=-1,-1",
 		},
-		{
-			"$d = /[0-9]/; $l = /[a-z]/; g = {[$d], $l};",
-			"g: 0=1,-1&-1=1,-1 / 1=0,-1&-1=-1,-1",
-		},
-		{
-			"$d = /[0-9]/; $l = /[a-z]/; g = {$d, [$l]};",
-			"g: 0=1,-1&-1=-1,-1 / 1=0,-1&-1=0,-1",
-		},
+		{dl + "g = {[$d], $l};", "g: 0=2,-1&1=0,-1&-1=-1,-1 / 0=2,-1&1=0,-1 / 1=0,-1"},
+		{dl + "g = {{$d}, $l};", "g: 0=1,-1&1=0,-1&-1=-1,-1 / 0=1,-1&1=0,-1 / 1=0,-1"},
+
+		{dl + "g = {$d, [$l]};", "g: 0=2,-1&-1=-1,-1 / 0=2,-1 / 1=0,-1&-1=0,-1"},
+		{dl + "g = {$d, {$l}};", "g: 0=2,-1&-1=-1,-1 / 0=2,-1 / 1=2,-1&-1=0,-1"},
+		{dl + "g = {[$d], [$l]};", "g: 0=2,-1&1=0,-1&-1=-1,-1 / 0=2,-1&1=0,-1&-1=0,-1 / 1=0,-1&-1=0,-1"},
+		{dl + "g = [{$d}, $l];", "g: 0=0,-1&1=-1,-1&-1=-1,-1 / 1=-1,-1"},
+		{dl + "g = [[$d], $l];", "g: 0=1,-1&1=-1,-1&-1=-1,-1 / 1=-1,-1"},
+
+		{dl + "g = [$d, [$l]];", "g: 0=1,-1&-1=-1,-1 / 1=-1,-1&-1=-1,-1"},
+		{dl + "g = [$d, {$l}];", "g: 0=1,-1&-1=-1,-1 / 1=1,-1&-1=-1,-1"},
 	}
 
 	for i, s := range samples {

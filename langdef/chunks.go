@@ -35,19 +35,10 @@ func (c *variantChunk) Append (ch chunk) {
 	c.chunks = append(c.chunks, ch)
 }
 
-func (c *variantChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) error {
-	bypass := false
+func (c *variantChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	for _, chunk := range c.chunks {
-		if !bypass && chunk.IsOptional() {
-			bypass = true
-			bypassRule(g, stateIndex, nextIndex)
-		}
-		e := chunk.BuildStates(g, stateIndex, nextIndex)
-		if e != nil {
-			return e
-		}
+		chunk.BuildStates(g, stateIndex, nextIndex)
 	}
-	return nil
 }
 
 
@@ -74,7 +65,7 @@ func (c *groupChunk) FirstTokens () *ints.Set {
 }
 
 func (c *groupChunk) IsOptional () bool {
-	if c.isOptional || len(c.chunks) == 0 {
+	if c.isOptional {
 		return true
 	}
 	for _, ch := range c.chunks {
@@ -89,42 +80,39 @@ func (c *groupChunk) Append (ch chunk) {
 	c.chunks = append(c.chunks, ch)
 }
 
-func (c *groupChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) error {
-	needBypass := (c.isRepeated || c.IsOptional())
-
+func (c *groupChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	tailIndex := nextIndex
+	totalChunks := len(c.chunks)
+	needExtraRule := (c.isRepeated && totalChunks > 1)
+	states := make([]int, totalChunks + 1)
 	if c.isRepeated {
 		tailIndex = stateIndex
 	}
-
-	totalChunks := len(c.chunks)
-	nextStates := make([]int, totalChunks)
-	for i := 0; i < (totalChunks - 1); i++ {
-		nextStates[i], _ = addState(g)
+	if needExtraRule {
+		states[0] = addState(g)
+	} else {
+		states[0] = stateIndex
 	}
-	nextStates[len(nextStates) - 1] = tailIndex
+	for i := 1; i < totalChunks; i++ {
+		states[i] = addState(g)
+	}
+	states[totalChunks] = tailIndex
 
-	currentIndex := stateIndex
 	for i, chunk := range c.chunks {
-		if needBypass && !chunk.IsOptional() {
-			bypassRule(g, currentIndex, nextIndex)
-			needBypass = false
-		}
-		e := chunk.BuildStates(g, currentIndex, nextStates[i])
-		if e != nil {
-			return e
-		}
+		chunk.BuildStates(g, states[i], states[i + 1])
+	}
 
-		currentIndex = nextStates[i]
+	if c.chunks[totalChunks - 1].IsOptional() {
+		bypassRule(g, states[totalChunks - 1], tailIndex)
 	}
-	if needBypass && totalChunks > 1 {
-		if c.isRepeated {
-			return emptyRepeatableError("")
-		} else {
-			bypassRule(g, nextStates[totalChunks - 2], nextIndex)
+	for i := totalChunks - 2; i >= 0; i-- {
+		if c.chunks[i].IsOptional() {
+			copyRules(g, states[i], states[i + 1])
 		}
 	}
-	return nil
+	if needExtraRule {
+		copyRules(g, stateIndex, states[0])
+	}
 }
 
 type tokenChunk int
@@ -141,9 +129,8 @@ func (c tokenChunk) IsOptional () bool {
 	return false
 }
 
-func (c tokenChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) error {
+func (c tokenChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	addRule(&g.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonTerm)
-	return nil
 }
 
 
@@ -164,20 +151,18 @@ func (c *nonTermChunk) IsOptional () bool {
 	return false
 }
 
-func (c *nonTermChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) error {
+func (c *nonTermChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	firstTokens := c.FirstTokens().ToSlice()
 	addRule(&g.States[stateIndex], firstTokens, nextIndex, c.item.Index)
-	return nil
 }
 
-func addState (g *parseResult) (stateIndex int, state *stateEntry) {
+func addState (g *parseResult) (stateIndex int) {
 	stateIndex = len(g.States)
 	g.States = append(g.States, stateEntry{
 		noGroup,
 		map[int]grammar.Rule{},
 		map[int][]grammar.Rule{},
 	})
-	state = &g.States[stateIndex]
 	return
 }
 
@@ -199,8 +184,21 @@ func addRule (st *stateEntry, tokens []int, state, nt int) {
 	}
 }
 
-func bypassRule (g *parseResult, stateIndex, nextIndex int) {
+func copyRules (g *parseResult, toState, fromState int) {
+	to := &g.States[toState]
+	from := g.States[fromState]
+	for t, r := range from.Rules {
+		addRule(to, []int{t}, r.State, r.NonTerm)
+	}
+	for t, rs := range from.MultiRules {
+		for _, r := range rs {
+			addRule(to, []int{t}, r.State, r.NonTerm)
+		}
+	}
+}
+
+func bypassRule (g *parseResult, stateIndex, bypassIndex int) {
 	if stateIndex >= 0 {
-		g.States[stateIndex].Rules[grammar.AnyToken] = grammar.Rule{0, nextIndex, grammar.SameNonTerm}
+		g.States[stateIndex].Rules[grammar.AnyToken] = grammar.Rule{0, bypassIndex, grammar.SameNonTerm}
 	}
 }
