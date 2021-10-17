@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/internal/ints"
 )
 
 type stateEntry struct {
@@ -29,9 +30,56 @@ func (pr *parseResult) AddState () (stateIndex int, st *stateEntry) {
 	return
 }
 
-	func (pr *parseResult) BuildGrammar (g *grammar.Grammar) {
+func (pr *parseResult) BuildGrammar () *grammar.Grammar {
+	pr.dropUnusedStates()
+	g := &grammar.Grammar{Tokens: pr.Tokens, NonTerms: pr.NonTerms, States: make([]grammar.State, len(pr.States))}
 	for si, se := range pr.States {
 		se.BuildGrammarState(g, si)
+	}
+	return g
+}
+
+func (pr *parseResult) dropUnusedStates () {
+	usedStates := ints.NewSet()
+
+	for _, nt := range pr.NonTerms {
+		usedStates.Add(nt.FirstState)
+	}
+	for _, se := range pr.States {
+		for _, rs := range se.Rules {
+			for _, r := range rs {
+				if r.State >= 0 {
+					usedStates.Add(r.State)
+				}
+			}
+		}
+	}
+
+	uss := usedStates.ToSlice()
+	if len(uss) == len(pr.States) {
+		return
+	}
+
+	newIndexes := make([]int, len(pr.States))
+	currentIndex := 0
+	for _, i := range uss {
+		pr.States[currentIndex] = pr.States[i]
+		newIndexes[i] = currentIndex
+		currentIndex++
+	}
+	pr.States = pr.States[: currentIndex]
+
+	for i, nt := range pr.NonTerms {
+		pr.NonTerms[i].FirstState = newIndexes[nt.FirstState]
+	}
+	for _, se := range pr.States {
+		for _, rs := range se.Rules {
+			for i, r := range rs {
+				if r.State >= 0 {
+					rs[i].State = newIndexes[r.State]
+				}
+			}
+		}
 	}
 }
 

@@ -922,7 +922,5 @@ func buildGrammar (pr *parseResult, e error) (*grammar.Grammar, error) {
 		return nil, e
 	}
 
-	g := &grammar.Grammar{Tokens: pr.Tokens, NonTerms: pr.NonTerms, States: make([]grammar.State, len(pr.States))}
-	pr.BuildGrammar(g)
-	return g, nil
+	return pr.BuildGrammar(), nil
 }
