@@ -10,11 +10,11 @@ $nl = /\n/;
 $sec-name = /[a-zA-Z_][a-zA-Z_0-9]*(?:[.-][a-zA-Z_][a-zA-Z_0-9]*)*/;
 $name = /[a-zA-Z_][a-zA-Z_0-9]*(?:-[a-zA-Z_][a-zA-Z_0-9]*)*/;
 $op = /[\[\]=]/;
-$value = /\S[^\n]*/;
+$value = /\S[^\n#]*/;
 
 confGrammar = [def-section], {section};
 def-section = entry | sep, {entry | sep};
 section = header, {entry | sep};
-entry = $name, '=', [$value], $nl;
+entry = $name, '=', [$value], [$nl];
 header = '[', $sec-name, ']', $nl;
 sep = $nl;

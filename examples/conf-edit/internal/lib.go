@@ -241,7 +241,11 @@ func (s *Section) SetEntry (name, value string) *Entry {
 
 		s.Updated = true
 		if result.ValueNode == nil {
-			tree.PrependSibling(result.Node.LastChild(), vnode)
+			child := result.Node.FirstChild().Next()
+			for child.TypeName() != opToken {
+				child = child.Next()
+			}
+			tree.AppendSibling(child, vnode)
 		} else {
 			tree.Replace(result.ValueNode, vnode)
 		}
@@ -262,10 +266,13 @@ func (s *Section) SetEntry (name, value string) *Entry {
 	node.AddChild(nlNode(), nil)
 	snode := s.Nodes[len(s.Nodes) - 1]
 	last := snode.LastChild()
-	if last != nil && last.TypeName() == sepNt {
-		tree.PrependSibling(last, node)
+	for last != nil && (!last.IsNonTerm() || last.TypeName() == sepNt) {
+		last = last.Prev()
+	}
+	if last == nil {
+		snode.AddChild(node, snode.FirstChild())
 	} else {
-		snode.AddChild(node, nil)
+		tree.AppendSibling(last, node)
 	}
 
 	return s.AddEntryNode(node)

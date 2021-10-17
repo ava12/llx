@@ -105,6 +105,7 @@ func TestDataPreserved (t *testing.T) {
 		{"foo=bar\n\n[user]\nlogin=root\n", "|||bar=baz,user.name=admin", "foo=bar\nbar=baz\n\n[user]\nlogin=root\nname=admin\n"},
 		{"[user]\nname = admin\nlogin = root\n\n", "user.name", "[user]\nname = admin\nlogin = root\n\n"},
 		{"[user]\nname = admin\nlogin = root\n\n", "|user.name", "[user]\nname = admin\nlogin = root\n\n[user.name]\n"},
+		{"foo = bar #comment\n", "|||foo=baz", "foo = baz#comment\n"},
 	}
 	checkSamples(t, samples)
 }
