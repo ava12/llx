@@ -3,7 +3,6 @@ package langdef
 import (
 	"math/bits"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/ava12/llx/grammar"
@@ -18,12 +17,6 @@ const (
 	maxGroup    = 30
 )
 
-type stateEntry struct {
-	Group      int
-	Rules      map[int]grammar.Rule
-	MultiRules map[int][]grammar.Rule
-}
-
 type nonTermItem struct {
 	Index       int
 	DependsOn   *ints.Set
@@ -33,13 +26,6 @@ type nonTermItem struct {
 
 type tokenIndex map[string]int
 type nonTermIndex map[string]*nonTermItem
-
-type parseResult struct {
-	Tokens   []grammar.Token
-	NonTerms []grammar.NonTerm
-	States   []stateEntry
-	NTIndex  nonTermIndex
-}
 
 type chunk interface {
 	FirstTokens () *ints.Set
@@ -166,7 +152,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 	eti := make(map[string]int)
 	ti := tokenIndex{}
 	lti := tokenIndex{}
-	g := &parseResult{make([]grammar.Token, 0), make([]grammar.NonTerm, 0), make([]stateEntry, 0), make(nonTermIndex)}
+	g := newParseResult()
 	c := &parseContext{l, g, make([]literalToken, 0), ti, lti, ets, eti, 0, false, false}
 
 	var t *lexer.Token
@@ -781,23 +767,10 @@ func buildStates (g *parseResult, e error) error {
 
 	nti := g.NTIndex
 	for i, nt := range g.NonTerms {
-		firstState := len(g.States)
-		g.States = append(g.States, stateEntry{
-			noGroup,
-			map[int]grammar.Rule{},
-			map[int][]grammar.Rule{},
-		})
+		firstState, _ := g.AddState()
 		item := nti[nt.Name]
 		g.NonTerms[i].FirstState = firstState
 		item.Chunk.BuildStates(g, firstState, grammar.FinalState)
-	}
-	for i, state := range g.States {
-		if len(state.Rules) == 0 {
-			g.States[i].Rules = nil
-		}
-		if len(state.MultiRules) == 0 {
-			g.States[i].MultiRules = nil
-		}
 	}
 
 	return nil
@@ -825,19 +798,10 @@ func findRecursions (g *parseResult, e error) error {
 func ntIsRecursive (g *parseResult, index int, visited *ints.Set) bool {
 	visited.Add(index)
 	st := g.States[g.NonTerms[index].FirstState]
-	if len(st.Rules) > 0 {
-		for _, r := range st.Rules {
+	for _, rs := range st.Rules {
+		for _, r := range rs {
 			if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(g, r.NonTerm, visited.Copy())) {
 				return true
-			}
-		}
-	}
-	if len(st.MultiRules) > 0 {
-		for _, rs := range st.MultiRules {
-			for _, r := range rs {
-				if r.NonTerm != grammar.SameNonTerm && (visited.Contains(r.NonTerm) || ntIsRecursive(g, r.NonTerm, visited.Copy())) {
-					return true
-				}
 			}
 		}
 	}
@@ -937,15 +901,6 @@ func assignStateGroups (g *parseResult, e error) error {
 				}
 			}
 
-			for k := range st.MultiRules {
-				if k >= 0 {
-					groups &= g.Tokens[k].Groups
-					if groups == 0 {
-						return disjointGroupsError(g.NonTerms[i].Name, j, g.Tokens[k].Name)
-					}
-				}
-			}
-
 			g.States[j].Group = bits.Len(uint(groups)) - 1
 		}
 	}
@@ -968,53 +923,6 @@ func buildGrammar (pr *parseResult, e error) (*grammar.Grammar, error) {
 	}
 
 	g := &grammar.Grammar{Tokens: pr.Tokens, NonTerms: pr.NonTerms, States: make([]grammar.State, len(pr.States))}
-
-	for i, se := range pr.States {
-		rlen := len(g.Rules)
-		mlen := len(g.MultiRules)
-		erlen := len(se.Rules)
-		emlen := len(se.MultiRules)
-
-		g.States[i] = grammar.State{se.Group, 0, 0, rlen, rlen + erlen}
-		if erlen == 0 {
-			g.States[i].LowRule = 0
-			g.States[i].HighRule = 0
-		}
-		if emlen != 0 {
-			g.States[i].LowMultiRule = mlen
-			g.States[i].HighMultiRule = mlen + emlen
-		}
-
-		keys := make([]int, 0, erlen)
-		k := 0
-		for k = range se.Rules {
-			keys = append(keys, k)
-		}
-		sort.Ints(keys)
-		for _, k = range keys {
-			r := se.Rules[k]
-			r.Token = k
-			g.Rules = append(g.Rules, r)
-		}
-
-		rlen = len(g.Rules)
-		keys = make([]int, 0, emlen)
-		for k = range se.MultiRules {
-			keys = append(keys, k)
-		}
-		sort.Ints(keys)
-		for _, k = range keys {
-			rs := se.MultiRules[k]
-			mrlen := len(rs)
-			g.MultiRules = append(g.MultiRules, grammar.MultiRule{k, rlen, rlen + mrlen})
-			rlen += mrlen
-
-			for _, r := range rs {
-				r.Token = k
-				g.Rules = append(g.Rules, r)
-			}
-		}
-	}
-
+	pr.BuildGrammar(g)
 	return g, nil
 }

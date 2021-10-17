@@ -89,12 +89,12 @@ func (c *groupChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 		tailIndex = stateIndex
 	}
 	if needExtraRule {
-		states[0] = addState(g)
+		states[0], _ = g.AddState()
 	} else {
 		states[0] = stateIndex
 	}
 	for i := 1; i < totalChunks; i++ {
-		states[i] = addState(g)
+		states[i], _ = g.AddState()
 	}
 	states[totalChunks] = tailIndex
 
@@ -103,15 +103,15 @@ func (c *groupChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	}
 
 	if c.chunks[totalChunks - 1].IsOptional() {
-		bypassRule(g, states[totalChunks - 1], tailIndex)
+		g.States[states[totalChunks - 1]].BypassRule(tailIndex)
 	}
 	for i := totalChunks - 2; i >= 0; i-- {
 		if c.chunks[i].IsOptional() {
-			copyRules(g, states[i], states[i + 1])
+			g.States[states[i]].CopyRules(g.States[states[i + 1]])
 		}
 	}
 	if needExtraRule {
-		copyRules(g, stateIndex, states[0])
+		g.States[stateIndex].CopyRules(g.States[states[0]])
 	}
 }
 
@@ -130,7 +130,7 @@ func (c tokenChunk) IsOptional () bool {
 }
 
 func (c tokenChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
-	addRule(&g.States[stateIndex], []int{int(c)}, nextIndex, grammar.SameNonTerm)
+	g.States[stateIndex].AddRule(nextIndex, grammar.SameNonTerm, int(c))
 }
 
 
@@ -153,52 +153,5 @@ func (c *nonTermChunk) IsOptional () bool {
 
 func (c *nonTermChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	firstTokens := c.FirstTokens().ToSlice()
-	addRule(&g.States[stateIndex], firstTokens, nextIndex, c.item.Index)
-}
-
-func addState (g *parseResult) (stateIndex int) {
-	stateIndex = len(g.States)
-	g.States = append(g.States, stateEntry{
-		noGroup,
-		map[int]grammar.Rule{},
-		map[int][]grammar.Rule{},
-	})
-	return
-}
-
-func addRule (st *stateEntry, tokens []int, state, nt int) {
-	for _, token := range tokens {
-		rule, hasSingle := st.Rules[token]
-		_, hasAmbiguous := st.MultiRules[token]
-		if !hasSingle && !hasAmbiguous {
-			st.Rules[token] = grammar.Rule{0, state, nt}
-		} else if !hasAmbiguous {
-			delete(st.Rules, token)
-			st.MultiRules[token] = []grammar.Rule{
-				rule,
-				{0, state, nt},
-			}
-		} else {
-			st.MultiRules[token] = append(st.MultiRules[token], grammar.Rule{0, state, nt})
-		}
-	}
-}
-
-func copyRules (g *parseResult, toState, fromState int) {
-	to := &g.States[toState]
-	from := g.States[fromState]
-	for t, r := range from.Rules {
-		addRule(to, []int{t}, r.State, r.NonTerm)
-	}
-	for t, rs := range from.MultiRules {
-		for _, r := range rs {
-			addRule(to, []int{t}, r.State, r.NonTerm)
-		}
-	}
-}
-
-func bypassRule (g *parseResult, stateIndex, bypassIndex int) {
-	if stateIndex >= 0 {
-		g.States[stateIndex].Rules[grammar.AnyToken] = grammar.Rule{0, bypassIndex, grammar.SameNonTerm}
-	}
+	g.States[stateIndex].AddRule(nextIndex, c.item.Index, firstTokens ...)
 }
