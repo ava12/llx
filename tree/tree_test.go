@@ -161,13 +161,13 @@ func parseTreeDescription (t *testing.T, src string) NonTermNode {
 func buildTree (t *testing.T, src string) (NonTermNode, map[string]Node) {
 	root := parseTreeDescription(t, src)
 	index := make(map[string]Node)
-	Walk(root, WalkLtr, func (n Node) (vc, vs bool) {
+	Walk(root, WalkLtr, func (n Node) WalkerFlags {
 		if n.IsNonTerm() {
 			index[n.TypeName()] = n
 		} else {
 			index[n.Token().Text()] = n
 		}
-		return true, true
+		return 0
 	})
 
 	return root, index
@@ -190,15 +190,62 @@ func matchNodes (t *testing.T, expected string, ns ... Node) {
 	}
 }
 
-func TestWalk (t *testing.T) {
+func TestWalkSkipChildren (t *testing.T) {
 	src := "(foo (f1 (f11 f111)) f2)(bar b1)(baz)"
 	expectedLtr := "() (foo) (f1) f2 (bar) b1 (baz)"
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1)"
 	root := parseTreeDescription(t, src)
 	nodes := make([]Node, 0)
-	f := func (n Node) (vc, vs bool) {
+	f := func (n Node) (flags WalkerFlags) {
 		nodes = append(nodes, n)
-		return (NodeLevel(n) < 2), true
+		if NodeLevel(n) >= 2 {
+			flags = WalkerSkipChildren
+		}
+		return
+	}
+
+	Walk(root, WalkLtr, f)
+	matchNodes(t, expectedLtr, nodes ...)
+
+	nodes = nodes[: 0]
+	Walk(root, WalkRtl, f)
+	matchNodes(t, expectedRtl, nodes ...)
+}
+
+func TestWalkSkipSiblings (t *testing.T) {
+	src := "(foo f0 (f1 (f11 f111)) f2)(bar b1)(baz)"
+	expectedLtr := "() (foo) f0 (f1) (f11) f111 (bar) b1 (baz)"
+	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1) (f11) f111"
+	root := parseTreeDescription(t, src)
+	nodes := make([]Node, 0)
+	f := func (n Node) (flags WalkerFlags) {
+		nodes = append(nodes, n)
+		if n.TypeName() == "f1" {
+			flags = WalkerSkipSiblings
+		}
+		return
+	}
+
+	Walk(root, WalkLtr, f)
+	matchNodes(t, expectedLtr, nodes ...)
+
+	nodes = nodes[: 0]
+	Walk(root, WalkRtl, f)
+	matchNodes(t, expectedRtl, nodes ...)
+}
+
+func TestWalkStop (t *testing.T) {
+	src := "(foo f0 (f1 (f11 f111)) f2)(bar b1)(baz)"
+	expectedLtr := "() (foo) f0 (f1)"
+	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1)"
+	root := parseTreeDescription(t, src)
+	nodes := make([]Node, 0)
+	f := func (n Node) (flags WalkerFlags) {
+		nodes = append(nodes, n)
+		if n.TypeName() == "f1" {
+			flags = WalkerStop
+		}
+		return
 	}
 
 	Walk(root, WalkLtr, f)

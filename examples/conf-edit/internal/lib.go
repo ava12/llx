@@ -362,23 +362,18 @@ func ParseFile (name string) (*Conf, error) {
 }
 
 func Serialize (root tree.Node, w io.Writer) (written int, err error) {
-	walking := true
-	visitor := func (n tree.Node) (vc bool, vs bool) {
-		if !walking {
-			return false, false
-		}
-
+	visitor := func (n tree.Node) tree.WalkerFlags {
 		if !n.IsNonTerm() {
 			i, e := w.Write([]byte(n.Token().Text()))
 			if e == nil {
 				written += i
 			} else {
-				walking = false
 				err = e
+				return tree.WalkerStop
 			}
 		}
 
-		return walking, walking
+		return 0
 	}
 
 	tree.Walk(root, tree.WalkLtr, visitor)

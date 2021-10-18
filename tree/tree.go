@@ -283,7 +283,15 @@ func AppendChild (parent NonTermNode, node Node) {
 	parent.AddChild(node, nil)
 }
 
-type NodeVisitor func (n Node) (visitChildren, visitSiblings bool)
+type WalkerFlags = int
+const (
+	WalkerStop = 1 << iota
+	WalkerSkipChildren
+	WalkerSkipSiblings
+)
+
+
+type NodeVisitor func (n Node) WalkerFlags
 
 type WalkMode int
 const (
@@ -293,29 +301,33 @@ const (
 
 func Walk (n Node, mode WalkMode, visitor NodeVisitor) {
 	if n != nil {
-		visitNode(n, visitor, (mode & WalkRtl) != 0)
+		visitNode(n, visitor, mode)
 	}
 }
 
-func visitNode (n Node, v NodeVisitor, rtl bool) (visitSiblings bool) {
-	vc, vs := v(n)
-	if vc && n.IsNonTerm() {
+func visitNode (n Node, v NodeVisitor, m WalkMode) WalkerFlags {
+	rtl := (m & WalkRtl) != 0
+	flags := v(n)
+	f := 0
+
+	stopFlags := WalkerStop | WalkerSkipSiblings
+	if (flags & (WalkerSkipChildren | WalkerStop)) == 0 && n.IsNonTerm() {
 		if rtl {
 			n = n.(NonTermNode).LastChild()
-			for n != nil && vc {
-				vc = visitNode(n, v, true)
+			for n != nil && (f & stopFlags) == 0 {
+				f = visitNode(n, v, m)
 				n = n.Prev()
 			}
 		} else {
 			n = n.(NonTermNode).FirstChild()
-			for n != nil && vc {
-				vc = visitNode(n, v, false)
+			for n != nil && (f & stopFlags) == 0 {
+				f = visitNode(n, v, m)
 				n = n.Next()
 			}
 		}
 	}
 
-	return vs
+	return (flags &^ WalkerSkipChildren) | (f & WalkerStop)
 }
 
 
@@ -399,16 +411,20 @@ func (s *Selector) Extract (ne NodeExtractor) *Selector {
 }
 
 func (s *Selector) search (nf NodeFilter, deepSearch bool) *Selector {
+	flags := 0
+	if !deepSearch {
+		flags = WalkerSkipChildren
+	}
 	return s.Use(func (n Node) []Node {
 		res := make([]Node, 0)
-		visitNode(n, func (nn Node) (vc, vs bool) {
+		visitNode(n, func (nn Node) WalkerFlags {
 			if nf(nn) {
 				res = append(res, nn)
-				return deepSearch, true
+				return flags
 			} else {
-				return true, true
+				return 0
 			}
-		}, false)
+		}, WalkLtr)
 		return res
 	})
 }
