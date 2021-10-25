@@ -2,7 +2,6 @@ package tree
 
 import (
 	"errors"
-
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
 )
@@ -283,6 +282,7 @@ func AppendChild (parent NonTermNode, node Node) {
 	parent.AddChild(node, nil)
 }
 
+
 type WalkerFlags = int
 const (
 	WalkerStop = 1 << iota
@@ -290,44 +290,109 @@ const (
 	WalkerSkipSiblings
 )
 
-
-type NodeVisitor func (n Node) WalkerFlags
-
 type WalkMode int
 const (
 	WalkLtr WalkMode = 0
 	WalkRtl WalkMode = 1
 )
 
-func Walk (n Node, mode WalkMode, visitor NodeVisitor) {
-	if n != nil {
-		visitNode(n, visitor, mode)
-	}
+type Iterator struct {
+	root, current Node
+	flagStack     []WalkerFlags
+	mode          WalkMode
 }
 
-func visitNode (n Node, v NodeVisitor, m WalkMode) WalkerFlags {
-	rtl := (m & WalkRtl) != 0
-	flags := v(n)
-	f := 0
+func NewIterator (n Node, m WalkMode) *Iterator {
+	return &Iterator{root: n, mode: m}
+}
 
-	stopFlags := WalkerStop | WalkerSkipSiblings
-	if (flags & (WalkerSkipChildren | WalkerStop)) == 0 && n.IsNonTerm() {
+func (it *Iterator) Step (f WalkerFlags) Node {
+	if (f & WalkerStop) != 0 {
+		it.root = nil
+		it.flagStack = nil
+	}
+
+	if it.root == nil {
+		return nil
+	}
+
+	if it.current == nil {
+		it.current = it.root
+		return it.current
+	}
+
+	n := it.current
+	rtl := (it.mode & WalkRtl) != 0
+	if n.IsNonTerm() && (f & WalkerSkipChildren) == 0 {
 		if rtl {
 			n = n.(NonTermNode).LastChild()
-			for n != nil && (f & stopFlags) == 0 {
-				f = visitNode(n, v, m)
-				n = n.Prev()
-			}
 		} else {
 			n = n.(NonTermNode).FirstChild()
-			for n != nil && (f & stopFlags) == 0 {
-				f = visitNode(n, v, m)
-				n = n.Next()
-			}
+		}
+		if n != nil {
+			it.pushFlags(f)
+			it.current = n
+			return n
 		}
 	}
 
-	return (flags &^ WalkerSkipChildren) | (f & WalkerStop)
+	for it.current != it.root {
+		if (f & WalkerSkipSiblings) == 0 {
+			if rtl {
+				n = it.current.Prev()
+			} else {
+				n = it.current.Next()
+			}
+			if n != nil {
+				it.current = n
+				return n
+			}
+		}
+
+		n = it.current.Parent()
+		if n == nil || len(it.flagStack) < 2 {
+			break
+		}
+
+		f = it.popFlags()
+		it.current = n
+	}
+
+	it.root = nil
+	it.flagStack = nil
+	return nil
+}
+
+func (it *Iterator) Next () Node {
+	return it.Step(0)
+}
+
+func (it *Iterator) pushFlags (f WalkerFlags) {
+	it.flagStack = append(it.flagStack, f &^ WalkerSkipChildren)
+}
+
+func (it *Iterator) popFlags () (f WalkerFlags) {
+	l := len(it.flagStack) - 1
+	f = it.flagStack[l]
+	it.flagStack = it.flagStack[: l]
+	return
+}
+
+
+type NodeVisitor func (n Node) WalkerFlags
+
+func Walk (n Node, mode WalkMode, visitor NodeVisitor) {
+	flags := 0
+	it := NewIterator(n, mode)
+	n = it.Step(flags)
+	for n != nil {
+		flags = visitor(n)
+		if (flags & WalkerStop) != 0 {
+			return
+		}
+
+		n = it.Step(flags)
+	}
 }
 
 
@@ -416,15 +481,22 @@ func (s *Selector) search (nf NodeFilter, deepSearch bool) *Selector {
 		flags = WalkerSkipChildren
 	}
 	return s.Use(func (n Node) []Node {
+		f := 0
 		res := make([]Node, 0)
-		visitNode(n, func (nn Node) WalkerFlags {
+		it := NewIterator(n, WalkLtr)
+		for {
+			nn := it.Step(f)
+			if nn == nil {
+				break
+			}
+
 			if nf(nn) {
 				res = append(res, nn)
-				return flags
+				f = flags
 			} else {
-				return 0
+				f = 0
 			}
-		}, WalkLtr)
+		}
 		return res
 	})
 }
@@ -436,6 +508,7 @@ func (s *Selector) Search (nf NodeFilter) *Selector {
 func (s *Selector) DeepSearch (nf NodeFilter) *Selector {
 	return s.search(nf, true)
 }
+
 
 func IsNot (f NodeFilter) NodeFilter {
 	return func (n Node) bool {
@@ -495,27 +568,27 @@ func IsALiteral (texts ... string) NodeFilter {
 	}
 }
 
-func HasAny (ne NodeExtractor, nf NodeFilter) NodeFilter {
-	return func (n Node) bool {
-		ns := ne(n)
-		for _, nn := range ns {
-			if nf(nn) {
-				return true
+func Has (ne NodeExtractor, nf NodeFilter) NodeFilter {
+	if ne == nil {
+		return func(n Node) bool {
+			it := NewIterator(n, WalkLtr)
+			for nn := it.Next(); nn != nil; nn = it.Next() {
+				if nf == nil || nf(nn) {
+					return true
+				}
 			}
+			return false
 		}
-		return false
-	}
-}
-
-func HasAll (ne NodeExtractor, nf NodeFilter) NodeFilter {
-	return func (n Node) bool {
-		ns := ne(n)
-		for _, nn := range ns {
-			if !nf(nn) {
-				return false
+	} else {
+		return func (n Node) bool {
+			ns := ne(n)
+			for _, nn := range ns {
+				if nf == nil || nf(nn) {
+					return true
+				}
 			}
+			return false
 		}
-		return (len(ns) > 0)
 	}
 }
 

@@ -173,6 +173,40 @@ func buildTree (t *testing.T, src string) (NonTermNode, map[string]Node) {
 	return root, index
 }
 
+func TestIterator (t *testing.T) {
+	it := NewIterator(nil, WalkLtr)
+	assert(t, it.Next() == nil)
+
+	src := "(foo (f1 (f11 f111 f112)) f2)(bar b1)(baz)"
+	root, i := buildTree(t, src)
+
+	it = NewIterator(root, WalkLtr)
+	assert(t, it.Step(WalkerStop) == nil)
+	assert(t, it.Next() == nil)
+
+	it = NewIterator(root, WalkLtr)
+	assert(t, it.Next() == root)
+	assert(t, it.Next() == i["foo"])
+	assert(t, it.Next() == i["f1"])
+	assert(t, it.Next() == i["f11"])
+	assert(t, it.Next() == i["f111"])
+	assert(t, it.Step(WalkerSkipSiblings) == i["f2"])
+	assert(t, it.Next() == i["bar"])
+	assert(t, it.Step(WalkerSkipChildren) == i["baz"])
+	assert(t, it.Next() == nil)
+
+	it = NewIterator(root, WalkRtl)
+	assert(t, it.Next() == root)
+	assert(t, it.Next() == i["baz"])
+	assert(t, it.Next() == i["bar"])
+	assert(t, it.Step(WalkerSkipChildren) == i["foo"])
+	assert(t, it.Next() == i["f2"])
+	assert(t, it.Next() == i["f1"])
+	assert(t, it.Next() == i["f11"])
+	assert(t, it.Step(WalkerSkipSiblings) == i["f112"])
+	assert(t, it.Step(WalkerSkipSiblings) == nil)
+}
+
 func matchNodes (t *testing.T, expected string, ns ... Node) {
 	root := NewNonTermNode("", nil)
 	for _, n := range ns {
@@ -400,20 +434,27 @@ func TestIsALiteral (t *testing.T) {
 	assert(t, !ff(&nt))
 }
 
-func TestHasAny (t *testing.T) {
-	ff := HasAny(Children, IsALiteral("x"))
-	_, i := buildTree(t, "(foo y x) (bar z) (baz)")
-	assert(t, ff(i["foo"]))
+func TestHas (t *testing.T) {
+	_, i := buildTree(t, "(foo (y x)) (bar z) (baz)")
+
+	ff := Has(Children, IsALiteral("x"))
+	assert(t, !ff(i["foo"]))
+	assert(t, ff(i["y"]))
 	assert(t, !ff(i["x"]))
 	assert(t, !ff(i["bar"]))
 	assert(t, !ff(i["baz"]))
-}
 
-func TestHasAll (t *testing.T) {
-	ff := HasAll(Children, IsALiteral("x"))
-	_, i := buildTree(t, "(foo x x) (bar x y) (baz)")
+	ff = Has(Children, nil)
 	assert(t, ff(i["foo"]))
+	assert(t, ff(i["y"]))
 	assert(t, !ff(i["x"]))
+	assert(t, ff(i["bar"]))
+	assert(t, !ff(i["baz"]))
+
+	ff = Has(nil, IsALiteral("x"))
+	assert(t, ff(i["foo"]))
+	assert(t, ff(i["y"]))
+	assert(t, ff(i["x"]))
 	assert(t, !ff(i["bar"]))
 	assert(t, !ff(i["baz"]))
 }
