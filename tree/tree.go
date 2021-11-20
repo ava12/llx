@@ -826,6 +826,10 @@ func NewHookInstance (typeName string, tok *lexer.Token) *HookInstance {
 	return &HookInstance{NewNonTermNode(typeName, tok)}
 }
 
+func (hi *HookInstance) NewNonTerm (nonTerm string, token *lexer.Token) error {
+	return nil
+}
+
 func (hi *HookInstance) HandleNonTerm (nonTerm string, result interface{}) error {
 	node, is := result.(Node)
 	if !is {

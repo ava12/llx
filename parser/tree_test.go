@@ -27,6 +27,10 @@ func tokenNode (name, content string) *treeNode {
 	return &treeNode{false, name, content, nil}
 }
 
+func (n *treeNode) NewNonTerm (nonTerm string, token *lexer.Token) error {
+	return nil
+}
+
 func (n *treeNode) HandleNonTerm (nonTerm string, result interface{}) error {
 	n.children = append(n.children, result.(*treeNode))
 	return nil

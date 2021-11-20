@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ava12/llx"
@@ -439,11 +440,15 @@ type includeHook struct {
 	index int
 }
 
+func (ih *includeHook) NewNonTerm (nonTerm string, token *Token) error {
+	return nil
+}
+
 func (ih *includeHook) HandleNonTerm (nonTerm string, result interface{}) error {
 	return nil
 }
 
-func (ih *includeHook) HandleToken (token *lexer.Token) error {
+func (ih *includeHook) HandleToken (token *Token) error {
 	if token.TypeName() == "digit" {
 		ih.index, _ = strconv.Atoi(token.Text())
 	}
@@ -530,5 +535,63 @@ func TestBypass (t *testing.T) {
 				t.Errorf("sample #%d, wrong example #%d: expecting error or input left, got success", i, j)
 			}
 		}
+	}
+}
+
+type nthi struct {
+	nt string
+	result *[]string
+}
+
+func (hi nthi) NewNonTerm (nonTerm string, token *Token) error {
+	*hi.result = append(*hi.result, hi.nt + "^" + nonTerm + token.Text())
+	return nil
+}
+
+func (hi nthi) HandleNonTerm (nonTerm string, result interface{}) error {
+	*hi.result = append(*hi.result, hi.nt + "$" + nonTerm + result.(string))
+	return nil
+}
+
+func (hi nthi) HandleToken (token *Token) error {
+	*hi.result = append(*hi.result, hi.nt + ":" + token.Text())
+	return nil
+}
+
+func (hi nthi) EndNonTerm () (result interface{}, e error) {
+	*hi.result = append(*hi.result, hi.nt + ".")
+	return hi.nt, nil
+}
+
+func TestNonTermHooks (t *testing.T) {
+	result := make([]string, 0)
+	hs := Hooks{
+		NonTerms: NonTermHooks{
+			AnyNonTerm: func (nonTerm string, token *Token, pc *ParseContext) (NonTermHookInstance, error) {
+				return &nthi{nonTerm, &result}, nil
+			},
+		},
+	}
+
+	grammar := "!aside $sp; $sp = /\\s+/; $name = /\\w+/; $op = /[+*]/; " +
+		"s = p, {'+', p}; p = $name, {'*', $name};"
+
+	g, e := langdef.ParseString("", grammar)
+	if e != nil {
+		t.Fatal("unexpected grammar error: " + e.Error())
+	}
+
+	src := "a + b * c"
+	expected := "s^pa p:a p. s$pp s:+ s^pb p:b p:* p:c p. s$pp s."
+
+	p := New(g)
+	_, e = p.ParseString("", src, &hs)
+	if e != nil {
+		t.Fatal("unexpected error: " + e.Error())
+	}
+
+	got := strings.Join(result, " ")
+	if got != expected {
+		t.Errorf("expecting %q, got %q", expected, got)
 	}
 }

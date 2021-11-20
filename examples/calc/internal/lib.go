@@ -172,6 +172,10 @@ func (ch *chain) update (res, val float64, op rune) float64 {
 	return res
 }
 
+func (ch *chain) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
+}
+
 func (ch *chain) HandleNonTerm (nonTerm string, result interface{}) error {
 	exp := result.(expr)
 	if exp.IsNumber() {
@@ -219,6 +223,10 @@ func (p *power) Compute (c *context) (res float64, e error) {
 		}
 	}
 	return
+}
+
+func (p *power) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
 }
 
 func (p *power) HandleNonTerm (nonTerm string, result interface{}) error {
@@ -287,6 +295,10 @@ func (a *assignment) Compute (c *context) (res float64, e error) {
 	return
 }
 
+func (a *assignment) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
+}
+
 func (a *assignment) HandleNonTerm (nonTerm string, result interface{}) error {
 	if nonTerm == "expr" {
 		a.value = result.(expr)
@@ -324,6 +336,10 @@ func (fd *funcDef) IsNumber () bool {
 func (fd *funcDef) Compute (c *context) (res float64, e error) {
 	c.functions[fd.name] = newFunc(fd.name, fd.body, fd.argNames...)
 	return 0.0, nil
+}
+
+func (fd *funcDef) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
 }
 
 func (fd *funcDef) HandleNonTerm (nonTerm string, result interface{}) error {
@@ -395,6 +411,10 @@ func (fc *funcCall) Compute (c *context) (float64, error) {
 	return res, e
 }
 
+func (fc *funcCall) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
+}
+
 func (fc *funcCall) HandleNonTerm (nonTerm string, result interface{}) error {
 	if nonTerm == "expr" {
 		fc.args = append(fc.args, result.(expr))
@@ -422,6 +442,10 @@ func newRootNT () *rootNT {
 	return &rootNT{}
 }
 
+func (r *rootNT) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
+}
+
 func (r *rootNT) HandleNonTerm (nonTerm string, result interface{}) error {
 	r.body = result.(expr)
 	return nil
@@ -442,6 +466,10 @@ type value struct {
 
 func newValue () *value {
 	return &value{}
+}
+
+func (v *value) NewNonTerm (nonTerm string, token *parser.Token) error {
+	return nil
 }
 
 func (v *value) HandleNonTerm (nonTerm string, result interface{}) error {

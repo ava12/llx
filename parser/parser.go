@@ -16,6 +16,7 @@ type Token = lexer.Token
 type TokenHook = func (token *Token, pc *ParseContext) (emit bool, e error)
 
 type NonTermHookInstance interface {
+	NewNonTerm (nonTerm string, token *Token) error
 	HandleNonTerm (nonTerm string, result interface{}) error
 	HandleToken (token *Token) error
 	EndNonTerm () (result interface{}, e error)
@@ -25,6 +26,10 @@ type NonTermHook = func (nonTerm string, token *Token, pc *ParseContext) (NonTer
 
 type defaultHookInstance struct {
 	result interface{}
+}
+
+func (dhi *defaultHookInstance) NewNonTerm (nonTerm string, token *Token) error {
+	return nil
 }
 
 func (dhi *defaultHookInstance) HandleNonTerm (nonTerm string, result interface{}) error {
@@ -259,6 +264,13 @@ func (pc *ParseContext) pushNonTerm (index int, tok *Token) error {
 	e := pc.ntHandleAsides()
 	if e != nil {
 		return e
+	}
+
+	if pc.nonTerm != nil {
+		e = pc.nonTerm.hook.NewNonTerm(pc.parser.grammar.NonTerms[index].Name, tok)
+		if e != nil {
+			return e
+		}
 	}
 
 	gr := pc.parser.grammar

@@ -20,6 +20,10 @@ type treeDefHook struct {
 	gotName bool
 }
 
+func (h *treeDefHook) NewNonTerm (nonTerm string, token *lexer.Token) error {
+	return nil
+}
+
 func (h *treeDefHook) HandleNonTerm (nonTerm string, result interface{}) error {
 	h.nt.AddChild(result.(Node), nil)
 	return nil
