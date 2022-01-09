@@ -48,6 +48,7 @@ func (dhi *defaultHookInstance) EndNonTerm () (result interface{}, e error) {
 const (
 	AnyToken   = ""
 	EofToken   = lexer.EofTokenName
+	EoiToken   = lexer.EoiTokenName
 	AnyNonTerm = ""
 )
 
@@ -87,6 +88,7 @@ func New (g *grammar.Grammar) *Parser {
 	names[literalKey(AnyToken)] = grammar.AnyToken
 	names[AnyNonTerm] = -1
 	names[tokenKey(EofToken)] = lexer.EofTokenType
+	names[tokenKey(EoiToken)] = lexer.EoiTokenType
 	ms := make([][]string, maxGroup + 1)
 
 	for i, t := range g.Tokens {
@@ -172,7 +174,7 @@ type ParseContext struct {
 }
 
 const (
-	tokenHooksOffset   = -lexer.EofTokenType
+	tokenHooksOffset   = -lexer.LowestTokenType
 	nonTermHooksOffset = -grammar.AnyToken
 )
 
@@ -355,7 +357,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 				}
 
 				expected := pc.getExpectedToken(gr.States[nt.state])
-				if tok.Type() == lexer.EofTokenType {
+				if tok.Type() == lexer.EoiTokenType {
 					e = unexpectedEofError(tok, expected)
 				} else {
 					e = unexpectedTokenError(tok, expected)
@@ -388,7 +390,7 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		}
 	}
 
-	if !tokenConsumed && tok.Type() != lexer.EofTokenType {
+	if !tokenConsumed && tok.Type() != lexer.EoiTokenType {
 		s := tok.Source()
 		if s != nil {
 			if s != pc.queue.Source() {
@@ -651,7 +653,7 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 	}
 
 	if h == nil {
-		if pc.isAsideToken(tok) {
+		if pc.isAsideToken(tok) || tt == lexer.EofTokenType {
 			return nil
 		}
 
@@ -660,6 +662,9 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 	}
 
 	emit, e := h(tok, pc)
+	if tt == lexer.EofTokenType {
+		emit = false
+	}
 	if emit || tt < 0 {
 		pc.tokens = append(pc.tokens, tok)
 	}

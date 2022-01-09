@@ -149,11 +149,10 @@ type Queue struct {
 	head, tail int
 	source     *Source
 	pos        int
-	eof        bool
 }
 
 func NewQueue () *Queue {
-	return &Queue{make([]queueItem, 4), 3, 0, 0, nil, 0, true}
+	return &Queue{make([]queueItem, 4), 3, 0, 0, nil, 0}
 }
 
 func (q *Queue) Source () *Source {
@@ -161,7 +160,11 @@ func (q *Queue) Source () *Source {
 }
 
 func (q *Queue) SourceName () string {
-	return q.source.Name()
+	if q.source == nil {
+		return ""
+	} else {
+		return q.source.Name()
+	}
 }
 
 func (q *Queue) Pos () int {
@@ -176,6 +179,20 @@ func (q *Queue) SourcePos () Pos {
 	return res
 }
 
+func (q *Queue) NextSource () bool {
+	eoi := (q.head == q.tail)
+	if eoi {
+		q.source = nil
+		q.pos = 0
+	} else {
+		q.source = q.buffer[q.head].source
+		q.pos = q.buffer[q.head].pos
+		q.buffer[q.head].source = nil
+		q.head = (q.head + 1) & q.size
+	}
+	return !eoi
+}
+
 func (q *Queue) resize () {
 	buffer := make([]queueItem, (q.size + 1) << 1)
 	copy(buffer, q.buffer[q.head :])
@@ -188,16 +205,12 @@ func (q *Queue) resize () {
 	q.buffer = buffer
 }
 
-func (q *Queue) updateEof () {
-	q.eof = (q.head == q.tail && (q.source == nil || q.pos >= q.source.Len()))
-}
-
 func (q *Queue) Append (s *Source) *Queue {
 	if s == nil || s.Len() == 0 && q.source != nil && q.source.Len() != 0 {
 		return q
 	}
 
-	if q.eof || q.source.Len() == 0 {
+	if q.source == nil || q.source.Len() == 0 {
 		q.source = s
 		q.pos = 0
 	} else {
@@ -207,7 +220,6 @@ func (q *Queue) Append (s *Source) *Queue {
 			q.resize()
 		}
 	}
-	q.updateEof()
 	return q
 }
 
@@ -226,18 +238,21 @@ func (q *Queue) Prepend (s *Source) *Queue {
 
 	q.source = s
 	q.pos = 0
-	q.updateEof()
 
 	return q
 }
 
 func (q *Queue) IsEmpty () bool {
-	return q.eof
+	return q.source == nil
+}
+
+func (q *Queue) Eof () bool {
+	return q.source == nil || q.pos >= q.source.Len()
 }
 
 func (q *Queue) ContentPos () ([]byte, int) {
 	if q.source == nil {
-		return []byte{}, 0
+		return nil, 0
 	} else {
 		return q.source.Content(), q.pos
 	}
@@ -245,36 +260,26 @@ func (q *Queue) ContentPos () ([]byte, int) {
 
 
 func (q *Queue) Skip (size int) {
-	if q.eof || size <= 0 {
+	if q.source == nil || size <= 0 {
 		return
 	}
 
 	q.pos += size
 	if q.pos >= q.source.Len() {
 		q.pos = q.source.Len()
-		q.eof = (q.head == q.tail)
-		if !q.eof {
-			q.source = q.buffer[q.head].source
-			q.pos = q.buffer[q.head].pos
-			q.buffer[q.head].source = nil
-			q.head = (q.head + 1) & q.size
-		}
-	}
-}
-
-func (q *Queue) Drop () {
-	if !q.eof {
-		q.Skip(q.source.Len())
 	}
 }
 
 func (q *Queue) Rewind (size int) {
+	if q.source == nil {
+		return
+	}
+
 	if q.pos <= size {
 		q.pos = 0
 	} else {
 		q.pos -= size
 	}
-	q.updateEof()
 }
 
 func (q *Queue) Seek (pos int) {
@@ -292,7 +297,6 @@ func (q *Queue) Seek (pos int) {
 			q.pos = pos
 		}
 	}
-	q.updateEof()
 }
 
 func (q *Queue) LineCol (pos int) (line, col int) {

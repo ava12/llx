@@ -104,7 +104,7 @@ func TestSourcePos (t *testing.T) {
 	}
 }
 
-func TestSkipAdvancesSource (t *testing.T) {
+func TestSkipNotAdvancesSource (t *testing.T) {
 	q := NewQueue().Append(src("bar"))
 	q.Skip(2)
 	c, p := q.ContentPos()
@@ -118,8 +118,8 @@ func TestSkipAdvancesSource (t *testing.T) {
 
 	q.Skip(4)
 	c, p = q.ContentPos()
-	assert(t, string(c) == "bar", "expecting bar, got " + string(c))
-	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+	assert(t, string(c) == "foo", "expecting foo, got " + string(c))
+	assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
 }
 
 func TestSeekAfterEof (t *testing.T) {
@@ -127,17 +127,17 @@ func TestSeekAfterEof (t *testing.T) {
 	q.Seek(4)
 	p := q.Pos()
 	assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
-	assert(t, q.IsEmpty(), "expecting EoF")
+	assert(t, q.Eof(), "expecting EoF")
 
 	q.Seek(2)
 	p = q.Pos()
 	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
-	assert(t, !q.IsEmpty(), "expecting no EoF")
+	assert(t, !q.Eof(), "expecting no EoF")
 
 	q.Skip(4)
 	p = q.Pos()
 	assert(t, p == 3, "expecting pos=3 again, got " + strconv.Itoa(p))
-	assert(t, q.IsEmpty(), "expecting EoF again")
+	assert(t, q.Eof(), "expecting EoF again")
 
 	q.Rewind(2)
 	p = q.Pos()
@@ -165,7 +165,7 @@ func sourceChain (queue *Queue) []string {
 		}
 
 		res = append(res, src)
-		queue.Skip(len(src))
+		queue.NextSource()
 	}
 }
 /*
@@ -217,9 +217,7 @@ func TestSourceOrder (t *testing.T) {
 	assert(t, string(content[pos :]) == "", "non-empty content after EoF")
 	assert(t, queue.IsEmpty(), "queue not empty after EoF")
 	src := queue.Source()
-	assert(t, src != nil, "empty source after EoF")
-	s := string(src.Content())
-	assert(t, s == "baz", "unexpected content: " + s)
+	assert(t, src == nil, "non-empty source after EoF")
 }
 
 func TestSourceInsert (t *testing.T) {
@@ -266,38 +264,40 @@ func TestResizeSource (t *testing.T) {
 	assertChain(t, []string{"a", "b", "c", "d", "e", "f", "g", "h"}, sourceChain(queue))
 }
 
-func TestDropSource (t *testing.T) {
+func TestNextSource (t *testing.T) {
 	sources := []string {
 		"foo",
 		"bar",
 		"baz",
-		"qux",
-	}
-	samples := []struct {
-		skip int
-		name string
-	}{
-		{1, "bar"},
-		{4, "qux"},
 	}
 
 	queue := NewQueue()
 	for _, src := range sources {
 		queue.Append(New(src, []byte(src)))
 	}
-	for _, sample := range samples {
-		queue.Skip(sample.skip)
-		queue.Drop()
-		pos := queue.SourcePos()
-		if pos.SourceName() != sample.name || pos.pos != 0 {
-			t.Fatalf("expecting %q source at pos 0, got %q at pos %d", sample.name, pos.SourceName(), pos.pos)
+
+	for i := 1; i < len(sources); i++ {
+		f := queue.NextSource()
+		if !f {
+			t.Fatalf("unexpected false returned from NextSource()")
 		}
+
+		pos := queue.SourcePos()
+		if pos.SourceName() != sources[i] || pos.Pos() != 0 {
+			t.Fatalf("expecting %q source at pos 0, got %q at pos %d", sources[i], pos.SourceName(), pos.pos)
+		}
+	}
+
+	f := queue.NextSource()
+	eoi := queue.IsEmpty()
+	if f || !eoi {
+		t.Fatalf("expecting (false, true), got (%v, %v)", f, eoi)
 	}
 }
 
 func TestAddSourceAfterEof (t *testing.T) {
 	queue := NewQueue().Append(New("dropped", []byte("-")))
-	queue.Drop()
+	queue.NextSource()
 	queue.Append(New("appended", []byte("foo")))
 	pos := queue.SourcePos()
 	if pos.SourceName() != "appended" || pos.pos != 0 {
@@ -305,7 +305,7 @@ func TestAddSourceAfterEof (t *testing.T) {
 	}
 
 	queue = NewQueue().Append(New("dropped", []byte("-")))
-	queue.Drop()
+	queue.NextSource()
 	queue.Prepend(New("prepended", []byte("bar")))
 	pos = queue.SourcePos()
 	if pos.SourceName() != "prepended" || pos.pos != 0 {

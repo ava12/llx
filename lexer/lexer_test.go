@@ -86,21 +86,20 @@ func TestSourceBoundary (t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", []byte("foo")))
 	q.Append(source.New("", []byte("bar")))
-	t1, e1 := l.Next()
-	t2, e2 := l.Next()
-	if t1 == nil || t1.Text() != "foo" || t2 == nil || t2.Text() != "bar" {
-		t.Fatalf("expected 2 tokens, got: %v %v / %v %v", t1, e1, t2, e2)
-	}
-}
+	expectedTokens := []string{"foo", EofTokenName, "bar", EofTokenName, EoiTokenName}
+	for i, expected := range expectedTokens {
+		tok, e := l.Next()
+		if e != nil {
+			t.Fatalf("step %d: unexpected error: %s", i, e.Error())
+		}
 
-func TestEof (t *testing.T) {
-	l, q := lexer()
-	q.Append(source.New("", []byte("foo")))
-	l.Next()
-	t1, e1 := l.Next()
-	t2, e2 := l.Next()
-	if t1 == nil || t1.TypeName() != EofTokenName || e1 != nil || t2 != nil || e2 != nil {
-		t.Fatalf("expected EoF token and nil, got: %v %v / %v %v", t1, e1, t2, e2)
+		got := tok.Text()
+		if got == "" {
+			got = tok.TypeName()
+		}
+		if got != expected {
+			t.Fatalf("step %d: expecting %q token, got %q", i, expected, got)
+		}
 	}
 }
 
@@ -193,7 +192,7 @@ func TestErrorPos (t *testing.T) {
 	q := source.NewQueue()
 	l := New(re, types, q)
 	for i, s := range samples {
-		q.Drop()
+		q.NextSource()
 		q.Append(source.New("src", []byte(s.src)))
 		tok, e := l.Next()
 		for e == nil && tok != nil {

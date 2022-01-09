@@ -225,7 +225,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 	}
 
 	nti := g.NTIndex
-	for e == nil && t != nil && t.Type() != lexer.EofTokenType {
+	for e == nil && t != nil && !isEof(t) {
 		_, has := nti[t.Text()]
 		if has && nti[t.Text()].Chunk != nil {
 			return nil, defNonTermError(t)
@@ -233,7 +233,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 
 		e = parseNonTermDef(t.Text(), c)
 		if e == nil {
-			t, e = fetch(l, []string{nameTok, lexer.EofTokenName}, true, nil)
+			t, e = fetch(l, []string{nameTok, lexer.EofTokenName, lexer.EoiTokenName}, true, nil)
 		}
 	}
 
@@ -248,6 +248,11 @@ func put (t *lexer.Token) {
 	}
 
 	savedToken = t
+}
+
+func isEof (t *lexer.Token) bool {
+	tt := t.Type()
+	return (tt == lexer.EofTokenType || tt == lexer.EoiTokenType)
 }
 
 func fetch (l *lexer.Lexer, types []string, strict bool, e error) (*lexer.Token, error) {
@@ -276,7 +281,7 @@ func fetch (l *lexer.Lexer, types []string, strict bool, e error) (*lexer.Token,
 		}
 	}
 
-	if token.Type() == lexer.EofTokenType {
+	if isEof(token) {
 		if strict {
 			return nil, eofError(token)
 		} else {

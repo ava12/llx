@@ -524,7 +524,7 @@ func TestBypass (t *testing.T) {
 			_, e = p.Parse(q, nil)
 			if e != nil {
 				t.Errorf("sample #%d, correct example #%d: unexpected error: %s", i, j, e)
-			} else if !q.IsEmpty() {
+			} else if !q.Eof() {
 				t.Errorf("sample #%d, correct example #%d: input left: %q", i, j, q.Source().Content())
 			}
 		}

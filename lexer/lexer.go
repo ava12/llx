@@ -14,7 +14,7 @@ const (
 )
 
 const (
-	ErrNoSource = iota + 101
+	_ = iota + 101
 	ErrWrongChar
 	ErrBadToken
 )
@@ -50,10 +50,6 @@ func (l *Lexer) Source () *source.Source {
 
 func (l *Lexer) Advance (size int) {
 	l.queue.Skip(size)
-}
-
-func noSourceError () *llx.Error {
-	return llx.NewError(ErrNoSource, "no source code", "", 0, 0)
 }
 
 func wrongCharError (s *source.Source, content []byte, line, col int) *llx.Error {
@@ -109,8 +105,9 @@ func (l *Lexer) fetch () (*Token, error) {
 	src := l.queue.Source()
 	if len(content) - pos <= 0 {
 		if src == nil {
-			return nil, noSourceError()
+			return EoiToken(), nil
 		} else {
+			l.queue.NextSource()
 			return EofToken(src), nil
 		}
 	}
@@ -122,7 +119,7 @@ func (l *Lexer) Next () (*Token, error) {
 	for {
 		t, e := l.fetch()
 		if t != nil || e != nil {
-			if t != nil && t.Type() == EofTokenType {
+			if t != nil && t.Type() == EoiTokenType {
 				if l.eof {
 					t = nil
 				} else {

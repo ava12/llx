@@ -60,7 +60,10 @@ func NewToken (tokenType int, typeName, text string, sp SourcePos) *Token {
 
 const (
 	EofTokenType = -2
-	EofTokenName = "-eof-"
+	EoiTokenType = -3
+	LowestTokenType = -3
+	EofTokenName = "-end-of-file-"
+	EoiTokenName = "-end-of-input-"
 )
 
 func EofToken (s *source.Source) *Token {
@@ -70,4 +73,8 @@ func EofToken (s *source.Source) *Token {
 		line, col = s.LineCol(s.Len())
 	}
 	return &Token{tokenType: EofTokenType, typeName: EofTokenName, source: s, line: line, col: col}
+}
+
+func EoiToken () *Token {
+	return &Token{tokenType: EoiTokenType, typeName: EoiTokenName}
 }
