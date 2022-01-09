@@ -33,15 +33,10 @@ type Lexer struct {
 	types []TokenType
 	re    Regexp
 	queue *source.Queue
-	eof   bool
 }
 
 func New (re Regexp, types []TokenType, queue *source.Queue) *Lexer {
 	return &Lexer{types: types, re: re, queue: queue}
-}
-
-func (l *Lexer) Eof () bool {
-	return l.queue.IsEmpty()
 }
 
 func (l *Lexer) Source () *source.Source {
@@ -119,13 +114,6 @@ func (l *Lexer) Next () (*Token, error) {
 	for {
 		t, e := l.fetch()
 		if t != nil || e != nil {
-			if t != nil && t.Type() == EoiTokenType {
-				if l.eof {
-					t = nil
-				} else {
-					l.eof = true
-				}
-			}
 			return t, e
 		}
 	}

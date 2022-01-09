@@ -86,11 +86,15 @@ func TestSourceBoundary (t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", []byte("foo")))
 	q.Append(source.New("", []byte("bar")))
-	expectedTokens := []string{"foo", EofTokenName, "bar", EofTokenName, EoiTokenName}
+	expectedTokens := []string{"foo", EofTokenName, "bar", EofTokenName, EoiTokenName, EoiTokenName}
 	for i, expected := range expectedTokens {
 		tok, e := l.Next()
 		if e != nil {
 			t.Fatalf("step %d: unexpected error: %s", i, e.Error())
+		}
+
+		if tok == nil {
+			t.Fatalf("step %d: got nil token", i)
 		}
 
 		got := tok.Text()

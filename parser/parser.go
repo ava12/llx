@@ -682,11 +682,10 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 func (pc *ParseContext) fetchToken (group int) (*Token, error) {
 	for len(pc.tokens) == 0 {
 		result, e := pc.lexers[group].Next()
-		if result == nil || e != nil {
-			return nil, e
+		if e == nil {
+			e = pc.handleToken(result)
 		}
 
-		e = pc.handleToken(result)
 		if e != nil {
 			return nil, e
 		}

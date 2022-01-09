@@ -271,10 +271,6 @@ func fetch (l *lexer.Lexer, types []string, strict bool, e error) (*lexer.Token,
 		savedToken = nil
 	}
 
-	if token == nil {
-		token = lexer.EofToken(l.Source())
-	}
-
 	for _, typ := range types {
 		if token.TypeName() == typ || token.Text() == typ {
 			return token, nil
