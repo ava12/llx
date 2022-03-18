@@ -140,12 +140,12 @@ func TestShrinkToken (t *testing.T) {
 	lexer := New(re, types, queue)
 	queue.Append(source.New("", []byte("  #foo="))).Append(source.New("", []byte("#bar=")))
 
-	tok, e := lexer.Shrink(nil)
-	if tok != nil || e != nil {
-		t.Fatalf("expecting nil token, got: %v, %v", tok, e)
+	tok := lexer.Shrink(nil)
+	if tok != nil {
+		t.Fatalf("expecting nil token, got: %v", tok)
 	}
 
-	tok, e = lexer.Next()
+	tok, e := lexer.Next()
 	if e == nil {
 		tok, e = lexer.Next()
 	}
@@ -154,10 +154,7 @@ func TestShrinkToken (t *testing.T) {
 	}
 
 	for i := 4; i > 1; i-- {
-		tok, e = lexer.Shrink(tok)
-		if e != nil {
-			t.Fatalf("step %d: unexpected error: %s", i, e.Error())
-		}
+		tok = lexer.Shrink(tok)
 		if tok == nil {
 			t.Fatalf("step %d: nil token", i)
 		}
@@ -166,15 +163,15 @@ func TestShrinkToken (t *testing.T) {
 		}
 	}
 
-	tok, e = lexer.Shrink(tok)
-	if tok != nil || e == nil {
-		t.Fatalf("error expected after token shrinked, got: %v, %v", tok, e)
+	tok = lexer.Shrink(tok)
+	if tok != nil {
+		t.Fatalf("nil token expected after token shrinked, got: %v", tok)
 	}
 
 	tok = &Token{1, "name", "#", queue.Source(), 1, 1}
-	tok, e = lexer.Shrink(tok)
-	if tok != nil || e != nil {
-		t.Fatalf("expecting nil, nil for single char token, got: %v, %v", tok, e)
+	tok = lexer.Shrink(tok)
+	if tok != nil {
+		t.Fatalf("expecting nil for single char token, got: %v", tok)
 	}
 }
 

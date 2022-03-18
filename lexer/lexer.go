@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ErrorTokenType = -3
+	ErrorTokenType = LowestTokenType - 1
 	ErrorTokenName = "-error-"
 )
 
@@ -119,17 +119,19 @@ func (l *Lexer) Next () (*Token, error) {
 	}
 }
 
-func (l *Lexer) Shrink (tok *Token) (*Token, error) {
+func (l *Lexer) Shrink (tok *Token) *Token {
 	if tok == nil || len(tok.text) <= 1 {
-		return nil ,nil
+		return nil
 	}
 
-	if l.queue.Source() != tok.source {
-		l.queue.Prepend(tok.source)
+	src := l.queue.Source()
+	if src == nil || src != tok.source {
+		return nil
 	}
+
 	l.queue.Seek(tok.source.Pos(tok.line, tok.col))
-
 	content, pos := l.queue.ContentPos()
 	content = content[: pos + len(tok.Text()) - 1]
-	return l.matchToken(l.queue.Source(), content, pos)
+	result, _ := l.matchToken(l.queue.Source(), content, pos)
+	return result
 }

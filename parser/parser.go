@@ -52,7 +52,7 @@ const (
 	AnyNonTerm = ""
 )
 
-const any = -1
+const anyOffset = -1
 
 type TokenHooks map[string]TokenHook
 type NonTermHooks map[string]NonTermHook
@@ -412,8 +412,9 @@ func (pc *ParseContext) shrinkToken (tok *Token, group int) (bool, error) {
 		return false, nil
 	}
 
-	res, e := pc.lexers[group].Shrink(tok)
-	if res != nil && e == nil {
+	res := pc.lexers[group].Shrink(tok)
+	var e error
+	if res != nil {
 		e = pc.handleToken(res)
 	}
 	return (res != nil), e
@@ -571,7 +572,7 @@ func (pc *ParseContext) possibleRuleKeys (t *Token) []int {
 func (pc *ParseContext) getNonTermHook (ntIndex int, tok *Token) (res NonTermHookInstance, e error) {
 	h := pc.nonTermHooks[ntIndex + nonTermHooksOffset]
 	if h == nil {
-		h = pc.nonTermHooks[any + nonTermHooksOffset]
+		h = pc.nonTermHooks[anyOffset + nonTermHooksOffset]
 	}
 	if h != nil {
 		res, e = h(pc.parser.grammar.NonTerms[ntIndex].Name, tok, pc)
@@ -641,7 +642,7 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 		if f {
 			tts = append(tts, i)
 		}
-		tts = append(tts, tok.Type(), any)
+		tts = append(tts, tok.Type(), anyOffset)
 	}
 
 	var h TokenHook
