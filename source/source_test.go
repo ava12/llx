@@ -156,7 +156,7 @@ func assert (t *testing.T, flag bool, message string) {
 }
 
 func sourceChain (queue *Queue) []string {
-	res := []string{}
+	var res []string
 	for {
 		content, pos := queue.ContentPos()
 		src := string(content[pos :])
@@ -168,21 +168,7 @@ func sourceChain (queue *Queue) []string {
 		queue.NextSource()
 	}
 }
-/*
-func nameChain (queue *Queue) []string {
-	res := []string{}
-	for {
-		res = append(res, queue.Source().Name())
-		content, pos := queue.ContentPos()
-		src := string(content[pos :])
-		if src == "" {
-			return res
-		}
 
-		queue.Skip(len(src))
-	}
-}
-*/
 func cmp (a, b []string) bool {
 	if len(a) != len(b) {
 		return false

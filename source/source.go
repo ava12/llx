@@ -3,6 +3,8 @@ package source
 import (
 	"bytes"
 	"unicode/utf8"
+
+	"github.com/ava12/llx/internal/queue"
 )
 
 type Source struct {
@@ -144,15 +146,13 @@ type queueItem struct {
 }
 
 type Queue struct {
-	buffer     []queueItem
-	size       int
-	head, tail int
-	source     *Source
-	pos        int
+	q      *queue.Queue[queueItem]
+	source *Source
+	pos    int
 }
 
 func NewQueue () *Queue {
-	return &Queue{make([]queueItem, 4), 3, 0, 0, nil, 0}
+	return &Queue{queue.New[queueItem](), nil, 0}
 }
 
 func (q *Queue) Source () *Source {
@@ -180,29 +180,15 @@ func (q *Queue) SourcePos () Pos {
 }
 
 func (q *Queue) NextSource () bool {
-	eoi := (q.head == q.tail)
-	if eoi {
+	qi, fetched := q.q.First()
+	if !fetched {
 		q.source = nil
 		q.pos = 0
 	} else {
-		q.source = q.buffer[q.head].source
-		q.pos = q.buffer[q.head].pos
-		q.buffer[q.head].source = nil
-		q.head = (q.head + 1) & q.size
+		q.source = qi.source
+		q.pos = qi.pos
 	}
-	return !eoi
-}
-
-func (q *Queue) resize () {
-	buffer := make([]queueItem, (q.size + 1) << 1)
-	copy(buffer, q.buffer[q.head :])
-	if q.head > 0 {
-		copy(buffer[q.size + 1 - q.head :], q.buffer[0 : q.head])
-	}
-	q.head = 0
-	q.tail = q.size + 1
-	q.size = q.size + q.tail
-	q.buffer = buffer
+	return fetched
 }
 
 func (q *Queue) Append (s *Source) *Queue {
@@ -214,11 +200,7 @@ func (q *Queue) Append (s *Source) *Queue {
 		q.source = s
 		q.pos = 0
 	} else {
-		q.buffer[q.tail] = queueItem{s, 0}
-		q.tail = (q.tail + 1) & q.size
-		if q.head == q.tail {
-			q.resize()
-		}
+		q.q.Append(queueItem{s, 0})
 	}
 	return q
 }
@@ -229,11 +211,7 @@ func (q *Queue) Prepend (s *Source) *Queue {
 	}
 
 	if q.source != nil && q.source.Len() > 0 {
-		q.head = (q.head - 1) & q.size
-		q.buffer[q.head] = queueItem{q.source, q.pos}
-		if q.head == q.tail {
-			q.resize()
-		}
+		q.q.Prepend(queueItem{q.source, q.pos})
 	}
 
 	q.source = s
@@ -257,7 +235,6 @@ func (q *Queue) ContentPos () ([]byte, int) {
 		return q.source.Content(), q.pos
 	}
 }
-
 
 func (q *Queue) Skip (size int) {
 	if q.source == nil || size <= 0 {
