@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/internal/queue"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
 )
@@ -163,11 +164,11 @@ type nonTermRec struct {
 type ParseContext struct {
 	parser       *Parser
 	lexers       []*lexer.Lexer
-	queue        *source.Queue
+	sources      *source.Queue
 	tokenHooks   []TokenHook
 	nonTermHooks []NonTermHook
-	tokens       []*Token
-	appliedRules []grammar.Rule
+	tokens       *queue.Queue[*Token]
+	appliedRules *queue.Queue[grammar.Rule]
 	tokenError   error
 	lastResult   interface{}
 	nonTerm      *nonTermRec
@@ -182,11 +183,11 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 	result := &ParseContext{
 		parser:       p,
 		lexers:       make([]*lexer.Lexer, len(p.lexers)),
-		queue:        q,
+		sources:      q,
 		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
 		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
-		tokens:       make([]*Token, 0),
-		appliedRules: make([]grammar.Rule, 0),
+		tokens:       queue.New[*Token](),
+		appliedRules: queue.New[grammar.Rule](),
 	}
 
 	for i, lr := range p.lexers {
@@ -244,12 +245,12 @@ func (pc *ParseContext) EmitToken (t *Token) error {
 		return emitWrongTokenError(t)
 	}
 
-	pc.tokens = append(pc.tokens, t)
+	pc.tokens.Append(t)
 	return nil
 }
 
 func (pc *ParseContext) IncludeSource (s *source.Source) error {
-	if len(pc.appliedRules) > 0 {
+	if !pc.appliedRules.IsEmpty() {
 		var ntName string
 		if pc.nonTerm != nil {
 			ntName = pc.parser.grammar.NonTerms[pc.nonTerm.index].Name
@@ -257,7 +258,7 @@ func (pc *ParseContext) IncludeSource (s *source.Source) error {
 		return includeUnresolvedError(ntName, s.Name())
 	}
 
-	pc.queue.Prepend(s)
+	pc.sources.Prepend(s)
 	return nil
 }
 
@@ -393,10 +394,10 @@ func (pc *ParseContext) parse () (interface{}, error) {
 	if !tokenConsumed && tok.Type() != lexer.EoiTokenType {
 		s := tok.Source()
 		if s != nil {
-			if s != pc.queue.Source() {
-				pc.queue.Prepend(s)
+			if s != pc.sources.Source() {
+				pc.sources.Prepend(s)
 			}
-			pc.queue.Seek(s.Pos(tok.Line(), tok.Col()))
+			pc.sources.Seek(s.Pos(tok.Line(), tok.Col()))
 		}
 	}
 
@@ -408,7 +409,7 @@ func (pc *ParseContext) shrinkToken (tok *Token, group int) (bool, error) {
 		return false, nil
 	}
 
-	if len(pc.tokens) > 0 {
+	if !pc.tokens.IsEmpty() {
 		return false, nil
 	}
 
@@ -423,7 +424,7 @@ func (pc *ParseContext) shrinkToken (tok *Token, group int) (bool, error) {
 func (pc *ParseContext) resolve (tok *Token, ars []grammar.Rule) ([]*Token, []grammar.Rule) {
 	liveBranch := createBranches(pc, pc.nonTerm, ars)
 	tokens := make([]*Token, 0)
-	pc.tokens = append([]*Token{tok}, pc.tokens...)
+	pc.tokens.Prepend(tok)
 	for {
 		var parentBranch, deadBranch, lastDead *branch
 		currentBranch := liveBranch
@@ -586,9 +587,9 @@ func (pc *ParseContext) getNonTermHook (ntIndex int, tok *Token) (res NonTermHoo
 }
 
 func (pc *ParseContext) nextToken (group int) (result *Token, e error) {
-	if len(pc.tokens) > 0 {
-		result = pc.tokens[0]
-		pc.tokens = pc.tokens[1 :]
+	var fetched bool
+	result, fetched = pc.tokens.First()
+	if fetched {
 		if result.Type() >= 0 {
 			groups := pc.parser.grammar.Tokens[result.Type()].Groups
 			if groups & (1 << group) == 0 {
@@ -606,10 +607,8 @@ func (pc *ParseContext) nextToken (group int) (result *Token, e error) {
 }
 
 func (pc *ParseContext) nextRule (t *Token, s grammar.State) (r grammar.Rule, found bool) {
-	if len(pc.appliedRules) > 0 {
-		r = pc.appliedRules[0]
-		found = true
-		pc.appliedRules = pc.appliedRules[1:]
+	r, found = pc.appliedRules.First()
+	if found {
 		return
 	}
 
@@ -624,8 +623,12 @@ func (pc *ParseContext) nextRule (t *Token, s grammar.State) (r grammar.Rule, fo
 	} else {
 		tokens, rules := pc.resolve(t, rules)
 		r = rules[0]
-		pc.tokens = append(tokens[1 :], pc.tokens...)
-		pc.appliedRules = rules[1 :]
+		for i := len(tokens) - 1; i >= 1; i-- {
+			pc.tokens.Prepend(tokens[i])
+		}
+		for _, rr := range rules[1 :] {
+			pc.appliedRules.Append(rr)
+		}
 	}
 
 	return
@@ -658,7 +661,7 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 			return nil
 		}
 
-		pc.tokens = append(pc.tokens, tok)
+		pc.tokens.Append(tok)
 		return nil
 	}
 
@@ -667,10 +670,10 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 		emit = false
 	}
 	if emit || tt < 0 {
-		pc.tokens = append(pc.tokens, tok)
+		pc.tokens.Append(tok)
 	}
 	if e != nil {
-		if len(pc.tokens) > 0 {
+		if !pc.tokens.IsEmpty() {
 			pc.tokenError = e
 		} else {
 			return e
@@ -681,7 +684,7 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 }
 
 func (pc *ParseContext) fetchToken (group int) (*Token, error) {
-	for len(pc.tokens) == 0 {
+	for pc.tokens.IsEmpty() {
 		result, e := pc.lexers[group].Next()
 		if e == nil {
 			e = pc.handleToken(result)
@@ -692,8 +695,7 @@ func (pc *ParseContext) fetchToken (group int) (*Token, error) {
 		}
 	}
 
-	result := pc.tokens[0]
-	pc.tokens = pc.tokens[1 :]
+	result, _ := pc.tokens.First()
 	return result, nil
 }
 

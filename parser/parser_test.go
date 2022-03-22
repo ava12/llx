@@ -158,7 +158,7 @@ func TestUnexpectedGroupError (t *testing.T) {
 		t.Fatal("unexpected error:" + e.Error())
 	}
 
-	pc.tokens = append(pc.tokens, lexer.NewToken(2, "op", "+", nil))
+	pc.tokens.Append(lexer.NewToken(2, "op", "+", nil))
 	_, e = pc.nextToken(1)
 	if e == nil {
 		t.Fatal("expecting UnexpectedGroupError, got success")
@@ -289,7 +289,7 @@ func TestTokenHooks (t *testing.T) {
 	prevTokenText := ""
 	ths := TokenHooks{
 		"char": func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			f := (t.Text() != prevTokenText) // x x -> x
+			f := t.Text() != prevTokenText // x x -> x
 			prevTokenText = t.Text()
 			return f, nil
 		},
