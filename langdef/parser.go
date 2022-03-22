@@ -7,6 +7,7 @@ import (
 
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/internal/ints"
+	"github.com/ava12/llx/internal/queue"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
 )
@@ -665,9 +666,13 @@ func findUnusedNonTerminals (nts []grammar.NonTerm, nti nonTermIndex, e error) e
 	for i := 0; i < len(nts); i++ {
 		unreachedNts.Add(i)
 	}
-	searchQueue := ints.NewQueue(0)
-	for !searchQueue.IsEmpty() {
-		index := searchQueue.Head()
+	searchQueue := queue.New[int](0)
+	for {
+		index, fetched := searchQueue.First()
+		if !fetched {
+			break
+		}
+
 		if !unreachedNts.Contains(index) {
 			continue
 		}
@@ -691,11 +696,11 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 	}
 
 	affects := make(map[int][]int)
-	queue := ints.NewQueue()
+	resolveQueue := queue.New[int]()
 
 	for _, item := range nti {
 		if item.DependsOn.IsEmpty() {
-			queue.Append(item.Index)
+			resolveQueue.Append(item.Index)
 			item.FirstTokens = item.Chunk.FirstTokens()
 			continue
 		}
@@ -710,13 +715,17 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 		}
 	}
 
-	for !queue.IsEmpty() {
-		k := queue.Head()
+	for {
+		k, fetched := resolveQueue.First()
+		if !fetched {
+			break
+		}
+
 		for _, index := range affects[k] {
 			item := nti[nts[index].Name]
 			item.DependsOn.Remove(k)
 			if item.DependsOn.IsEmpty() {
-				queue.Append(index)
+				resolveQueue.Append(index)
 				item.FirstTokens = item.Chunk.FirstTokens()
 			}
 		}
@@ -724,15 +733,15 @@ func resolveDependencies (nts []grammar.NonTerm, nti nonTermIndex, e error) erro
 
 	for _, item := range nti {
 		if !item.DependsOn.IsEmpty() {
-			queue.Append(item.Index)
+			resolveQueue.Append(item.Index)
 		}
 	}
 
-	if queue.IsEmpty() {
+	if resolveQueue.IsEmpty() {
 		return nil
 	}
 
-	indexes := queue.Items()
+	indexes := resolveQueue.Items()
 	tokenAdded := true
 	for tokenAdded {
 		tokenAdded = false
