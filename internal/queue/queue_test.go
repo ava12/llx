@@ -231,6 +231,7 @@ func TestFirst (t *testing.T) {
 	ExpectBool(t, true, f)
 	ExpectInt(t, 1, q.head)
 	ExpectInt(t, 2, q.tail)
+	ExpectInt(t, 0, q.items[0])
 
 	q.tail = q.head
 	i, f = q.First()
@@ -244,6 +245,7 @@ func TestFirst (t *testing.T) {
 	ExpectBool(t, true, f)
 	ExpectInt(t, 0, q.head)
 	ExpectInt(t, 1, q.tail)
+	ExpectInt(t, 0, q.items[minSize])
 }
 
 func TestLast (t *testing.T) {
@@ -262,6 +264,7 @@ func TestLast (t *testing.T) {
 	ExpectBool(t, true, f)
 	ExpectInt(t, 0, q.head)
 	ExpectInt(t, 1, q.tail)
+	ExpectInt(t, 0, q.items[1])
 
 	q.tail = q.head
 	i, f = q.Last()
@@ -275,4 +278,5 @@ func TestLast (t *testing.T) {
 	ExpectBool(t, true, f)
 	ExpectInt(t, minSize, q.head)
 	ExpectInt(t, 0, q.tail)
+	ExpectInt(t, 0, q.items[0])
 }

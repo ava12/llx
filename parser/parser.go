@@ -626,9 +626,7 @@ func (pc *ParseContext) nextRule (t *Token, s grammar.State) (r grammar.Rule, fo
 		for i := len(tokens) - 1; i >= 1; i-- {
 			pc.tokens.Prepend(tokens[i])
 		}
-		for _, rr := range rules[1 :] {
-			pc.appliedRules.Append(rr)
-		}
+		pc.appliedRules = queue.New[grammar.Rule](rules[1 :] ...)
 	}
 
 	return

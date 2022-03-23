@@ -6,6 +6,7 @@ type Queue[T any] struct {
 	items      []T
 	size       int
 	head, tail int
+	zero       T
 }
 
 func New[T any] (items ...T) *Queue[T] {
@@ -58,11 +59,11 @@ func (q *Queue[T]) Prepend (item T) *Queue[T] {
 
 func (q *Queue[T]) First () (T, bool) {
 	if q.head == q.tail {
-		var zero T
-		return zero, false
+		return q.zero, false
 	}
 
 	result := q.items[q.head]
+	q.items[q.head] = q.zero
 	q.head = (q.head + 1) & q.size
 
 	if q.head == 0 && q.size > minSize && (q.tail << 2) <= q.size {
@@ -77,12 +78,13 @@ func (q *Queue[T]) First () (T, bool) {
 
 func (q *Queue[T]) Last () (T, bool) {
 	if q.head == q.tail {
-		var zero T
-		return zero, false
+		return q.zero, false
 	}
 
 	q.tail = (q.tail - 1) & q.size
-	return q.items[q.tail], true
+	result := q.items[q.tail]
+	q.items[q.tail] = q.zero
+	return result, true
 }
 
 func computeSize (length int) (size int) {
