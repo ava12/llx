@@ -32,20 +32,12 @@ type TokenType struct {
 type Lexer struct {
 	types []TokenType
 	re    Regexp
-	queue *source.Queue
 }
 
-func New (re Regexp, types []TokenType, queue *source.Queue) *Lexer {
-	return &Lexer{types: types, re: re, queue: queue}
+func New (re Regexp, types []TokenType) *Lexer {
+	return &Lexer{types: types, re: re}
 }
 
-func (l *Lexer) Source () *source.Source {
-	return l.queue.Source()
-}
-
-func (l *Lexer) Advance (size int) {
-	l.queue.Skip(size)
-}
 
 func wrongCharError (s *source.Source, content []byte, line, col int) *llx.Error {
 	r, _ := utf8.DecodeRune(content)
@@ -57,17 +49,17 @@ func wrongTokenError (t *Token) *llx.Error {
 	return llx.FormatErrorPos(t, ErrBadToken, "bad token %q", t.Text())
 }
 
-func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token, error) {
+func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token, int, error) {
 	content = content[pos :]
 	match := l.re.FindSubmatchIndex(content)
 	if len(match) == 0 || match[0] != 0 || match[1] <= match[0] {
-		line, col := l.queue.LineCol(pos)
-		return nil, wrongCharError(src, content, line, col)
+		line, col := src.LineCol(pos)
+		return nil, 0, wrongCharError(src, content, line, col)
 	}
 
 	for i := 2; i < len(match); i += 2 {
 		if match[i] >= 0 && match[i + 1] >= 0 {
-			line, col := l.queue.LineCol(pos + match[i])
+			line, col := src.LineCol(pos + match[i])
 			tokenType := ErrorTokenType
 			typeName := ErrorTokenName
 			if len(l.types) >= (i >> 1) {
@@ -83,59 +75,61 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 				col,
 			}
 			if tokenType == ErrorTokenType {
-				return nil, wrongTokenError(token)
+				return nil, 0, wrongTokenError(token)
 			}
 
-			l.Advance(match[1])
-			return token, nil
+			return token, match[1], nil
 		}
 	}
 
-	l.Advance(match[1])
-	return nil, nil
+	return nil, match[1], nil
 }
 
-func (l *Lexer) fetch () (*Token, error) {
-	content, pos := l.queue.ContentPos()
-	src := l.queue.Source()
+func (l *Lexer) fetch (q *source.Queue) (*Token, error) {
+	content, pos := q.ContentPos()
+	src := q.Source()
 	if len(content) - pos <= 0 {
 		if src == nil {
 			return EoiToken(), nil
 		} else {
-			l.queue.NextSource()
+			q.NextSource()
 			return EofToken(src), nil
 		}
 	}
 
-	return l.matchToken(src, content, pos)
+	tok, advance, e := l.matchToken(src, content, pos)
+	q.Skip(advance)
+	return tok, e
 }
 
-func (l *Lexer) Next () (*Token, error) {
+func (l *Lexer) Next (q *source.Queue) (*Token, error) {
 	for {
-		t, e := l.fetch()
+		t, e := l.fetch(q)
 		if t != nil || e != nil {
 			return t, e
 		}
 	}
 }
 
-func (l *Lexer) Shrink (tok *Token) *Token {
+func (l *Lexer) Shrink (q *source.Queue, tok *Token) *Token {
 	if tok == nil || len(tok.text) <= 1 {
 		return nil
 	}
 
-	src := l.queue.Source()
+	src := q.Source()
 	if src == nil || src != tok.source {
 		return nil
 	}
 
-	currentPos := l.queue.Pos()
-	l.queue.Seek(tok.source.Pos(tok.line, tok.col))
-	content, pos := l.queue.ContentPos()
+	currentPos := q.Pos()
+	q.Seek(tok.source.Pos(tok.line, tok.col))
+	content, pos := q.ContentPos()
 	content = content[: pos + len(tok.Text()) - 1]
-	result, _ := l.matchToken(l.queue.Source(), content, pos)
+	result, advance, _ := l.matchToken(q.Source(), content, pos)
 	if result == nil {
-		l.queue.Seek(currentPos)
+		q.Seek(currentPos)
+	} else {
+		q.Skip(advance)
 	}
 	return result
 }

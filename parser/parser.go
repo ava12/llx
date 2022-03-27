@@ -64,15 +64,15 @@ type Hooks struct {
 	NonTerms NonTermHooks
 }
 
-type lexerRec struct {
-	re    *regexp.Regexp
-	types []lexer.TokenType
-}
-
 type Parser struct {
 	grammar *grammar.Grammar
 	names   map[string]int
-	lexers  []lexerRec
+	lexers  []*lexer.Lexer
+}
+
+type lexerRec struct {
+	patterns []string
+	types    []lexer.TokenType
 }
 
 func New (g *grammar.Grammar) *Parser {
@@ -90,7 +90,6 @@ func New (g *grammar.Grammar) *Parser {
 	names[AnyNonTerm] = -1
 	names[tokenKey(EofToken)] = lexer.EofTokenType
 	names[tokenKey(EoiToken)] = lexer.EoiTokenType
-	ms := make([][]string, maxGroup + 1)
 
 	for i, t := range g.Tokens {
 		if (t.Flags & grammar.LiteralToken) != 0 {
@@ -104,7 +103,7 @@ func New (g *grammar.Grammar) *Parser {
 
 		group := -1
 		gs := t.Groups
-		mask := "(" + t.Re + ")"
+		pattern := "(" + t.Re + ")"
 		for ; gs != 0; gs >>= 1 {
 			group++
 			if (gs & 1) == 0 {
@@ -112,19 +111,21 @@ func New (g *grammar.Grammar) *Parser {
 			}
 
 			lrs[group].types = append(lrs[group].types, lexer.TokenType{i, t.Name})
-			ms[group] = append(ms[group], mask)
+			lrs[group].patterns = append(lrs[group].patterns, pattern)
 		}
 	}
 
-	for i := range lrs {
-		lrs[i].re = regexp.MustCompile("(?s:" + strings.Join(ms[i], "|") + ")")
+	ls := make([]*lexer.Lexer, len(lrs))
+	for i := range ls {
+		re := regexp.MustCompile("(?s:" + strings.Join(lrs[i].patterns, "|") + ")")
+		ls[i] = lexer.New(re, lrs[i].types)
 	}
 
 	for i, nt := range g.NonTerms {
 		names[nt.Name] = i
 	}
 
-	return &Parser{g, names, lrs}
+	return &Parser{g, names, ls}
 }
 
 func tokenKey (name string) string {
@@ -163,7 +164,6 @@ type nonTermRec struct {
 
 type ParseContext struct {
 	parser       *Parser
-	lexers       []*lexer.Lexer
 	sources      *source.Queue
 	tokenHooks   []TokenHook
 	nonTermHooks []NonTermHook
@@ -182,16 +182,11 @@ const (
 func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, error) {
 	result := &ParseContext{
 		parser:       p,
-		lexers:       make([]*lexer.Lexer, len(p.lexers)),
 		sources:      q,
 		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
 		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
 		tokens:       queue.New[*Token](),
 		appliedRules: queue.New[grammar.Rule](),
-	}
-
-	for i, lr := range p.lexers {
-		result.lexers[i] = lexer.New(lr.re, lr.types, q)
 	}
 
 	for k, th := range hs.Tokens {
@@ -413,7 +408,7 @@ func (pc *ParseContext) shrinkToken (tok *Token, group int) (bool, error) {
 		return false, nil
 	}
 
-	res := pc.lexers[group].Shrink(tok)
+	res := pc.parser.lexers[group].Shrink(pc.sources, tok)
 	var e error
 	if res != nil {
 		e = pc.handleToken(res)
@@ -678,7 +673,7 @@ func (pc *ParseContext) handleToken (tok *Token) error {
 
 func (pc *ParseContext) fetchToken (group int) (*Token, error) {
 	for pc.tokens.IsEmpty() {
-		result, e := pc.lexers[group].Next()
+		result, e := pc.parser.lexers[group].Next(pc.sources)
 		if e == nil {
 			e = pc.handleToken(result)
 		}

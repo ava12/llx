@@ -24,7 +24,7 @@ func init () {
 
 func lexer () (*Lexer, *source.Queue) {
 	queue := source.NewQueue()
-	return New(tokenRe, tokenTypes, queue), queue
+	return New(tokenRe, tokenTypes), queue
 }
 
 func TestEmpty (t *testing.T) {
@@ -32,7 +32,7 @@ func TestEmpty (t *testing.T) {
 	for _, src := range sources {
 		l, q := lexer()
 		q.Append(source.New("", []byte(src)))
-		tok, e := l.Next()
+		tok, e := l.Next(q)
 		if e != nil {
 			t.Fatalf("source %q: unexpected error %s", src, e)
 		}
@@ -46,7 +46,7 @@ func TestTokenSamples (t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", tokenSamples))
 	for _, tokType := range tokenTypes {
-		tok, e := l.Next()
+		tok, e := l.Next(q)
 		if tok == nil || e != nil {
 			t.Fatalf("expecting %q token, got error %v", tokType.TypeName, e)
 		}
@@ -54,7 +54,7 @@ func TestTokenSamples (t *testing.T) {
 			t.Fatalf("expecting %q (%d) token, got %q (%d)", tokType.TypeName, tokType.Type, tok.TypeName(), tok.Type())
 		}
 	}
-	tok, e := l.Next()
+	tok, e := l.Next(q)
 	if tok == nil || e != nil {
 		t.Fatalf("expecting EoF, got %v, %v", tok, e)
 	}
@@ -66,7 +66,7 @@ func TestTokenSamples (t *testing.T) {
 func TestBrokenToken (t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", []byte("\n  '*  *")))
-	tok, e := l.Next()
+	tok, e := l.Next(q)
 	if tok != nil {
 		t.Fatalf("expected error, got %q token", tok.TypeName())
 	}
@@ -88,7 +88,7 @@ func TestSourceBoundary (t *testing.T) {
 	q.Append(source.New("", []byte("bar")))
 	expectedTokens := []string{"foo", EofTokenName, "bar", EofTokenName, EoiTokenName, EoiTokenName}
 	for i, expected := range expectedTokens {
-		tok, e := l.Next()
+		tok, e := l.Next(q)
 		if e != nil {
 			t.Fatalf("step %d: unexpected error: %s", i, e.Error())
 		}
@@ -113,10 +113,10 @@ func TestTokenTypes (t *testing.T) {
 	src := "1 + foo"
 	expected := []int{0, 2, 1}
 
-	queue := source.NewQueue().Append(source.New("", []byte(src)))
-	lexer := New(re, types, queue)
+	q := source.NewQueue().Append(source.New("", []byte(src)))
+	lexer := New(re, types)
 	for i, n := range expected {
-		tok, e := lexer.Next()
+		tok, e := lexer.Next(q)
 		if e != nil {
 			t.Fatalf("sample #%d: unexpected error: %s", i, e.Error())
 		}
@@ -137,24 +137,24 @@ func TestShrinkToken (t *testing.T) {
 	re := regexp.MustCompile("(\\s+)|(#[a-z]+=*)")
 	types := []TokenType{{0, "space"}, {1, "name"}}
 	queue := source.NewQueue()
-	lexer := New(re, types, queue)
+	lexer := New(re, types)
 	queue.Append(source.New("", []byte("  #foo="))).Append(source.New("", []byte("#bar=")))
 
-	tok := lexer.Shrink(nil)
+	tok := lexer.Shrink(queue, nil)
 	if tok != nil {
 		t.Fatalf("expecting nil token, got: %v", tok)
 	}
 
-	tok, e := lexer.Next()
+	tok, e := lexer.Next(queue)
 	if e == nil {
-		tok, e = lexer.Next()
+		tok, e = lexer.Next(queue)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())
 	}
 
 	for i := 4; i > 1; i-- {
-		tok = lexer.Shrink(tok)
+		tok = lexer.Shrink(queue, tok)
 		if tok == nil {
 			t.Fatalf("step %d: nil token", i)
 		}
@@ -163,13 +163,19 @@ func TestShrinkToken (t *testing.T) {
 		}
 	}
 
-	tok = lexer.Shrink(tok)
+	savedPos := queue.Pos()
+	tok = lexer.Shrink(queue, tok)
 	if tok != nil {
 		t.Fatalf("nil token expected after token shrinked, got: %v", tok)
 	}
 
+	pos := queue.Pos()
+	if pos != savedPos {
+		t.Fatalf("expecting source pos %d, got %d", savedPos, pos)
+	}
+
 	tok = &Token{1, "name", "#", queue.Source(), 1, 1}
-	tok = lexer.Shrink(tok)
+	tok = lexer.Shrink(queue, tok)
 	if tok != nil {
 		t.Fatalf("expecting nil for single char token, got: %v", tok)
 	}
@@ -191,13 +197,13 @@ func TestErrorPos (t *testing.T) {
 		{"foo\n <bar\nbaz", ErrBadToken, 2, 2},
 	}
 	q := source.NewQueue()
-	l := New(re, types, q)
+	l := New(re, types)
 	for i, s := range samples {
 		q.NextSource()
 		q.Append(source.New("src", []byte(s.src)))
-		tok, e := l.Next()
+		tok, e := l.Next(q)
 		for e == nil && tok != nil {
-			tok, e = l.Next()
+			tok, e = l.Next(q)
 		}
 
 		if e == nil {
