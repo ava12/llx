@@ -11,11 +11,7 @@ type Queue[T any] struct {
 
 func New[T any] (items ...T) *Queue[T] {
 	result := &Queue[T]{}
-	l := len(items)
-	result.tail = l
-	result.size = computeSize(l)
-	result.items = make([]T, result.size + 1)
-	copy(result.items, items)
+	result.Fill(items)
 	return result
 }
 
@@ -85,6 +81,19 @@ func (q *Queue[T]) Last () (T, bool) {
 	result := q.items[q.tail]
 	q.items[q.tail] = q.zero
 	return result, true
+}
+
+func (q *Queue[T]) Fill (items []T) {
+	l := len(items)
+	q.head = 0
+	q.tail = l
+	q.size = computeSize(l)
+	q.items = make([]T, q.size + 1)
+	copy(q.items, items)
+}
+
+func (q *Queue[T]) Clear () {
+	q.Fill(make([]T, 0))
 }
 
 func computeSize (length int) (size int) {

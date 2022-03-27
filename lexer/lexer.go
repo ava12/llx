@@ -129,9 +129,13 @@ func (l *Lexer) Shrink (tok *Token) *Token {
 		return nil
 	}
 
+	currentPos := l.queue.Pos()
 	l.queue.Seek(tok.source.Pos(tok.line, tok.col))
 	content, pos := l.queue.ContentPos()
 	content = content[: pos + len(tok.Text()) - 1]
 	result, _ := l.matchToken(l.queue.Source(), content, pos)
+	if result == nil {
+		l.queue.Seek(currentPos)
+	}
 	return result
 }

@@ -465,11 +465,6 @@ func (pc *ParseContext) resolve (tok *Token, ars []grammar.Rule) ([]*Token, []gr
 		if survivors < 2 {
 			if survivors == 0 {
 				liveBranch = deadBranch
-				shrunk, _ := pc.shrinkToken(tok, deadBranch.nextGroup())
-				if shrunk {
-					tokens = tokens[: len(tokens) - 1]
-					continue
-				}
 			}
 
 			return tokens, liveBranch.applied
@@ -626,7 +621,7 @@ func (pc *ParseContext) nextRule (t *Token, s grammar.State) (r grammar.Rule, fo
 		for i := len(tokens) - 1; i >= 1; i-- {
 			pc.tokens.Prepend(tokens[i])
 		}
-		pc.appliedRules = queue.New[grammar.Rule](rules[1 :] ...)
+		pc.appliedRules.Fill(rules[1 :])
 	}
 
 	return

@@ -280,3 +280,34 @@ func TestLast (t *testing.T) {
 	ExpectInt(t, 0, q.tail)
 	ExpectInt(t, 0, q.items[0])
 }
+
+func TestClear (t *testing.T) {
+	items := make([]int, minSize + 1)
+	q := New[int](items ...)
+	ExpectInt(t, (minSize << 1) + 1, q.size)
+	q.Clear()
+	ExpectInt(t, minSize, q.size)
+	ExpectInt(t, 0, q.head)
+	ExpectInt(t, 0, q.tail)
+}
+
+func TestFill (t *testing.T) {
+	samples := [][]int{
+		{},
+		{1},
+		{11, 12, 13},
+	}
+	for i, sample := range samples {
+		name := fmt.Sprintf("sample #%d", i)
+		t.Run(name, func (t *testing.T) {
+			q := New[int](1, 2, 3)
+			q.First()
+			q.Fill(sample)
+			ExpectInt(t, 0, q.head)
+			ExpectInt(t, len(sample), q.tail)
+			for i := q.head; i < q.tail; i++ {
+				ExpectInt(t, sample[i], q.items[i])
+			}
+		})
+	}
+}
