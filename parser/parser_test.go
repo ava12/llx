@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -117,9 +118,9 @@ func TestHandlerKeyErrors (t *testing.T) {
 		hooks Hooks
 		err int
 	}{
-		{Hooks{TokenHooks{"space": nil}, nil, nil}, UnknownTokenTypeError},
-		{Hooks{nil, TokenHooks{"y": nil}, nil}, UnknownTokenLiteralError},
-		{Hooks{nil, nil, NonTermHooks{"foo": nil}}, UnknownNonTermError},
+		{Hooks{TokenHooks{"space": nil}, nil, nil, nil}, UnknownTokenTypeError},
+		{Hooks{nil, TokenHooks{"y": nil}, nil, nil}, UnknownTokenLiteralError},
+		{Hooks{nil, nil, NonTermHooks{"foo": nil}, nil}, UnknownNonTermError},
 	}
 
 	for i, sample := range samples {
@@ -594,4 +595,139 @@ func TestNonTermHooks (t *testing.T) {
 	if got != expected {
 		t.Errorf("expecting %q, got %q", expected, got)
 	}
+}
+
+func TestBasicRecovery (t *testing.T) {
+	customError := 1001
+	err := func (e error, pc *ParseContext) error {
+		return &llx.Error{Code: customError}
+	}
+
+	replacer := func (skip int, put ... *Token) ErrorHook {
+		return func (e error, pc *ParseContext) error {
+			for i := skip; i > 0; i-- {
+				_, _ = pc.NextToken()
+			}
+			for i := len(put) - 1; i >= 0; i-- {
+				_ = pc.PutToken(put[i])
+			}
+			return nil
+		}
+	}
+
+	grammar := "!aside $space; !shrink $op; $space = /\\s+/; $name = /[a-z]+/; $num = /\\d+/; $op = /=+/; " +
+		"g = exp, {exp}; exp = $name, ('=', $num) | ('==', $name);"
+	samples := []struct {
+		src string
+		hook ErrorHook
+		errCode int
+	}{
+		{"foo = 1", nil, 0},
+		{"foo == 1", nil, UnexpectedTokenError},
+		{"foo == 1", err, customError},
+		{"foo == 1", replacer(1, lexer.NewToken(1, "name", "bar", nil)), 0},
+	}
+
+	g, _ := langdef.ParseString("", grammar)
+	p := New(g)
+	for i, sample := range samples {
+		name := fmt.Sprintf("sample #%d (%s)", i, sample.src)
+		t.Run(name, func (t *testing.T) {
+			hooks := Hooks{Errors: sample.hook}
+			q := source.NewQueue().Append(source.New("", []byte(sample.src)))
+			_, e := p.Parse(q, &hooks)
+			if e == nil {
+				if sample.errCode == 0 {
+					return
+				} else {
+					t.Fatalf("expecting error code %d, got no error", sample.errCode)
+				}
+			}
+
+			ee, f := e.(*llx.Error)
+			if !f {
+				t.Fatalf("expecting *llx.Error, got %v", e)
+			}
+			if ee.Code != sample.errCode {
+				t.Fatalf("expecting error code %d, got %d (%q)", sample.errCode, ee.Code, ee.Message)
+			}
+		})
+	}
+}
+
+func TestBreakRecoveryLoop (t *testing.T) {
+	grammar := "!aside $space; $space = /\\s+/; $name = /\\w+/; $op = /=+/; g = $name, '=', $name;"
+	g, _ := langdef.ParseString("", grammar)
+	p := New(g)
+
+	run := func (t *testing.T, name, src string, hs *Hooks, errCode int, triggeredCodes []int) {
+		t.Run(name, func (t *testing.T) {
+			hook := hs.Errors
+			triggerIndex := 0
+			hs.Errors = func (e error, pc *ParseContext) error {
+				code := e.(*llx.Error).Code
+				if triggerIndex >= len(triggeredCodes) {
+					t.Fatalf("excessive error %d: %q", code, e)
+				}
+				if code != triggeredCodes[triggerIndex] {
+					t.Fatalf("expecting error code %d, got %d : %q", triggeredCodes[triggerIndex], code, e)
+				}
+				triggerIndex++
+				if hook != nil {
+					return hook(e, pc)
+				} else {
+					return e
+				}
+			}
+			q := source.NewQueue().Append(source.New("", []byte(src)))
+			_, e := p.Parse(q, hs)
+			hs.Errors = hook
+
+			if triggerIndex != len(triggeredCodes) {
+				t.Fatalf("expecting %d triggered errors, got %d", len(triggeredCodes), triggerIndex)
+			}
+			if e == nil {
+				if errCode != 0 {
+					t.Fatalf("expecting error code %d, got success", errCode)
+				}
+			} else {
+				code := e.(*llx.Error).Code
+				if code != errCode {
+					t.Fatalf("expecting error code %d, got %d: %q", errCode, code, e)
+				}
+			}
+		})
+	}
+
+	hs := &Hooks{}
+	const ute = UnexpectedTokenError
+
+	run(t, "same error, same place", "foo == bar", hs, ute, []int{ute})
+
+	triggered := false
+	hs.Errors = func (e error, pc *ParseContext) error {
+		if triggered {
+			return e
+		} else {
+			triggered = true
+			_, _ = pc.NextToken()
+			return nil
+		}
+	}
+	run(t, "same error, other place", "foo bar baz", hs, ute, []int{ute, ute})
+
+	const wce = lexer.ErrWrongChar
+	const ce = 1001
+	hs.Errors = func (e error, pc *ParseContext) error {
+		code := e.(*llx.Error).Code
+		if code == wce {
+			tt, _ := p.TokenType("op")
+			tok := lexer.NewToken(tt, "op", "==", pc.sources.SourcePos())
+			_ = pc.PutToken(tok)
+			return nil
+		} else {
+			return llx.NewError(ce, "-custom-", "", 0, 0)
+		}
+	}
+	run(t, "other error, same place", "foo * bar", hs, ce, []int{wce, ute})
 }

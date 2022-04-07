@@ -96,6 +96,18 @@ func (q *Queue[T]) Clear () {
 	q.Fill(make([]T, 0))
 }
 
+func (q *Queue[T]) Peek (pos int) (T, bool) {
+	l := q.Len()
+	if pos < 0 {
+		pos += l
+	}
+	if pos >= 0 && pos < l {
+		return q.items[(q.head + pos) & q.size], true
+	} else {
+		return q.zero, false
+	}
+}
+
 func computeSize (length int) (size int) {
 	if length <= minSize {
 		size = minSize

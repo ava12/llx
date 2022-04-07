@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"github.com/ava12/llx"
 	"math/bits"
 	"regexp"
 	"sort"
@@ -24,6 +25,8 @@ type NonTermHookInstance interface {
 }
 
 type NonTermHook = func (nonTerm string, token *Token, pc *ParseContext) (NonTermHookInstance, error)
+
+type ErrorHook = func (e error, pc *ParseContext) error
 
 type defaultHookInstance struct {
 	result interface{}
@@ -62,17 +65,13 @@ type Hooks struct {
 	Tokens   TokenHooks
 	Literals TokenHooks
 	NonTerms NonTermHooks
+	Errors   ErrorHook
 }
 
 type Parser struct {
 	grammar *grammar.Grammar
 	names   map[string]int
 	lexers  []*lexer.Lexer
-}
-
-type lexerRec struct {
-	patterns []string
-	types    []lexer.TokenType
 }
 
 func New (g *grammar.Grammar) *Parser {
@@ -83,7 +82,13 @@ func New (g *grammar.Grammar) *Parser {
 			maxGroup = mg
 		}
 	}
+
+	type lexerRec struct {
+		patterns []string
+		types    []lexer.TokenType
+	}
 	lrs := make([]lexerRec, maxGroup + 1)
+
 	names := make(map[string]int)
 	names[tokenKey(AnyToken)] = grammar.AnyToken
 	names[literalKey(AnyToken)] = grammar.AnyToken
@@ -153,6 +158,17 @@ func (p *Parser) ParseString (name, content string, hs *Hooks) (result interface
 	return p.Parse(q, hs)
 }
 
+func (p *Parser) TokenType (typeName string) (typ int, valid bool) {
+	typ, valid = p.names[tokenKey(typeName)]
+	return
+}
+
+func (p *Parser) LiteralType (text string) (typ int, valid bool) {
+	typ, valid = p.names[literalKey(text)]
+	return
+}
+
+
 type nonTermRec struct {
 	prev   *nonTermRec
 	hook   NonTermHookInstance
@@ -162,9 +178,15 @@ type nonTermRec struct {
 	state  int
 }
 
+type errorKey struct {
+	src *source.Source
+	code int
+}
+
 type ParseContext struct {
 	parser       *Parser
 	sources      *source.Queue
+	hooks        *Hooks
 	tokenHooks   []TokenHook
 	nonTermHooks []NonTermHook
 	tokens       *queue.Queue[*Token]
@@ -172,6 +194,7 @@ type ParseContext struct {
 	tokenError   error
 	lastResult   interface{}
 	nonTerm      *nonTermRec
+	errorPlaces  map[errorKey]int
 }
 
 const (
@@ -183,10 +206,12 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 	result := &ParseContext{
 		parser:       p,
 		sources:      q,
+		hooks:        hs,
 		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
 		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
 		tokens:       queue.New[*Token](),
 		appliedRules: queue.New[grammar.Rule](),
+		errorPlaces:  make(map[errorKey]int),
 	}
 
 	for k, th := range hs.Tokens {
@@ -242,6 +267,23 @@ func (pc *ParseContext) EmitToken (t *Token) error {
 
 	pc.tokens.Append(t)
 	return nil
+}
+
+func (pc *ParseContext) PutToken (t *Token) error {
+	if t.Type() >= len(pc.parser.grammar.Tokens) {
+		return emitWrongTokenError(t)
+	}
+
+	pc.tokens.Prepend(t)
+	return nil
+}
+
+func (pc *ParseContext) NextToken () (*Token, error) {
+	if pc.nonTerm != nil {
+		return pc.nextToken(pc.nonTerm.group)
+	} else {
+		return nil, nil
+	}
 }
 
 func (pc *ParseContext) IncludeSource (s *source.Source) error {
@@ -336,16 +378,25 @@ func (pc *ParseContext) parse () (interface{}, error) {
 		tok, e = pc.nextToken(pc.nonTerm.group)
 		tokenConsumed = false
 		if e != nil {
-			return nil, e
+			e = pc.handleError(e)
+			if e == nil {
+				continue
+			} else {
+				return nil, e
+			}
 		}
 
 		for !tokenConsumed && pc.nonTerm != nil {
 			nt := pc.nonTerm
 			rule, found := pc.nextRule(tok, gr.States[nt.state])
 			if !found {
-				shrunk, e := pc.shrinkToken(tok, nt.group)
+				_ = pc.PutToken(tok)
+				shrunk, e := pc.shrinkToken(nt.group)
 				if e != nil {
-					return nil, e
+					e = pc.handleError(e)
+					if e != nil {
+						return nil, e
+					}
 				}
 
 				if shrunk {
@@ -358,7 +409,12 @@ func (pc *ParseContext) parse () (interface{}, error) {
 				} else {
 					e = unexpectedTokenError(tok, expected)
 				}
-				return nil, e
+				e = pc.handleError(e)
+				if e == nil {
+					break
+				} else {
+					return nil, e
+				}
 			}
 
 			sameNonTerm := (rule.NonTerm == grammar.SameNonTerm)
@@ -381,6 +437,10 @@ func (pc *ParseContext) parse () (interface{}, error) {
 			}
 
 			if e != nil {
+				_ = pc.PutToken(tok)
+				e = pc.handleError(e)
+			}
+			if e != nil {
 				return nil, e
 			}
 		}
@@ -399,18 +459,20 @@ func (pc *ParseContext) parse () (interface{}, error) {
 	return pc.lastResult, nil
 }
 
-func (pc *ParseContext) shrinkToken (tok *Token, group int) (bool, error) {
-	if tok.Type() < 0 || pc.parser.grammar.Tokens[tok.Type()].Flags & grammar.ShrinkableToken == 0 {
+func (pc *ParseContext) shrinkToken (group int) (bool, error) {
+	tok, _ := pc.tokens.Peek(0)
+	if tok == nil || tok.Type() < 0 || pc.parser.grammar.Tokens[tok.Type()].Flags & grammar.ShrinkableToken == 0 {
 		return false, nil
 	}
 
-	if !pc.tokens.IsEmpty() {
+	if pc.tokens.Len() > 1 {
 		return false, nil
 	}
 
 	res := pc.parser.lexers[group].Shrink(pc.sources, tok)
 	var e error
 	if res != nil {
+		pc.tokens.First()
 		e = pc.handleToken(res)
 	}
 	return (res != nil), e
@@ -722,4 +784,36 @@ func (pc *ParseContext) ntHandleToken (tok *Token) (res error) {
 		}
 	}
 	return
+}
+
+func (pc *ParseContext) registerError (e error) bool {
+	src := pc.sources.Source()
+	pos := pc.sources.Pos()
+	tok, _ := pc.tokens.Peek(0)
+	if tok != nil && tok.Source() != nil {
+		src = tok.Source()
+		pos = src.Pos(tok.Line(), tok.Col())
+	}
+	code := 0
+	ee, f := e.(*llx.Error)
+	if f {
+		code = ee.Code
+	}
+	key := errorKey{src, code}
+	lastPos, f := pc.errorPlaces[key]
+	if f && lastPos >= pos {
+		return true
+	}
+
+	pc.errorPlaces[key] = pos
+	return false
+}
+
+func (pc *ParseContext) handleError (e error) error {
+	if pc.hooks.Errors == nil || pc.registerError(e) {
+		return e
+	}
+
+	pc.appliedRules.Clear()
+	return pc.hooks.Errors(e, pc)
 }

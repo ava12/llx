@@ -311,3 +311,25 @@ func TestFill (t *testing.T) {
 		})
 	}
 }
+
+func TestPeek (t *testing.T) {
+	q := New[int]()
+	for i := -2; i <= 2; i++ {
+		v, f := q.Peek(i)
+		Assert(t, v == 0, "Peek(%d): expecting 0, got %d", i, v)
+		Assert(t, !f, "Peek(%d): expecting false, got true", i)
+	}
+
+	q = New[int](10, 20, 30)
+	offset := -4
+	samples := []int {0, 10, 20, 30, 10, 20, 30, 0}
+	for _, s := range samples {
+		name := fmt.Sprintf("Peek(%d)", offset)
+		t.Run(name, func (t *testing.T) {
+			v, f := q.Peek(offset)
+			ExpectInt(t, s, v)
+			ExpectBool(t, v != 0, f)
+		})
+		offset++
+	}
+}
