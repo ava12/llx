@@ -1,7 +1,7 @@
-# Universal LL(*) parser library (work in progress)
+# Universal LL(*) parser library
 
 The goal is to create a library suitable for making different parsing tools (translators, linters, style 
-checkers/formatters, etc). It is not meant to be super fast or to be able to process gigabyte files. Grammars are 
+checkers/formatters, etc.). It is not meant to be super fast or to be able to process gigabyte files. Grammars are 
 described in EBNF-like language, but unlike most parser generators this library does not generate _parsers_, only 
 _data_ used by the built-in parser.
 
@@ -25,6 +25,69 @@ Usage is:
   4. Prepare source file(s) and hooks.
   5. Run `Parser.Parse()` with those sources and hooks and get a result or an error.
 
+The simplest program could look like this:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/ava12/llx/langdef"
+    "github.com/ava12/llx/parser"
+)
+
+func main () {
+    input := "foo = hello\nbar = world\n[sec]\nbaz =\n[sec.subsec]\nqux = !\n"
+
+    grammar := `
+$space = /[ \t\r]+/; $nl = /\n/;
+$op = /[=\[\]]/;
+$name = /[a-z]+/; $sec-name = /[a-z]+(?:\.[a-z]+)*/;
+$value = /[^\n]+/;
+
+!aside $space;
+!group $sec-name; !group $value $nl; !group $op $name $nl;
+
+config = {section | value | $nl};
+section = '[', $sec-name, ']', $nl;
+value = $name, '=', [$value], $nl;
+`
+    configGrammar, e := langdef.ParseString("grammar", grammar)
+    if e != nil {
+        fmt.Println(e)
+        return
+    }
+
+    configParser := parser.New(configGrammar)
+    result := make(map[string]string)
+    prefix, name, value := "", "", ""
+    hooks := parser.Hooks{Tokens: parser.TokenHooks{
+        parser.AnyToken: func (t *parser.Token, pc *parser.ParseContext) (emit bool, e error) {
+            switch t.TypeName() {
+            case "sec-name":
+                prefix = t.Text() + "."
+            case "name":
+                name = prefix + t.Text()
+            case "value":
+                value = t.Text()
+            case "nl":
+                if name != "" {
+                    result[name] = value
+                    name, value = "", ""
+                }
+            }
+            return true, nil
+        },
+    }}
+    _, e = configParser.ParseString("input", input, &hooks)
+    if e == nil {
+        fmt.Println(result)
+    } else {
+        fmt.Println(e)
+    }
+}
+```
+
 The parser is LL(*), no left recursion allowed. It assumes that in most cases one token lookahead is enough. When 
 parser needs a deeper lookahead, a separate parsing branch is created for each possible variant, all branches are 
 traced simultaneously (non-terminal hooks are not used), fetched tokens and applied rules for each branch are 
@@ -33,7 +96,7 @@ an error found or when the non-terminal caused initial branching is popped off t
 the longest run of tokens will be preferred). This process is stopped when there is only one (or none) branch left, and 
 then captured tokens and rules are «replayed».
 
-## Feature list
+## Goal feature list
 
   - [x] multiple sources for the same parsing process
   - [x] multiple parsers for the same source queue
