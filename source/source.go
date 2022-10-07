@@ -68,12 +68,20 @@ func (s *Source) Pos (line, col int) int {
 		return l
 	}
 
-	res := s.lineStarts[line - 1] + col - 1
-	if res > l {
-		return l
-	} else {
-		return res
+	res := s.lineStarts[line - 1]
+	for col > 1 && res < l {
+		r, rl := utf8.DecodeRune(s.content[res :])
+		if r == '\n' {
+			break
+		}
+
+		res += rl
+		col--
 	}
+	if res > l {
+		res = l
+	}
+	return res
 }
 
 func (s *Source) findLineIndex (pos int) int {
