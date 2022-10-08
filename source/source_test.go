@@ -3,6 +3,8 @@ package source
 import (
 	"strconv"
 	"testing"
+
+	. "github.com/ava12/llx/internal/test"
 )
 
 type result struct {
@@ -124,51 +126,41 @@ func TestSkipNotAdvancesSource (t *testing.T) {
 	q := NewQueue().Append(src("bar"))
 	q.Skip(2)
 	c, p := q.ContentPos()
-	assert(t, string(c) == "bar", "expecting bar, got " + string(c))
-	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+	Assert(t, string(c) == "bar", "expecting bar, got " + string(c))
+	Assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
 
 	q.Prepend(src("foo"))
 	c, p = q.ContentPos()
-	assert(t, string(c) == "foo", "expecting foo, got " + string(c))
-	assert(t, p == 0, "expecting pos=0, got " + strconv.Itoa(p))
+	Assert(t, string(c) == "foo", "expecting foo, got " + string(c))
+	Assert(t, p == 0, "expecting pos=0, got " + strconv.Itoa(p))
 
 	q.Skip(4)
 	c, p = q.ContentPos()
-	assert(t, string(c) == "foo", "expecting foo, got " + string(c))
-	assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
+	Assert(t, string(c) == "foo", "expecting foo, got " + string(c))
+	Assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
 }
 
 func TestSeekAfterEof (t *testing.T) {
 	q := NewQueue().Append(src("foo"))
 	q.Seek(4)
 	p := q.Pos()
-	assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
-	assert(t, q.Eof(), "expecting EoF")
+	Assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
+	Assert(t, q.Eof(), "expecting EoF")
 
 	q.Seek(2)
 	p = q.Pos()
-	assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
-	assert(t, !q.Eof(), "expecting no EoF")
+	Assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+	Assert(t, !q.Eof(), "expecting no EoF")
 
 	q.Skip(4)
 	p = q.Pos()
-	assert(t, p == 3, "expecting pos=3 again, got " + strconv.Itoa(p))
-	assert(t, q.Eof(), "expecting EoF again")
+	Assert(t, p == 3, "expecting pos=3 again, got " + strconv.Itoa(p))
+	Assert(t, q.Eof(), "expecting EoF again")
 
 	q.Rewind(2)
 	p = q.Pos()
-	assert(t, p == 1, "expecting pos=1, got " + strconv.Itoa(p))
-	assert(t, !q.IsEmpty(), "expecting no EoF again")
-}
-
-func assert (t *testing.T, flag bool, message string) {
-	if !flag {
-		if message == "" {
-			t.Fail()
-		} else {
-			t.Fatal(message)
-		}
-	}
+	Assert(t, p == 1, "expecting pos=1, got " + strconv.Itoa(p))
+	Assert(t, !q.IsEmpty(), "expecting no EoF again")
 }
 
 func sourceChain (queue *Queue) []string {
@@ -200,11 +192,7 @@ func cmp (a, b []string) bool {
 }
 
 func assertChain (t *testing.T, expected, got []string) {
-	if cmp(expected, got) {
-		return
-	}
-
-	t.Fatalf("expected: %v, got: %v", expected, got)
+	Expect(t, cmp(expected, got), expected, got)
 }
 
 func src (content string) *Source {
@@ -216,10 +204,10 @@ func TestSourceOrder (t *testing.T) {
 	queue.Append(src("bar")).Append(src("baz")).Prepend(src("foo"))
 	assertChain(t, []string{"foo", "bar", "baz"}, sourceChain(queue))
 	content, pos := queue.ContentPos()
-	assert(t, string(content[pos :]) == "", "non-empty content after EoF")
-	assert(t, queue.IsEmpty(), "queue not empty after EoF")
+	Assert(t, string(content[pos :]) == "", "non-empty content after EoF")
+	Assert(t, queue.IsEmpty(), "queue not empty after EoF")
 	src := queue.Source()
-	assert(t, src == nil, "non-empty source after EoF")
+	Assert(t, src == nil, "non-empty source after EoF")
 }
 
 func TestSourceInsert (t *testing.T) {
@@ -249,9 +237,9 @@ func TestEmptySource (t *testing.T) {
 		}
 	}
 
-	assert(t, queue.Source() == nil, "source is not nil")
+	Assert(t, queue.Source() == nil, "source is not nil")
 	queue.Append(emptySrc("foo"))
-	assert(t, queue.Source() != nil, "source is nil")
+	Assert(t, queue.Source() != nil, "source is nil")
 	assertSourceName("foo")
 	queue.Prepend(emptySrc("bar"))
 	assertSourceName("bar")
