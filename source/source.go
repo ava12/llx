@@ -256,7 +256,7 @@ func (q *Queue) Skip (size int) {
 }
 
 func (q *Queue) Rewind (size int) {
-	if q.source == nil {
+	if q.source == nil || size <= 0 {
 		return
 	}
 

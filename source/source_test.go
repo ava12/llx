@@ -324,3 +324,24 @@ func TestNormalizeNls (t *testing.T) {
 		}
 	}
 }
+
+func TestPosBounds (t *testing.T) {
+	q := NewQueue().Append(New("", make([]byte, 10)))
+
+	q.Seek(5)
+	q.Skip(-1)
+	ExpectInt(t, 5, q.Pos())
+	q.Skip(7)
+	ExpectInt(t, 10, q.Pos())
+
+	q.Seek(5)
+	q.Rewind(-1)
+	ExpectInt(t, 5, q.Pos())
+	q.Rewind(7)
+	ExpectInt(t, 0, q.Pos())
+
+	q.Seek(12)
+	ExpectInt(t, 10, q.Pos())
+	q.Seek(-1)
+	ExpectInt(t, 0, q.Pos())
+}
