@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"regexp"
 	"unicode/utf8"
 
 	"github.com/ava12/llx"
@@ -20,10 +21,6 @@ const (
 )
 
 
-type Regexp interface {
-	FindSubmatchIndex (content []byte) []int
-}
-
 type TokenType struct {
 	Type     int
 	TypeName string
@@ -31,10 +28,10 @@ type TokenType struct {
 
 type Lexer struct {
 	types []TokenType
-	re    Regexp
+	re    *regexp.Regexp
 }
 
-func New (re Regexp, types []TokenType) *Lexer {
+func New (re *regexp.Regexp, types []TokenType) *Lexer {
 	return &Lexer{types: types, re: re}
 }
 
