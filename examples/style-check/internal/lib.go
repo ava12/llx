@@ -152,7 +152,7 @@ func parseSource (s *source.Source) (tree.Node, error) {
 func handleToken (token *lexer.Token, pc *parser.ParseContext) (emit bool, e error) {
 	tn := token.TypeName()
 	if token.Line() == 1 && token.Col() == 1 && tn == spaceType {
-		return false, pc.EmitToken(lexer.NewToken(0, indentType, "\n" + token.Text(), token))
+		return false, pc.EmitToken(lexer.NewToken(0, indentType, "\n" + token.Text(), token.Pos()))
 	}
 
 	return (tn != commentType), nil

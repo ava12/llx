@@ -104,7 +104,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 		importString = "github.com/ava12/" + importString
 	}
 
-	buffer.WriteString("// Code generated with llxgen.\n" +
+	buffer.WriteString("// Code generated with llxgen.\n\n" +
 		"package " + packageName + "\n\n" +
 		"import \"" + importString + "\"\n\n" +
 		"var " + varName + " = &grammar.Grammar{\n")

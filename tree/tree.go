@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
+	"github.com/ava12/llx/source"
 )
 
 type StringWriter interface {
@@ -20,7 +21,7 @@ type Node interface {
 	SetParent (NonTermNode)
 	SetPrev (Node)
 	SetNext (Node)
-	Pos () lexer.SourcePos
+	Pos () source.Pos
 }
 
 type NonTermNode interface {
@@ -684,8 +685,8 @@ func (tn *tokenNode) Next () Node {
 	return tn.next
 }
 
-func (tn *tokenNode) Pos () lexer.SourcePos {
-	return tn.token
+func (tn *tokenNode) Pos () source.Pos {
+	return tn.token.Pos()
 }
 
 func (tn *tokenNode) Token () *lexer.Token {
@@ -810,9 +811,9 @@ func (ntn *nonTermNode) SetNext (n Node) {
 	ntn.next = n
 }
 
-func (ntn *nonTermNode) Pos () lexer.SourcePos {
+func (ntn *nonTermNode) Pos () source.Pos {
 	if ntn.firstChild == nil {
-		return nil
+		return source.Pos{}
 	} else {
 		return ntn.firstChild.Pos()
 	}

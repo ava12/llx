@@ -9,6 +9,7 @@ import (
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
+	"github.com/ava12/llx/source"
 )
 
 const treeGrammarDef = "!aside $space; $space = /\\s+/; " +
@@ -296,7 +297,7 @@ func TestWalkStop (t *testing.T) {
 
 func TestTransformer (t *testing.T) {
 	ntn := &nonTermNode{typeName: "foo"}
-	tn := &tokenNode{token: lexer.NewToken(0, "bar", "BAR", nil)}
+	tn := &tokenNode{token: lexer.NewToken(0, "bar", "BAR", source.Pos{})}
 	nodes := []Node{nil, ntn, nil, tn, nil, ntn, nil}
 	got := NewSelector().Apply(nodes ...)
 	assert(t, len(got) == 2)
@@ -416,8 +417,8 @@ func TestIsAll (t *testing.T) {
 
 func TestIsA (t *testing.T) {
 	ff := IsA("foo", "qux")
-	tn0 := tokenNode{token: lexer.NewToken(1, "bar", "foo", nil)}
-	tn1 := tokenNode{token: lexer.NewToken(2, "foo", "", nil)}
+	tn0 := tokenNode{token: lexer.NewToken(1, "bar", "foo", source.Pos{})}
+	tn1 := tokenNode{token: lexer.NewToken(2, "foo", "", source.Pos{})}
 	nt0 := nonTermNode{typeName: "baz"}
 	nt1 := nonTermNode{typeName: "qux"}
 	assert(t, ff(&tn1))
@@ -428,10 +429,10 @@ func TestIsA (t *testing.T) {
 
 func TestIsALiteral (t *testing.T) {
 	ff := IsALiteral("foo", "qux")
-	tn0 := tokenNode{token: lexer.NewToken(1, "foo", "bar", nil)}
-	tn1 := tokenNode{token: lexer.NewToken(2, "bar", "foo", nil)}
-	tn2 := tokenNode{token: lexer.NewToken(3, "baz", "qux", nil)}
-	nt := nonTermNode{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", nil)}
+	tn0 := tokenNode{token: lexer.NewToken(1, "foo", "bar", source.Pos{})}
+	tn1 := tokenNode{token: lexer.NewToken(2, "bar", "foo", source.Pos{})}
+	tn2 := tokenNode{token: lexer.NewToken(3, "baz", "qux", source.Pos{})}
+	nt := nonTermNode{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", source.Pos{})}
 	assert(t, !ff(&tn0))
 	assert(t, ff(&tn1))
 	assert(t, ff(&tn2))

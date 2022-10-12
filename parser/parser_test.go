@@ -158,7 +158,7 @@ func TestUnexpectedGroupError (t *testing.T) {
 		t.Fatal("unexpected error:" + e.Error())
 	}
 
-	pc.tokens.Append(lexer.NewToken(2, "op", "+", nil))
+	pc.tokens.Append(lexer.NewToken(2, "op", "+", source.Pos{}))
 	_, e = pc.nextToken(1)
 	if e == nil {
 		t.Fatal("expecting UnexpectedGroupError, got success")
@@ -294,7 +294,7 @@ func TestTokenHooks (t *testing.T) {
 			return f, nil
 		},
 		AnyToken: func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			return false, pc.EmitToken(lexer.NewToken(0, "space", "_", nil)) // " " -> _
+			return false, pc.EmitToken(lexer.NewToken(0, "space", "_", source.Pos{})) // " " -> _
 		},
 	}
 	lhs := TokenHooks{
@@ -303,10 +303,10 @@ func TestTokenHooks (t *testing.T) {
 				return true, nil
 			}
 
-			return false, pc.EmitToken(lexer.NewToken(9, "char", "ee", nil)) // e -> ee
+			return false, pc.EmitToken(lexer.NewToken(9, "char", "ee", source.Pos{})) // e -> ee
 		},
 		"c": func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			return true, pc.EmitToken(lexer.NewToken(2, "char", "a", nil)) // c -> a c
+			return true, pc.EmitToken(lexer.NewToken(2, "char", "a", source.Pos{})) // c -> a c
 		},
 	}
 
@@ -339,11 +339,11 @@ func TestEofHooks (t *testing.T) {
 			}
 			var e error
 			for indent > prevIndent {
-				e = pc.EmitToken(lexer.NewToken(3, "begin", "{", nil))
+				e = pc.EmitToken(lexer.NewToken(3, "begin", "{", source.Pos{}))
 				prevIndent++
 			}
 			for indent < prevIndent {
-				e = pc.EmitToken(lexer.NewToken(4, "end", "}", nil))
+				e = pc.EmitToken(lexer.NewToken(4, "end", "}", source.Pos{}))
 				prevIndent--
 			}
 			return false, e
@@ -351,7 +351,7 @@ func TestEofHooks (t *testing.T) {
 		EofToken: func (t *lexer.Token, pc *ParseContext) (bool, error) {
 			var e error
 			for prevIndent > 0 {
-				e = pc.EmitToken(lexer.NewToken(4, "end", "}", nil))
+				e = pc.EmitToken(lexer.NewToken(4, "end", "}", source.Pos{}))
 				prevIndent--
 			}
 			return false, e

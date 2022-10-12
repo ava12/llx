@@ -56,7 +56,7 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 
 	for i := 2; i < len(match); i += 2 {
 		if match[i] >= 0 && match[i + 1] >= 0 {
-			line, col := src.LineCol(pos + match[i])
+			sp := source.NewPos(src, pos + match[i])
 			tokenType := ErrorTokenType
 			typeName := ErrorTokenName
 			if len(l.types) >= (i >> 1) {
@@ -67,9 +67,7 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 				tokenType,
 				typeName,
 				string(content[match[i] : match[i + 1]]),
-				src,
-				line,
-				col,
+				sp,
 			}
 			if tokenType == ErrorTokenType {
 				return nil, 0, wrongTokenError(token)
@@ -114,12 +112,12 @@ func (l *Lexer) Shrink (q *source.Queue, tok *Token) *Token {
 	}
 
 	src := q.Source()
-	if src == nil || src != tok.source {
+	if src == nil || src != tok.pos.Source() {
 		return nil
 	}
 
 	currentPos := q.Pos()
-	q.Seek(tok.source.Pos(tok.line, tok.col))
+	q.Seek(tok.pos.Pos())
 	content, pos := q.ContentPos()
 	content = content[: pos + len(tok.Text()) - 1]
 	result, advance, _ := l.matchToken(q.Source(), content, pos)

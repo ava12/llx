@@ -142,6 +142,16 @@ type Pos struct {
 	pos, line, col int
 }
 
+// NewPos returns Pos structure. Returns zero value if s is nil.
+func NewPos (s *Source, pos int) Pos {
+	if s == nil {
+		return Pos{}
+	}
+
+	l, c := s.LineCol(pos)
+	return Pos{s, pos, l, c}
+}
+
 // Source returns captured source.
 func (p Pos) Source () *Source {
 	return p.src
@@ -149,7 +159,11 @@ func (p Pos) Source () *Source {
 
 // SourceName returns captured source name.
 func (p Pos) SourceName () string {
-	return p.src.Name()
+	if p.src == nil {
+		return ""
+	} else {
+		return p.src.Name()
+	}
 }
 
 // Pos returns captured position in source.

@@ -174,7 +174,7 @@ func TestShrinkToken (t *testing.T) {
 		t.Fatalf("expecting source pos %d, got %d", savedPos, pos)
 	}
 
-	tok = &Token{1, "name", "#", queue.Source(), 1, 1}
+	tok = &Token{1, "name", "#", source.NewPos(queue.Source(), 0)}
 	tok = lexer.Shrink(queue, tok)
 	if tok != nil {
 		t.Fatalf("expecting nil for single char token, got: %v", tok)
