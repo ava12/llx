@@ -216,9 +216,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 				break
 			}
 
-			if (t.Flags &grammar.LiteralToken) == 0 || (t.Flags & grammar.NoLiteralsToken) != 0 {
-				g.Tokens[i].Flags ^= grammar.NoLiteralsToken
-			}
+			g.Tokens[i].Flags ^= grammar.NoLiteralsToken
 		}
 	}
 

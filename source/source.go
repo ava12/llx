@@ -137,6 +137,7 @@ func (s *Source) findLineIndex (pos int) int {
 }
 
 // Pos combines captured source, position, line, and column number corresponding to that position.
+// Zero value means no source and position information available.
 type Pos struct {
 	src            *Source
 	pos, line, col int
@@ -152,12 +153,12 @@ func NewPos (s *Source, pos int) Pos {
 	return Pos{s, pos, l, c}
 }
 
-// Source returns captured source.
+// Source returns captured source or nil.
 func (p Pos) Source () *Source {
 	return p.src
 }
 
-// SourceName returns captured source name.
+// SourceName returns captured source name or empty string.
 func (p Pos) SourceName () string {
 	if p.src == nil {
 		return ""
@@ -166,17 +167,17 @@ func (p Pos) SourceName () string {
 	}
 }
 
-// Pos returns captured position in source.
+// Pos returns captured position in source or 0.
 func (p Pos) Pos () int {
 	return p.pos
 }
 
-// Line returns captured line number.
+// Line returns captured 1-based line number or 0.
 func (p Pos) Line () int {
 	return p.line
 }
 
-// Col returns captured column number.
+// Col returns captured 1-based column number or 0.
 func (p Pos) Col () int {
 	return p.col
 }
@@ -243,7 +244,7 @@ func (q *Queue) NextSource () bool {
 	return fetched
 }
 
-// Append adds new source to the end of the queue and returns updated queue.
+// Append adds new source to the end of the queue.
 // Does nothing if s is nil. Does not add empty source if the queue is not empty.
 func (q *Queue) Append (s *Source) *Queue {
 	if s == nil || s.Len() == 0 && q.source != nil && q.source.Len() != 0 {
@@ -259,7 +260,7 @@ func (q *Queue) Append (s *Source) *Queue {
 	return q
 }
 
-// Prepend adds new source to the beginning of the queue and returns updated queue.
+// Prepend adds new source to the beginning of the queue.
 // Current position for current source (if there is one) is saved, added source becomes the current one.
 // Does nothing if s is nil. Does not add empty source if the queue is not empty.
 func (q *Queue) Prepend (s *Source) *Queue {
