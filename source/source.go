@@ -1,3 +1,4 @@
+// Package source defines source file an source queue for parsers.
 package source
 
 import (

@@ -1,3 +1,4 @@
+// Package lexer defines lexical analyzer.
 package lexer
 
 import (

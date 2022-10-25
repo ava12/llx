@@ -16,7 +16,7 @@ Transition rule contains the next state index (or FinalState value
 if parsing of current non-terminal is finished) and nested non-terminal id
 (or SameNonTerm value if no non-terminal is pushed).
 
-Each time parser enters FinalState it pops non-terminal and saved state id.
+Each time parser enters FinalState it drops non-terminal and saved state id.
 
 When a rule is applied:
   - if next non-terminal is SameNonTerm:
@@ -75,14 +75,14 @@ const (
 	// This token automatically generates an error message containing captured text.
 	ErrorToken
 
-	// ShrinkableToken is a token that can be split in smaller parts if there is no suitable rule.
+	// ShrinkableToken is a token that can be split into smaller parts if there is no suitable rule.
 	ShrinkableToken
 
 	// CaselessToken text consists of case-insensitive symbols.
 	// Parser converts its text to uppercase before comparing it with a literal.
 	CaselessToken
 
-	// ReservedToken marks literal tokens that represent reserved words.
+	// ReservedToken marks literal token that represent a reserved word.
 	ReservedToken
 
 	// NoLiteralsToken marks token type that cannot match any literal, e.g. raw text in HTML.
@@ -103,7 +103,7 @@ const (
 	// Used for fallback rules to skip optional or repeated parts of non-terminals.
 	AnyToken    = -1
 
-	// FinalState stored in Rule.State means that current non-terminal must be finalized and popped.
+	// FinalState stored in Rule.State means that current non-terminal must be finalized and dropped.
 	FinalState  = -1
 
 	// SameNonTerm stored in Rule.NonTerm means that no nested non-terminal is pushed at this point.
@@ -122,6 +122,7 @@ type Rule struct {
 	NonTerm int
 }
 
+// MultiRule defines a list of ambiguous rules for some set of tokens at some parsing state.
 type MultiRule struct {
 	// Token is an index in Grammar.Tokens slice.
 	Token    int
@@ -139,19 +140,19 @@ type State struct {
 	// that are acceptable at this point.
 	Group         int `json:",omitempty"`
 
-	// LowMultiRule is the low index of the multi-rule sub-slice for this token type.
+	// LowMultiRule is the low index of the multi-rule sub-slice for this state.
 	// 0 if not used.
 	LowMultiRule  int `json:",omitempty"`
 
-	// HighMultiRule is the high index of the multi-rule sub-slice for this token type.
+	// HighMultiRule is the high index of the multi-rule sub-slice for this state.
 	// 0 if not used.
 	HighMultiRule int `json:",omitempty"`
 
-	// LowRule is the low index of the rule sub-slice for this token type.
+	// LowRule is the low index of the rule sub-slice for this state.
 	// 0 if not used.
 	LowRule       int `json:",omitempty"`
 
-	// HighRule is the high index of the rule sub-slice for this token type.
+	// HighRule is the high index of the rule sub-slice for this state.
 	// 0 if not used.
 	HighRule      int `json:",omitempty"`
 }

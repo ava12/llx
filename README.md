@@ -1,7 +1,7 @@
 # Universal LL(*) parser library
 
 The goal is to create a library suitable for making different parsing tools (translators, linters, style 
-checkers/formatters, etc.). It is not meant to be super fast or to be able to process gigabyte files. Grammars are 
+checkers/formatters, etc.). It is not meant to be super-fast or to be able to process gigabyte files. Grammars are 
 described in EBNF-like language, but unlike most parser generators this library does not generate _parsers_, only 
 _data_ used by the built-in parser.
 
@@ -10,7 +10,7 @@ This README assumes that the reader is familiar with the terms like «parser», 
 
 Parser uses finite-state machine with a stack for non-terminals. The bottom of the stack is the root non-terminal 
 (representing the whole grammar), and the top is the current one. Non-terminal is pushed on the stack when it is 
-expanded and popped off the stack when all tokens it was expanded to are consumed by the parser.
+expanded and dropped from the stack when all tokens it was expanded to are consumed by the parser.
 
 Parser does not build parse tree by default, it allows using token and non-terminal hooks instead. A token hook is 
 triggered when a new token is read from source file. A non-terminal hook is triggered when parser starts or finishes 
@@ -92,7 +92,7 @@ The parser is LL(*), no left recursion allowed. It assumes that in most cases on
 parser needs a deeper lookahead, a separate parsing branch is created for each possible variant, all branches are 
 traced simultaneously (non-terminal hooks are not used), fetched tokens and applied rules for each branch are 
 memoized. When deep lookahead is needed during this process, branches are further split. Branch is discarded when 
-an error found or when the non-terminal caused initial branching is popped off the stack (thus the variant consuming 
+an error found or when the non-terminal caused initial branching is dropped from the stack (thus the variant consuming 
 the longest run of tokens will be preferred). This process is stopped when there is only one (or none) branch left, and 
 then captured tokens and rules are «replayed».
 
@@ -150,7 +150,7 @@ Non-terminal hooks are functions which are called by the parser when one of four
 specific (or any) non-terminals. The events are:
 
   - new non-terminal is pushed on the stack;
-  - non-terminal is popped off the stack; handler returns some value (can be anything) which will be passed to 
+  - non-terminal is dropped from the stack; handler returns some value (can be anything) which will be passed to 
     parent non-terminal;
   - new token is consumed;
-  - nested non-terminal is popped off the stack; handler receives the value returned by nested non-terminal handler.
+  - nested non-terminal is dropped from the stack; handler receives the value returned by nested non-terminal handler.
