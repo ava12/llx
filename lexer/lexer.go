@@ -20,6 +20,7 @@ const (
 	ErrorTokenName = "-error-"
 )
 
+// Error codes used by lexer:
 const (
 	// ErrWrongChar is the error code indicating that lexer cannot fetch any token at current position.
 	// Error message contains the rune at current source position.
@@ -120,7 +121,7 @@ func (l *Lexer) fetch (q *source.Queue) (*Token, error) {
 }
 
 // Next fetches token starting at current source position and advances current position.
-// Returns nil token and does not make any changes if there is a lexical error.
+// Returns nil token and llx.Error and does not make any changes if there is a lexical error.
 // Returns EoI token if queue is empty.
 // Returns EoF token and discards current source if current position is beyond the end of current source.
 func (l *Lexer) Next (q *source.Queue) (*Token, error) {

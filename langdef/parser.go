@@ -39,14 +39,20 @@ type complexChunk interface {
 	Append (chunk)
 }
 
+// ParseString parses grammar description and returns grammar on success.
+// Returns nil and llx.Error on error.
 func ParseString (name, content string) (*grammar.Grammar, error) {
 	return Parse(source.New(name, []byte(content)))
 }
 
+// ParseBytes parses grammar description and returns grammar on success.
+// Returns nil and llx.Error on error.
 func ParseBytes (name string, content []byte) (*grammar.Grammar, error) {
 	return Parse(source.New(name, content))
 }
 
+// Parse parses grammar description and returns grammar on success.
+// Returns nil and llx.Error on error.
 func Parse (s *source.Source) (*grammar.Grammar, error) {
 	result, e := parseLangDef(s)
 	if e != nil {

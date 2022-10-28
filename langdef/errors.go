@@ -7,24 +7,57 @@ import (
 	"github.com/ava12/llx/lexer"
 )
 
+// Error codes used by langdef.Parse* functions:
 const (
+	// EoF reached when token expected
 	UnexpectedEofError = iota + 1
+
+	// fetched token of unexpected type or with unexpected content
 	UnexpectedTokenError
+
+	// non-terminal definition uses undefined token type
 	UnknownTokenError
+
+	// non-terminal definition uses aside or error token
 	WrongTokenError
+
+	// redefining already defined token type
 	TokenDefinedError
+
+	// redefining already defined non-terminal
 	NonTerminalDefinedError
+
+	// error in regular expression
 	WrongRegexpError
+
+	// non-terminal definition uses non-terminal that was never defined
 	UnknownNonTerminalError
+
+	// found non-terminal that is defined but not used
 	UnusedNonTerminalError
+
+	// cannot resolve non-terminal dependencies, this maybe a circular cross-reference (e. g. foo = bar; bar = foo;)
 	UnresolvedError
+
+	// left-recursive non-terminal found
 	RecursionError
+
+	// too many token groups (more than 30)
 	GroupNumberError
+
+	// cannot associate string literal with any token type
 	UnresolvedGroupsError
+
+	// tokens expected at certain parsing state do not belong to the same token group
 	DisjointGroupsError
+
+	// token type listed in directive is not defined
 	UndefinedTokenError
-	_ // EmptyRepeatableError not used anymore
+
+	// assigning aside token to some group
 	AsideGroupError
+
+	// non-terminal definition uses string literal that is not whitelisted
 	UnknownLiteralError
 )
 
