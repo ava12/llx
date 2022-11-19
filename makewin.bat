@@ -1,6 +1,10 @@
+@if "%1" == "cmd" goto cmd
 @if "%1" == "generate" goto generate
 @if "%1" == "test" goto test
 
+@echo valid targets are  cmd, generate, test
+
+:cmd
 go build -o bin/llxgen.exe ./llxgen/llxgen.go
 @goto end
 

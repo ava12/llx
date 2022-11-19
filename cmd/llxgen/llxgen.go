@@ -1,3 +1,18 @@
+/*
+llxgen is a console utility translating grammar description to Go or JSON file.
+Usage is
+	llxgen ([-j] | [-p <name>] [-v <name>]) [-o <name>] <file>
+
+-j flag instructs llxgen to output JSON file instead of Go source;
+
+-o <name> defines output file name, default is the name of input file with .go or .json suffix;
+
+-p <name> defines Go package name, default is directory name of input file;
+
+-v <name> defines generated Go variable name of type *grammar.Grammar, default is the name of root non-terminal;
+
+<file> defines grammar definition file parsable by langdef.Parse().
+ */
 package main
 
 import (
@@ -15,13 +30,13 @@ import (
 )
 
 var (
-	generateJson, useShortImport bool
+	generateJson bool
 	inFileName, outFileName, packageName, varName string
 )
 
 func main () {
 	flag.Usage = func () {
-		fmt.Fprintln(flag.CommandLine.Output(), "Usage is  llxgen ([-j] | [-p <name>] [-v <name>] [-s]) [-o <name>] <file>")
+		fmt.Fprintln(flag.CommandLine.Output(), "Usage is  llxgen ([-j] | [-p <name>] [-v <name>]) [-o <name>] <file>")
 		flag.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output(), "  <file>")
 		fmt.Fprintln(flag.CommandLine.Output(), "\tgrammar definition file name")
@@ -30,7 +45,6 @@ func main () {
 	flag.BoolVar(&generateJson, "j", false, "output JSON instead of Go")
 	flag.StringVar(&outFileName, "o", "", "output file name, default is the name of input file with .go or .json suffix")
 	flag.StringVar(&packageName, "p", "", "Go package name, default is dir name of output file")
-	flag.BoolVar(&useShortImport, "s", false, "use short path (\"llx/grammar\") for Go import")
 	flag.StringVar(&varName, "v", "", "Go variable name, default is the root non-terminal name")
 	flag.Parse()
 	inFileName = flag.Arg(0)
@@ -99,14 +113,10 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 	}
 
 	var buffer bytes.Buffer
-	importString := "llx/grammar"
-	if !useShortImport {
-		importString = "github.com/ava12/" + importString
-	}
 
 	buffer.WriteString("// Code generated with llxgen.\n\n" +
 		"package " + packageName + "\n\n" +
-		"import \"" + importString + "\"\n\n" +
+		"import \"github.com/ava12/llx/grammar\"\n\n" +
 		"var " + varName + " = &grammar.Grammar{\n")
 
 	buffer.WriteString("\tTokens: []grammar.Token{\n")

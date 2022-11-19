@@ -1,7 +1,10 @@
-bin/llxgen : llxgen/llxgen.go llxgen/version
-	go build -o bin/llxgen ./llxgen/llxgen.go
+.PHONY: help generate test
 
-.PHONY: generate test
+help:
+	@echo valid targets are  cmd, generate, test
+
+cmd : cmd/llxgen/llxgen.go cmd/llxgen/version
+	go build -o bin/llxgen ./cmd/llxgen/llxgen.go
 
 generate:
 	go generate ./examples/calc/internal

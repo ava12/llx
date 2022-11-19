@@ -143,7 +143,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 	var e error
 
 	re := regexp.MustCompile(
-		"\\s+|#.*?(?:\\n|$)|" +
+		"\\s+|#[^\\n]*|" +
 		"((?:\".*?\")|(?:'.*?'))|" +
 		"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
 		"(!(?:aside|caseless|error|extern|shrink)\\b)|" +

@@ -3,7 +3,7 @@ Package langdef converts textual grammar description to grammar.Grammar structur
 
 Grammar is described using language that resembles EBNF. Self-definition of this language is:
 */
-//  $space = /[ \r\n\t\f]+/; $comment = /#.*?(?:\n|$)/;
+//  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*/;
 //  $string = /(?:".*?")|(?:'.*?')/;
 //  $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
 //  $type-dir = /!(?:aside|caseless|error|extern|group|shrink)\b/;
@@ -105,7 +105,7 @@ case-insensitive token types must be uppercase, e.g.
 !error directive lists error token types. Lexer raises error containing token text when it fetches error token.
 
 !extern directive lists token types that are not defined in grammar description, but may be emitted by token hooks.
-e.g. $indent and $dedent tokens emitted by hooks when source text indentation level changes.
+E.g. $indent and $dedent tokens emitted by hooks when source text indentation level changes.
 
 !group directive lists token types forming a token group, which effectively defines a separate lexer.
 Each !group entry defines a separate group, there may be no more than 30 of them.
@@ -120,7 +120,7 @@ By default, all defined token types and any literals are allowed, i.e. langdef p
 and tries to associate it with all token types that have suitable regular expressions.
 If any token type/literal is listed in !literal directive all types/literals that are not listed are forbidden.
 This can be used to help langdef parser decide which token group should be used at some point.
-e.g. "=" literal by default may be associated both with $operator and $raw-text token types that belong
+E.g. "=" literal by default may be associated both with $operator and $raw-text token types that belong
 to different groups, and langdef parser may choose the $raw-text group, which leads to parsing errors.
 
 !reserved directive lists string literals that are treated as reserved words.
@@ -128,8 +128,8 @@ If token text is a reserved word it can be matched as literal, but not as token 
 e.g. if parser expects $name token type and lexer fetches a "for" reserved word, a syntax error is raised.
 
 !shrink directive lists shrinkable token types.
-e.g. ">>" token may be split into two ">" tokens if its type is shrinkable and using ">>" token
-would raise a syntax error.
+When a token of shrinkable type causes a syntax error lexer steps back and tries to re-fetch a shorter token.
+E.g. ">>" token may be split into two ">" tokens.
 
 */
 package langdef
