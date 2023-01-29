@@ -13,9 +13,6 @@ const (
 	// cannot match grammar rule for incoming token
 	UnexpectedTokenError
 
-	// incoming token does not belong to expected group
-	UnexpectedGroupError
-
 	// trying to emit token of unknown type, a literal, or an error token
 	EmitWrongTokenError
 
@@ -27,9 +24,6 @@ const (
 
 	// non-terminal hook for unknown non-terminal
 	UnknownNonTermError
-
-	// new source cannot be included at this point because ambiguity resolve is in process
-	IncludeUnresolvedError
 )
 
 func unexpectedEofError (t *lexer.Token, expected string) *llx.Error {
@@ -42,10 +36,6 @@ func unexpectedTokenError (t *lexer.Token, expected string) *llx.Error {
 		text = text[: 7] + "..."
 	}
 	return llx.FormatErrorPos(t, UnexpectedTokenError, "unexpected %q token (%q), expecting %s", t.TypeName(), text, expected)
-}
-
-func unexpectedGroupError (t *lexer.Token, group int) *llx.Error {
-	return llx.FormatErrorPos(t, UnexpectedGroupError, "expecting token group %d, got %q token", group, t.TypeName())
 }
 
 func emitWrongTokenError (t *lexer.Token) *llx.Error {
@@ -62,8 +52,4 @@ func unknownTokenLiteralError (text string) *llx.Error {
 
 func unknownNonTermError (name string) *llx.Error {
 	return llx.FormatError(UnknownNonTermError, "unknown non-terminal key: %q", name)
-}
-
-func includeUnresolvedError (ntName, sourceName string) *llx.Error {
-	return llx.FormatError(IncludeUnresolvedError, "cannot include %q source: resolving ambiguity for %q non-terminal", sourceName, ntName)
 }

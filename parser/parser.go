@@ -305,20 +305,6 @@ func (pc *ParseContext) EmitToken (t *Token) error {
 	return nil
 }
 
-// IncludeSource prepends provided source to the source queue.
-func (pc *ParseContext) IncludeSource (s *source.Source) error {
-	if !pc.appliedRules.IsEmpty() {
-		var ntName string
-		if pc.nonTerm != nil {
-			ntName = pc.parser.grammar.NonTerms[pc.nonTerm.index].Name
-		}
-		return includeUnresolvedError(ntName, s.Name())
-	}
-
-	pc.sources.Prepend(s)
-	return nil
-}
-
 
 func (pc *ParseContext) pushNonTerm (index int, tok *Token) error {
 	e := pc.ntHandleAsides()
@@ -641,18 +627,12 @@ func (pc *ParseContext) getNonTermHook (ntIndex int, tok *Token) (res NonTermHoo
 func (pc *ParseContext) nextToken (group int) (result *Token, e error) {
 	var fetched bool
 	result, fetched = pc.tokens.First()
-	if fetched {
-		if result.Type() >= 0 {
-			groups := pc.parser.grammar.Tokens[result.Type()].Groups
-			if groups & (1 << group) == 0 {
-				e = unexpectedGroupError(result, group)
-				result = nil
-			}
+	if !fetched {
+		if pc.tokenError != nil {
+			e = pc.tokenError
+		} else {
+			result, e = pc.fetchToken(group)
 		}
-	} else if pc.tokenError != nil {
-		e = pc.tokenError
-	} else {
-		result, e = pc.fetchToken(group)
 	}
 
 	return

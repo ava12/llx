@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"strconv"
 	"strings"
 	"testing"
 
@@ -138,35 +137,6 @@ func TestHandlerKeyErrors (t *testing.T) {
 		if e == nil || !f || code != sample.err {
 			t.Errorf("sample #%d: expecting error code %d, got: %s (code %d)", i, sample.err, e, code)
 		}
-	}
-}
-
-func TestUnexpectedGroupError (t *testing.T) {
-	grammar := spaceDef + "!group $op; $name = /\\w+/; $op = /\\+/; g = $name, $op, $name;"
-	sample := "foo + bar"
-	g, e := langdef.ParseString("sample", grammar)
-	var (
-		pc *ParseContext
-		q *source.Queue
-	)
-	if e == nil {
-		q = source.NewQueue().Append(source.New("sample", []byte(sample)))
-		p := New(g)
-		pc, e = newParseContext(p, q, &Hooks{})
-	}
-	if e != nil {
-		t.Fatal("unexpected error:" + e.Error())
-	}
-
-	pc.tokens.Append(lexer.NewToken(2, "op", "+", source.Pos{}))
-	_, e = pc.nextToken(1)
-	if e == nil {
-		t.Fatal("expecting UnexpectedGroupError, got success")
-	}
-
-	ee, f := e.(*llx.Error)
-	if !f || ee.Code != UnexpectedGroupError {
-		t.Fatal("expecting UnexpectedGroupError, got: " + e.Error())
 	}
 }
 
@@ -390,96 +360,6 @@ func TestTrailingAsides (t *testing.T) {
 		{"-[-a-1-[-b-]-]-", "- (bl [ - (ch a - 1) - (bl [ - (ch b) - ] ) - ] ) -"},
 	}
 	testGrammarSamples(t, name, grammar, samples, true)
-}
-
-func TestIncludeSource (t *testing.T) {
-	name := "inserting sources"
-	grammar := "$char = /[a-z]/; $digit = /\\d/; $inc = /#/; " +
-		"g = {foo | bar | $digit}; inc = '#', $digit; foo = $char, [inc], $char; bar = $char, [inc], $digit;"
-	sources := []string{
-		"a1",
-		"34",
-	}
-	samples := []srcExprSample{
-		{"foo#9bar", "(foo f o) (foo o (inc # 9) b) (foo a r)"},
-		{"a#0", "(foo a (inc # 0) a) 1"},
-		{"a#13", "(bar a (inc # 1) 3) 4 3"},
-	}
-
-	expectIncludeIndex := false
-	tokenHooks := TokenHooks{
-		"inc": func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
-			expectIncludeIndex = true
-			return true, nil
-		},
-		"digit": func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
-			if !expectIncludeIndex {
-				return true, nil
-			}
-
-			expectIncludeIndex = false
-			t := token.Text()
-			index, _ := strconv.Atoi(t)
-			if index < len(sources) {
-				return true, pc.IncludeSource(source.New(t, []byte(sources[index])))
-			} else {
-				return true, pc.IncludeSource(nil)
-			}
-		},
-		AnyToken: func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
-			expectIncludeIndex = false
-			return true, nil
-		},
-	}
-	testGrammarSamplesWithHooks(t, name, grammar, samples, tokenHooks, nil)
-}
-
-type includeHook struct {
-	pc *ParseContext
-	sources []string
-	index int
-}
-
-func (ih *includeHook) NewNonTerm (nonTerm string, token *Token) error {
-	return nil
-}
-
-func (ih *includeHook) HandleNonTerm (nonTerm string, result any) error {
-	return nil
-}
-
-func (ih *includeHook) HandleToken (token *Token) error {
-	if token.TypeName() == "digit" {
-		ih.index, _ = strconv.Atoi(token.Text())
-	}
-	return nil
-}
-
-func (ih *includeHook) EndNonTerm () (result any, e error) {
-	if ih.index < len(ih.sources) {
-		e = ih.pc.IncludeSource(source.New("inc", []byte(ih.sources[ih.index])))
-	}
-	return
-}
-
-func TestIncludeSourceError (t *testing.T) {
-	name := "inserting source error"
-	grammar := "$char = /[a-z]/; $digit = /\\d/; $inc = /#/; " +
-		"g = {foo | bar}; inc = '#', $digit; foo = $char, [inc], $char; bar = $char, [inc], $digit;"
-	sources := []string{
-		"cd",
-	}
-	samples := []srcErrSample{
-		{"a#0b", IncludeUnresolvedError},
-	}
-	hs := &Hooks{
-		NonTerms: NonTermHooks{
-			"inc": func (nonTerm string, t *lexer.Token, pc *ParseContext) (NonTermHookInstance, error) {
-				return &includeHook{pc, sources, 0}, nil
-			},
-		},
-	}
-	testErrorSamplesWithHooks(t, name, grammar, samples, hs)
 }
 
 func TestReservedLiterals (t *testing.T) {
