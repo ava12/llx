@@ -85,7 +85,7 @@ func main () {
 			writeNumber(res)
 		} else {
 			ee, f := e.(*llx.Error)
-			if f && ee.Code == parser.UnexpectedEofError {
+			if f && ee.Code == parser.UnexpectedEoiError {
 				appendInput = true
 				prevInput = input
 			} else {

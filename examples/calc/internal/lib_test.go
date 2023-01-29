@@ -72,9 +72,9 @@ func testSamples (t *testing.T, samples []sample) {
 
 func TestSyntaxErrors (t *testing.T) {
 	samples := []sample {
-		{" ", 0, parser.UnexpectedEofError},
-		{"2 + ", 0, parser.UnexpectedEofError},
-		{"(3 * 4", 0, parser.UnexpectedEofError},
+		{" ", 0, parser.UnexpectedEoiError},
+		{"2 + ", 0, parser.UnexpectedEoiError},
+		{"(3 * 4", 0, parser.UnexpectedEoiError},
 		{"2 * -x", 0, parser.UnexpectedTokenError},
 	}
 

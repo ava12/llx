@@ -31,7 +31,7 @@ func (n *treeNode) NewNonTerm (nonTerm string, token *lexer.Token) error {
 	return nil
 }
 
-func (n *treeNode) HandleNonTerm (nonTerm string, result interface{}) error {
+func (n *treeNode) HandleNonTerm (nonTerm string, result any) error {
 	n.children = append(n.children, result.(*treeNode))
 	return nil
 }
@@ -41,7 +41,7 @@ func (n *treeNode) HandleToken (token *lexer.Token) error {
 	return nil
 }
 
-func (n *treeNode) EndNonTerm () (result interface{}, e error) {
+func (n *treeNode) EndNonTerm () (result any, e error) {
 	return n, nil
 }
 
@@ -69,7 +69,7 @@ func newTreeValidator (n *treeNode, expr string) *treeValidator {
 	return &treeValidator{&stackNode{nil, n, len(n.children), 0}, exprRe.FindAllString(expr, -1)}
 }
 
-func (tv *treeValidator) newError (message string, params ...interface{}) error {
+func (tv *treeValidator) newError (message string, params ... any) error {
 	if len(params) > 0 {
 		message = fmt.Sprintf(message, params...)
 	}

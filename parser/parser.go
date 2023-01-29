@@ -14,26 +14,45 @@ import (
 
 type Token = lexer.Token
 
+// TokenHook allows to perform additional actions when token is fetched from lexer, but before it is fed to parser,
+// e.g. emit external $indent/$dedent tokens when text indentation changes, automatically generate trailing semicolons,
+// fetch complex lexemes (e.g. heredoc strings).
+// emit flag set to true means that incoming token (even aside one) must be fed to parser,
+// false means that it must be skipped.
 type TokenHook = func (token *Token, pc *ParseContext) (emit bool, e error)
 
+// NonTermHookInstance receives notifications for non-terminal being processed by parser.
 type NonTermHookInstance interface {
+	// NewNonTerm is called before a child non-terminal is pushed on stack.
+	// Receives child non-terminal name and its initial token.
 	NewNonTerm (nonTerm string, token *Token) error
-	HandleNonTerm (nonTerm string, result interface{}) error
+
+	// HandleNonTerm is called when nested non-terminal is dropped.
+	// Receives child non-terminal name.
+	// Receives result of closest nested hook EndNonTerm() call or nil if none of nested non-terminals was hooked.
+	HandleNonTerm (nonTerm string, result any) error
+
+	// HandleToken is called when a token belonging to current non-terminal is received.
 	HandleToken (token *Token) error
-	EndNonTerm () (result interface{}, e error)
+
+	// EndNonTerm is called when current non-terminal is finalized.
+	// result is passed to parent non-terminal hook or returned as a parse result if current non-terminal is the root.
+	EndNonTerm () (result any, e error)
 }
 
+// NonTermHook allows to perform actions on non-terminals emitted by parser.
+// Receives non-terminal name and initial token.
 type NonTermHook = func (nonTerm string, token *Token, pc *ParseContext) (NonTermHookInstance, error)
 
 type defaultHookInstance struct {
-	result interface{}
+	result any
 }
 
 func (dhi *defaultHookInstance) NewNonTerm (nonTerm string, token *Token) error {
 	return nil
 }
 
-func (dhi *defaultHookInstance) HandleNonTerm (nonTerm string, result interface{}) error {
+func (dhi *defaultHookInstance) HandleNonTerm (nonTerm string, result any) error {
 	dhi.result = result
 	return nil
 }
@@ -42,39 +61,51 @@ func (dhi *defaultHookInstance) HandleToken (token *Token) error {
 	return nil
 }
 
-func (dhi *defaultHookInstance) EndNonTerm () (result interface{}, e error) {
+func (dhi *defaultHookInstance) EndNonTerm () (result any, e error) {
 	return dhi.result, nil
 }
 
+// Special token type names used by token hooks.
 const (
-	AnyToken   = ""
-	EofToken   = lexer.EofTokenName
-	EoiToken   = lexer.EoiTokenName
-	AnyNonTerm = ""
+	AnyToken = ""                 // any token type
+	EofToken = lexer.EofTokenName // end-of-file token
+	EoiToken = lexer.EoiTokenName // end-of-input token
 )
+
+// AnyNonTerm denotes any non-terminal, used by non-terminal hooks.
+const AnyNonTerm = ""
 
 const anyOffset = -1
 
 type TokenHooks map[string]TokenHook
 type NonTermHooks map[string]NonTermHook
 
+// Hooks contains all token and non-terminal hooks used in parsing process.
+// Default action when no suitable token hook found is to drop aside token and use non-aside token as is.
 type Hooks struct {
+	// Tokens contains hooks for different token types. Key is either token type name or AnyToken constant.
+	// AnyToken hook is a fallback.
 	Tokens   TokenHooks
+
+	// Literals contains hooks for tokens with specific content. Key is token content.
+	// These hooks have top priority (if token type allows matching against literals).
 	Literals TokenHooks
+
+	// NonTerms contains hooks for non-terminals. Key is either non-terminal name or AnyNonTerm constant.
+	// AnyNonTerm hook is a fallback.
 	NonTerms NonTermHooks
 }
 
+// Parser holds prepared data for some grammar.
+// Parser is immutable and reusable.
 type Parser struct {
 	grammar *grammar.Grammar
 	names   map[string]int
 	lexers  []*lexer.Lexer
 }
 
-type lexerRec struct {
-	patterns []string
-	types    []lexer.TokenType
-}
-
+// New constructs new parser for specific grammar.
+// Grammar must not be changed after this function is called.
 func New (g *grammar.Grammar) *Parser {
 	maxGroup := 0
 	for _, t := range g.Tokens {
@@ -83,11 +114,17 @@ func New (g *grammar.Grammar) *Parser {
 			maxGroup = mg
 		}
 	}
+
+	type lexerRec struct {
+		patterns []string
+		types    []lexer.TokenType
+	}
 	lrs := make([]lexerRec, maxGroup + 1)
+
 	names := make(map[string]int)
 	names[tokenKey(AnyToken)] = grammar.AnyToken
 	names[literalKey(AnyToken)] = grammar.AnyToken
-	names[AnyNonTerm] = -1
+	names[ntKey(AnyNonTerm)] = -1
 	names[tokenKey(EofToken)] = lexer.EofTokenType
 	names[tokenKey(EoiToken)] = lexer.EoiTokenType
 
@@ -117,12 +154,12 @@ func New (g *grammar.Grammar) *Parser {
 
 	ls := make([]*lexer.Lexer, len(lrs))
 	for i := range ls {
-		re := regexp.MustCompile("(?s:" + strings.Join(lrs[i].patterns, "|") + ")")
+		re := regexp.MustCompile("^(?s:" + strings.Join(lrs[i].patterns, "|") + ")")
 		ls[i] = lexer.New(re, lrs[i].types)
 	}
 
 	for i, nt := range g.NonTerms {
-		names[nt.Name] = i
+		names[ntKey(nt.Name)] = i
 	}
 
 	return &Parser{g, names, ls}
@@ -133,10 +170,34 @@ func tokenKey (name string) string {
 }
 
 func literalKey (text string) string {
+	return "=" + text
+}
+
+func ntKey (text string) string {
 	return ":" + text
 }
 
-func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error) {
+// TokenType returns defined token type by its type name.
+func (p *Parser) TokenType (typeName string) (typ int, valid bool) {
+	typ, valid = p.names[tokenKey(typeName)]
+	return
+}
+
+// LiteralType returns defined literal type by its content.
+func (p *Parser) LiteralType (text string) (typ int, valid bool) {
+	typ, valid = p.names[literalKey(text)]
+	return
+}
+
+// NonTerminalIndex returns index of defined non-terminal by its name.
+func (p *Parser) NonTerminalIndex (name string) (index int, valid bool) {
+	index, valid = p.names[ntKey(name)]
+	return
+}
+
+// Parse launches new parsing process with new ParseContext.
+// result is the value returned by root non-terminal hook or nil if no non-terminal hooks used.
+func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result any, e error) {
 	if hs == nil {
 		hs = &Hooks{}
 	}
@@ -148,7 +209,9 @@ func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result interface{}, e error
 	return pc.parse()
 }
 
-func (p *Parser) ParseString (name, content string, hs *Hooks) (result interface{}, e error) {
+// ParseString is same as Parse, except it creates source queue containing single source having
+// provided content with provided name (name may be empty).
+func (p *Parser) ParseString (name, content string, hs *Hooks) (result any, e error) {
 	q := source.NewQueue().Append(source.New(name, []byte(content)))
 	return p.Parse(q, hs)
 }
@@ -162,6 +225,7 @@ type nonTermRec struct {
 	state  int
 }
 
+// ParseContext contains all context used in parsing process.
 type ParseContext struct {
 	parser       *Parser
 	sources      *source.Queue
@@ -170,7 +234,7 @@ type ParseContext struct {
 	tokens       *queue.Queue[*Token]
 	appliedRules *queue.Queue[grammar.Rule]
 	tokenError   error
-	lastResult   interface{}
+	lastResult   any
 	nonTerm      *nonTermRec
 }
 
@@ -208,7 +272,7 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 	}
 
 	for k, nth := range hs.NonTerms {
-		i, f := p.names[k]
+		i, f := p.names[ntKey(k)]
 		if !f {
 			return nil, unknownNonTermError(k)
 		}
@@ -220,23 +284,20 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 	return result, e
 }
 
-func (pc *ParseContext) TokenType (typeName string) (typ int, valid bool) {
-	typ, valid = pc.parser.names[tokenKey(typeName)]
-	return
-}
-
-func (pc *ParseContext) LiteralType (text string) (typ int, valid bool) {
-	typ, valid = pc.parser.names[literalKey(text)]
-	return
-}
-
-func (pc *ParseContext) NonTerminalIndex (name string) (index int, valid bool) {
-	index, valid = pc.parser.names[name]
-	return
-}
-
+// EmitToken adds new element to the token queue.
+// Token's type must be defined in grammar, and it must not be a literal or an error token.
+// Parser takes elements from this queue in FIFO order and calls lexer only when the queue is empty.
+// Queued tokens are not hooked. If this method is called from token hook and the hooked token must be emitted
+// then the hooked token will be put to the queue before emitted ones.
+// E.g. if token hook processes "foo" token and emits "bar" and then "baz" the queue will be {foo, bar, baz}.
 func (pc *ParseContext) EmitToken (t *Token) error {
-	if t.Type() >= len(pc.parser.grammar.Tokens) {
+	tt := t.Type()
+	if tt < 0 || tt >= len(pc.parser.grammar.Tokens) {
+		return emitWrongTokenError(t)
+	}
+
+	flags := pc.parser.grammar.Tokens[tt].Flags
+	if flags & (grammar.LiteralToken | grammar.ErrorToken) != 0 {
 		return emitWrongTokenError(t)
 	}
 
@@ -244,6 +305,7 @@ func (pc *ParseContext) EmitToken (t *Token) error {
 	return nil
 }
 
+// IncludeSource prepends provided source to the source queue.
 func (pc *ParseContext) IncludeSource (s *source.Source) error {
 	if !pc.appliedRules.IsEmpty() {
 		var ntName string
@@ -264,15 +326,15 @@ func (pc *ParseContext) pushNonTerm (index int, tok *Token) error {
 		return e
 	}
 
+	gr := pc.parser.grammar
+	nt := gr.NonTerms[index]
 	if pc.nonTerm != nil {
-		e = pc.nonTerm.hook.NewNonTerm(pc.parser.grammar.NonTerms[index].Name, tok)
+		e = pc.nonTerm.hook.NewNonTerm(nt.Name, tok)
 		if e != nil {
 			return e
 		}
 	}
 
-	gr := pc.parser.grammar
-	nt := gr.NonTerms[index]
 	hook, e := pc.getNonTermHook(index, tok)
 	if e != nil {
 		return e
@@ -285,7 +347,7 @@ func (pc *ParseContext) pushNonTerm (index int, tok *Token) error {
 func (pc *ParseContext) popNonTerm () error {
 	var (
 		e error
-		res interface{}
+		res any
 	)
 	nts := pc.parser.grammar.NonTerms
 
@@ -324,7 +386,7 @@ func (pc *ParseContext) popNonTerm () error {
 
 const repeatState = -128
 
-func (pc *ParseContext) parse () (interface{}, error) {
+func (pc *ParseContext) parse () (any, error) {
 	var (
 		tok *Token
 		e error

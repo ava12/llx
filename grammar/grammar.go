@@ -6,9 +6,9 @@ The machine uses stack holding currently processed non-terminals (initially the 
 and saved states. Each non-terminal has its own subset of states.
 
 State contains map of transition rules (or ambiguous variants of rules).
-A key is either a token type id, a literal token id, or AnyToken value.
+A key is either a token type id, a literal id, or AnyToken value.
 When parser tries to match a rule for current token the priorities are:
-  - a literal token id;
+  - a literal id;
   - a token type id (unless the token text matches some reserved literal);
   - AnyToken.
 
@@ -40,9 +40,9 @@ type BitSet = int
 // TokenFlags contain information about token type.
 type TokenFlags int
 
-// Token contains information about some token.
+// Token contains information about some token or literal.
 type Token struct {
-	// Name is either a token type name (no leading "$") or exact text for a literal token.
+	// Name is either a token type name or exact text for a literal.
 	Name   string
 
 	// Re is RE2 expression defining this token type. Must not contain capturing groups.
@@ -51,7 +51,7 @@ type Token struct {
 
 	// Groups is a bit set of all groups this token belongs to.
 	// First defined group has index 0, "default" group is the last one.
-	// For literal tokens this is a union of all Groups of all suitable token types.
+	// For literals this is a union of all Groups of all suitable token types.
 	Groups BitSet
 
 	// Flags contain information about token type.
@@ -82,7 +82,7 @@ const (
 	// Parser converts its text to uppercase before comparing it with a literal.
 	CaselessToken
 
-	// ReservedToken marks literal token that represent a reserved word.
+	// ReservedToken marks literal that represents a reserved word.
 	ReservedToken
 
 	// NoLiteralsToken marks token type that cannot match any literal, e.g. raw text in HTML.

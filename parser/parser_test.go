@@ -96,7 +96,7 @@ func TestErrors (t *testing.T) {
 	name := "errors"
 	grammar := spaceDef + "$name = /\\w+/; $op = /[()]/; s = 'foo' | 'bar', '(', 'bar' | 'baz', ')';"
 	samples := []srcErrSample{
-		{"foo(bar", UnexpectedEofError},
+		{"foo(bar", UnexpectedEoiError},
 		{"foo(bar baz", UnexpectedTokenError},
 	}
 	testErrorSamples(t, name, grammar, samples)
@@ -303,10 +303,10 @@ func TestTokenHooks (t *testing.T) {
 				return true, nil
 			}
 
-			return false, pc.EmitToken(lexer.NewToken(9, "char", "ee", source.Pos{})) // e -> ee
+			return false, pc.EmitToken(lexer.NewToken(1, "char", "ee", source.Pos{})) // e -> ee
 		},
 		"c": func (t *lexer.Token, pc *ParseContext) (bool, error) {
-			return true, pc.EmitToken(lexer.NewToken(2, "char", "a", source.Pos{})) // c -> a c
+			return true, pc.EmitToken(lexer.NewToken(1, "char", "a", source.Pos{})) // c -> a c
 		},
 	}
 
@@ -365,7 +365,7 @@ func TestResolveAnyTokenEof (t *testing.T) {
 	name := "resolve * AnyToken * EoF"
 	grammar := "$name = /\\w+/; $op = /[()+]/; g = sum | call; sum = $name, ['+', $name]; call = $name, '(', $name, ')';"
 	samples := []srcErrSample{
-		{"foo(", UnexpectedEofError},
+		{"foo(", UnexpectedEoiError},
 	}
 	testErrorSamples(t, name, grammar, samples)
 }
@@ -444,7 +444,7 @@ func (ih *includeHook) NewNonTerm (nonTerm string, token *Token) error {
 	return nil
 }
 
-func (ih *includeHook) HandleNonTerm (nonTerm string, result interface{}) error {
+func (ih *includeHook) HandleNonTerm (nonTerm string, result any) error {
 	return nil
 }
 
@@ -455,7 +455,7 @@ func (ih *includeHook) HandleToken (token *Token) error {
 	return nil
 }
 
-func (ih *includeHook) EndNonTerm () (result interface{}, e error) {
+func (ih *includeHook) EndNonTerm () (result any, e error) {
 	if ih.index < len(ih.sources) {
 		e = ih.pc.IncludeSource(source.New("inc", []byte(ih.sources[ih.index])))
 	}
@@ -548,7 +548,7 @@ func (hi nthi) NewNonTerm (nonTerm string, token *Token) error {
 	return nil
 }
 
-func (hi nthi) HandleNonTerm (nonTerm string, result interface{}) error {
+func (hi nthi) HandleNonTerm (nonTerm string, result any) error {
 	*hi.result = append(*hi.result, hi.nt + "$" + nonTerm + result.(string))
 	return nil
 }
@@ -558,7 +558,7 @@ func (hi nthi) HandleToken (token *Token) error {
 	return nil
 }
 
-func (hi nthi) EndNonTerm () (result interface{}, e error) {
+func (hi nthi) EndNonTerm () (result any, e error) {
 	*hi.result = append(*hi.result, hi.nt + ".")
 	return hi.nt, nil
 }
