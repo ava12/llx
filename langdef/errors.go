@@ -15,31 +15,31 @@ const (
 	// fetched token of unexpected type or with unexpected content
 	UnexpectedTokenError
 
-	// non-terminal definition uses undefined token type
+	// node definition uses undefined token type
 	UnknownTokenError
 
-	// non-terminal definition uses aside or error token
+	// node definition uses aside or error token
 	WrongTokenError
 
 	// redefining already defined token type
 	TokenDefinedError
 
-	// redefining already defined non-terminal
-	NonTerminalDefinedError
+	// redefining already defined node
+	NodeDefinedError
 
 	// error in regular expression
 	WrongRegexpError
 
-	// non-terminal definition uses non-terminal that was never defined
-	UnknownNonTerminalError
+	// node definition uses node that was never defined
+	UnknownNodeError
 
-	// found non-terminal that is defined but not used
-	UnusedNonTerminalError
+	// found node that is defined but not used
+	UnusedNodeError
 
-	// cannot resolve non-terminal dependencies, this maybe a circular cross-reference (e. g. foo = bar; bar = foo;)
+	// cannot resolve node dependencies, this maybe a circular cross-reference (e. g. foo = bar; bar = foo;)
 	UnresolvedError
 
-	// left-recursive non-terminal found
+	// left-recursive node definition found
 	RecursionError
 
 	// too many token groups (more than 30)
@@ -57,7 +57,7 @@ const (
 	// assigning aside token to some group
 	AsideGroupError
 
-	// non-terminal definition uses string literal that is not whitelisted
+	// node definition uses string literal that is not whitelisted
 	UnknownLiteralError
 )
 
@@ -81,28 +81,28 @@ func defTokenError (token *lexer.Token) *llx.Error {
 	return llx.FormatErrorPos(token, TokenDefinedError, "token %q already defined", token.Text())
 }
 
-func defNonTermError (token *lexer.Token) *llx.Error {
-	return llx.FormatErrorPos(token, NonTerminalDefinedError, "non-terminal %q already defined", token.Text())
+func defNodeError (token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, NodeDefinedError, "node %q already defined", token.Text())
 }
 
 func regexpError (token *lexer.Token, e error) *llx.Error {
 	return llx.FormatErrorPos(token, WrongRegexpError, "incorrect RegExp %s (%s)", token.Text(), e.Error())
 }
 
-func unknownNonTermError (names []string) *llx.Error {
-	return llx.FormatError(UnknownNonTerminalError, "undefined non-terminals: " + strings.Join(names, ", "))
+func unknownNodeError (names []string) *llx.Error {
+	return llx.FormatError(UnknownNodeError, "undefined nodes: " + strings.Join(names, ", "))
 }
 
-func unusedNonTermError (names []string) *llx.Error {
-	return llx.FormatError(UnusedNonTerminalError, "unused non-terminals: " + strings.Join(names, ", "))
+func unusedNodeError (names []string) *llx.Error {
+	return llx.FormatError(UnusedNodeError, "unused nodes: " + strings.Join(names, ", "))
 }
 
 func unresolvedError (names []string) *llx.Error {
-	return llx.FormatError(UnresolvedError, "cannot resolve dependencies for non-terminals: " + strings.Join(names, ", "))
+	return llx.FormatError(UnresolvedError, "cannot resolve dependencies for nodes: " + strings.Join(names, ", "))
 }
 
 func recursionError (names []string) *llx.Error {
-	return llx.FormatError(RecursionError, "found left-recursive non-terminals: " + strings.Join(names, ", "))
+	return llx.FormatError(RecursionError, "found left-recursive nodes: " + strings.Join(names, ", "))
 }
 
 func groupNumberError (token *lexer.Token) *llx.Error {
@@ -113,8 +113,8 @@ func unresolvedGroupsError (text string) *llx.Error {
 	return llx.FormatError(UnresolvedGroupsError, "cannot detect token groups for %q literal", text)
 }
 
-func disjointGroupsError (nonTerm string, state int, token string) *llx.Error {
-	return llx.FormatError(DisjointGroupsError, "disjoint token groups for %q non-terminal, state %d, token %q", nonTerm, state, token)
+func disjointGroupsError (node string, state int, token string) *llx.Error {
+	return llx.FormatError(DisjointGroupsError, "disjoint token groups for %q node, state %d, token %q", node, state, token)
 }
 
 func undefinedTokenError (name string) *llx.Error {

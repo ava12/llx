@@ -14,45 +14,44 @@ import (
 
 type Token = lexer.Token
 
-// TokenHook allows to perform additional actions when token is fetched from lexer, but before it is fed to parser,
-// e.g. emit external $indent/$dedent tokens when text indentation changes, automatically generate trailing semicolons,
-// fetch complex lexemes (e.g. heredoc strings).
-// emit flag set to true means that incoming token (even aside one) must be fed to parser,
+// TokenHook allows to perform additional actions when token is fetched from lexer, but before it is queued,
+// e.g. emit external $indent/$dedent tokens when text indentation changes, fetch complex lexemes (e.g. heredoc strings).
+// emit flag set to true means that incoming token (even aside one) must be put to the beginning of token queue,
 // false means that it must be skipped.
 type TokenHook = func (token *Token, pc *ParseContext) (emit bool, e error)
 
-// NonTermHookInstance receives notifications for non-terminal being processed by parser.
-type NonTermHookInstance interface {
-	// NewNonTerm is called before a child non-terminal is pushed on stack.
-	// Receives child non-terminal name and its initial token.
-	NewNonTerm (nonTerm string, token *Token) error
+// NodeHookInstance receives notifications for node being processed by parser.
+type NodeHookInstance interface {
+	// NewNode is called before a child node is pushed on stack.
+	// Receives child node name and its initial token.
+	NewNode (node string, token *Token) error
 
-	// HandleNonTerm is called when nested non-terminal is dropped.
-	// Receives child non-terminal name.
-	// Receives result of closest nested hook EndNonTerm() call or nil if none of nested non-terminals was hooked.
-	HandleNonTerm (nonTerm string, result any) error
+	// HandleNode is called when nested node is finalized and dropped.
+	// Receives child node name.
+	// Receives result of closest nested hook EndNode() call or nil if none of nested nodes was hooked.
+	HandleNode (node string, result any) error
 
-	// HandleToken is called when a token belonging to current non-terminal is received.
+	// HandleToken is called when a token belonging to current node is received.
 	HandleToken (token *Token) error
 
-	// EndNonTerm is called when current non-terminal is finalized.
-	// result is passed to parent non-terminal hook or returned as a parse result if current non-terminal is the root.
-	EndNonTerm () (result any, e error)
+	// EndNode is called when current node is finalized.
+	// result is passed to parent node hook or returned as a parse result if current node is the root.
+	EndNode () (result any, e error)
 }
 
-// NonTermHook allows to perform actions on non-terminals emitted by parser.
-// Receives non-terminal name and initial token.
-type NonTermHook = func (nonTerm string, token *Token, pc *ParseContext) (NonTermHookInstance, error)
+// NodeHook allows to perform actions on nodes emitted by parser.
+// Receives node name and initial token.
+type NodeHook = func (node string, token *Token, pc *ParseContext) (NodeHookInstance, error)
 
 type defaultHookInstance struct {
 	result any
 }
 
-func (dhi *defaultHookInstance) NewNonTerm (nonTerm string, token *Token) error {
+func (dhi *defaultHookInstance) NewNode(node string, token *Token) error {
 	return nil
 }
 
-func (dhi *defaultHookInstance) HandleNonTerm (nonTerm string, result any) error {
+func (dhi *defaultHookInstance) HandleNode(node string, result any) error {
 	dhi.result = result
 	return nil
 }
@@ -61,7 +60,7 @@ func (dhi *defaultHookInstance) HandleToken (token *Token) error {
 	return nil
 }
 
-func (dhi *defaultHookInstance) EndNonTerm () (result any, e error) {
+func (dhi *defaultHookInstance) EndNode() (result any, e error) {
 	return dhi.result, nil
 }
 
@@ -72,15 +71,15 @@ const (
 	EoiToken = lexer.EoiTokenName // end-of-input token
 )
 
-// AnyNonTerm denotes any non-terminal, used by non-terminal hooks.
-const AnyNonTerm = ""
+// AnyNode denotes any node, used by node hooks.
+const AnyNode = ""
 
 const anyOffset = -1
 
 type TokenHooks map[string]TokenHook
-type NonTermHooks map[string]NonTermHook
+type NodeHooks map[string]NodeHook
 
-// Hooks contains all token and non-terminal hooks used in parsing process.
+// Hooks contains all token and node hooks used in parsing process.
 // Default action when no suitable token hook found is to drop aside token and use non-aside token as is.
 type Hooks struct {
 	// Tokens contains hooks for different token types. Key is either token type name or AnyToken constant.
@@ -91,9 +90,9 @@ type Hooks struct {
 	// These hooks have top priority (if token type allows matching against literals).
 	Literals TokenHooks
 
-	// NonTerms contains hooks for non-terminals. Key is either non-terminal name or AnyNonTerm constant.
-	// AnyNonTerm hook is a fallback.
-	NonTerms NonTermHooks
+	// Nodes contains hooks for nodes. Key is either node name or AnyNode constant.
+	// AnyNode hook is a fallback.
+	Nodes NodeHooks
 }
 
 // Parser holds prepared data for some grammar.
@@ -124,7 +123,7 @@ func New (g *grammar.Grammar) *Parser {
 	names := make(map[string]int)
 	names[tokenKey(AnyToken)] = grammar.AnyToken
 	names[literalKey(AnyToken)] = grammar.AnyToken
-	names[ntKey(AnyNonTerm)] = -1
+	names[ntKey(AnyNode)] = -1
 	names[tokenKey(EofToken)] = lexer.EofTokenType
 	names[tokenKey(EoiToken)] = lexer.EoiTokenType
 
@@ -158,7 +157,7 @@ func New (g *grammar.Grammar) *Parser {
 		ls[i] = lexer.New(re, lrs[i].types)
 	}
 
-	for i, nt := range g.NonTerms {
+	for i, nt := range g.Nodes {
 		names[ntKey(nt.Name)] = i
 	}
 
@@ -189,14 +188,14 @@ func (p *Parser) LiteralType (text string) (typ int, valid bool) {
 	return
 }
 
-// NonTerminalIndex returns index of defined non-terminal by its name.
-func (p *Parser) NonTerminalIndex (name string) (index int, valid bool) {
+// NodeIndex returns index of defined node by its name.
+func (p *Parser) NodeIndex(name string) (index int, valid bool) {
 	index, valid = p.names[ntKey(name)]
 	return
 }
 
 // Parse launches new parsing process with new ParseContext.
-// result is the value returned by root non-terminal hook or nil if no non-terminal hooks used.
+// result is the value returned by root node hook or nil if no node hooks used.
 func (p *Parser) Parse (q *source.Queue, hs *Hooks) (result any, e error) {
 	if hs == nil {
 		hs = &Hooks{}
@@ -216,9 +215,9 @@ func (p *Parser) ParseString (name, content string, hs *Hooks) (result any, e er
 	return p.Parse(q, hs)
 }
 
-type nonTermRec struct {
-	prev   *nonTermRec
-	hook   NonTermHookInstance
+type nodeRec struct {
+	prev   *nodeRec
+	hook   NodeHookInstance
 	asides []*Token
 	group  int
 	index  int
@@ -230,17 +229,17 @@ type ParseContext struct {
 	parser       *Parser
 	sources      *source.Queue
 	tokenHooks   []TokenHook
-	nonTermHooks []NonTermHook
+	nodeHooks    []NodeHook
 	tokens       *queue.Queue[*Token]
 	appliedRules *queue.Queue[grammar.Rule]
 	tokenError   error
 	lastResult   any
-	nonTerm      *nonTermRec
+	node         *nodeRec
 }
 
 const (
-	tokenHooksOffset   = -lexer.LowestTokenType
-	nonTermHooksOffset = -grammar.AnyToken
+	tokenHooksOffset = -lexer.LowestTokenType
+	nodeHooksOffset  = -grammar.AnyToken
 )
 
 func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, error) {
@@ -248,7 +247,7 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 		parser:       p,
 		sources:      q,
 		tokenHooks:   make([]TokenHook, len(p.grammar.Tokens) + tokenHooksOffset),
-		nonTermHooks: make([]NonTermHook, len(p.grammar.NonTerms) + nonTermHooksOffset),
+		nodeHooks:    make([]NodeHook, len(p.grammar.Nodes) +nodeHooksOffset),
 		tokens:       queue.New[*Token](),
 		appliedRules: queue.New[grammar.Rule](),
 	}
@@ -271,25 +270,21 @@ func newParseContext (p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, err
 		result.tokenHooks[i + tokenHooksOffset] = th
 	}
 
-	for k, nth := range hs.NonTerms {
+	for k, nth := range hs.Nodes {
 		i, f := p.names[ntKey(k)]
 		if !f {
-			return nil, unknownNonTermError(k)
+			return nil, unknownNodeError(k)
 		}
 
-		result.nonTermHooks[i + nonTermHooksOffset] = nth
+		result.nodeHooks[i +nodeHooksOffset] = nth
 	}
 
-	e := result.pushNonTerm(grammar.RootNonTerm, lexer.NewToken(grammar.AnyToken, "", "", q.SourcePos()))
+	e := result.pushNode(grammar.RootNode, lexer.NewToken(grammar.AnyToken, "", "", q.SourcePos()))
 	return result, e
 }
 
-// EmitToken adds new element to the token queue.
+// EmitToken adds new element to the end of token queue.
 // Token's type must be defined in grammar, and it must not be a literal or an error token.
-// Parser takes elements from this queue in FIFO order and calls lexer only when the queue is empty.
-// Queued tokens are not hooked. If this method is called from token hook and the hooked token must be emitted
-// then the hooked token will be put to the queue before emitted ones.
-// E.g. if token hook processes "foo" token and emits "bar" and then "baz" the queue will be {foo, bar, baz}.
 func (pc *ParseContext) EmitToken (t *Token) error {
 	tt := t.Type()
 	if tt < 0 || tt >= len(pc.parser.grammar.Tokens) {
@@ -306,42 +301,42 @@ func (pc *ParseContext) EmitToken (t *Token) error {
 }
 
 
-func (pc *ParseContext) pushNonTerm (index int, tok *Token) error {
+func (pc *ParseContext) pushNode (index int, tok *Token) error {
 	e := pc.ntHandleAsides()
 	if e != nil {
 		return e
 	}
 
 	gr := pc.parser.grammar
-	nt := gr.NonTerms[index]
-	if pc.nonTerm != nil {
-		e = pc.nonTerm.hook.NewNonTerm(nt.Name, tok)
+	nt := gr.Nodes[index]
+	if pc.node != nil {
+		e = pc.node.hook.NewNode(nt.Name, tok)
 		if e != nil {
 			return e
 		}
 	}
 
-	hook, e := pc.getNonTermHook(index, tok)
+	hook, e := pc.getNodeHook(index, tok)
 	if e != nil {
 		return e
 	}
 
-	pc.nonTerm = &nonTermRec{pc.nonTerm, hook, nil, gr.States[nt.FirstState].Group, index, nt.FirstState}
+	pc.node = &nodeRec{pc.node, hook, nil, gr.States[nt.FirstState].Group, index, nt.FirstState}
 	return nil
 }
 
-func (pc *ParseContext) popNonTerm () error {
+func (pc *ParseContext) popNode () error {
 	var (
 		e error
 		res any
 	)
-	nts := pc.parser.grammar.NonTerms
+	nts := pc.parser.grammar.Nodes
 
-	asides := pc.nonTerm.asides
-	pc.nonTerm.asides = nil
+	asides := pc.node.asides
+	pc.node.asides = nil
 
-	for e == nil && pc.nonTerm != nil && pc.nonTerm.state == grammar.FinalState {
-		nt := pc.nonTerm
+	for e == nil && pc.node != nil && pc.node.state == grammar.FinalState {
+		nt := pc.node
 		if nt.prev == nil {
 			for _, t := range asides {
 				e = nt.hook.HandleToken(t)
@@ -351,20 +346,20 @@ func (pc *ParseContext) popNonTerm () error {
 			}
 		}
 
-		pc.nonTerm = nt.prev
-		res, e = nt.hook.EndNonTerm()
+		pc.node = nt.prev
+		res, e = nt.hook.EndNode()
 		pc.lastResult = res
-		if pc.nonTerm == nil {
+		if pc.node == nil {
 			break
 		}
 
 		if e == nil {
-			e = pc.nonTerm.hook.HandleNonTerm(nts[nt.index].Name, res)
+			e = pc.node.hook.HandleNode(nts[nt.index].Name, res)
 		}
 	}
 
-	if e == nil && pc.nonTerm != nil {
-		pc.nonTerm.asides = asides
+	if e == nil && pc.node != nil {
+		pc.node.asides = asides
 	}
 
 	return e
@@ -380,15 +375,15 @@ func (pc *ParseContext) parse () (any, error) {
 	)
 	gr := pc.parser.grammar
 
-	for pc.nonTerm != nil {
-		tok, e = pc.nextToken(pc.nonTerm.group)
+	for pc.node != nil {
+		tok, e = pc.nextToken(pc.node.group)
 		tokenConsumed = false
 		if e != nil {
 			return nil, e
 		}
 
-		for !tokenConsumed && pc.nonTerm != nil {
-			nt := pc.nonTerm
+		for !tokenConsumed && pc.node != nil {
+			nt := pc.node
 			rule, found := pc.nextRule(tok, gr.States[nt.state])
 			if !found {
 				shrunk, e := pc.shrinkToken(tok, nt.group)
@@ -409,23 +404,23 @@ func (pc *ParseContext) parse () (any, error) {
 				return nil, e
 			}
 
-			sameNonTerm := (rule.NonTerm == grammar.SameNonTerm)
-			tokenConsumed = (sameNonTerm && rule.Token != grammar.AnyToken)
+			sameNode := (rule.Node == grammar.SameNode)
+			tokenConsumed = (sameNode && rule.Token != grammar.AnyToken)
 			if rule.State != repeatState {
-				pc.nonTerm.state = rule.State
+				pc.node.state = rule.State
 				if rule.State != grammar.FinalState {
-					pc.nonTerm.group = gr.States[rule.State].Group
+					pc.node.group = gr.States[rule.State].Group
 				}
 			}
 
-			if !sameNonTerm {
-				e = pc.pushNonTerm(rule.NonTerm, tok)
+			if !sameNode {
+				e = pc.pushNode(rule.Node, tok)
 			} else if tokenConsumed {
 				e = pc.ntHandleToken(tok)
 			}
 
-			if e == nil && pc.nonTerm.state == grammar.FinalState {
-				e = pc.popNonTerm()
+			if e == nil && pc.node.state == grammar.FinalState {
+				e = pc.popNode()
 			}
 
 			if e != nil {
@@ -465,7 +460,7 @@ func (pc *ParseContext) shrinkToken (tok *Token, group int) (bool, error) {
 }
 
 func (pc *ParseContext) resolve (tok *Token, ars []grammar.Rule) ([]*Token, []grammar.Rule) {
-	liveBranch := createBranches(pc, pc.nonTerm, ars)
+	liveBranch := createBranches(pc, pc.node, ars)
 	tokens := make([]*Token, 0)
 	pc.tokens.Prepend(tok)
 	for {
@@ -541,7 +536,7 @@ func (pc *ParseContext) getExpectedToken (s grammar.State) string {
 
 func (pc *ParseContext) findRules (t *Token, s grammar.State) []grammar.Rule {
 	if pc.isAsideToken(t) {
-		return []grammar.Rule{{t.Type(), repeatState, grammar.SameNonTerm}}
+		return []grammar.Rule{{t.Type(), repeatState, grammar.SameNode}}
 	}
 
 	keys := pc.possibleRuleKeys(t)
@@ -608,13 +603,13 @@ func (pc *ParseContext) possibleRuleKeys (t *Token) []int {
 	return keys
 }
 
-func (pc *ParseContext) getNonTermHook (ntIndex int, tok *Token) (res NonTermHookInstance, e error) {
-	h := pc.nonTermHooks[ntIndex + nonTermHooksOffset]
+func (pc *ParseContext) getNodeHook (ntIndex int, tok *Token) (res NodeHookInstance, e error) {
+	h := pc.nodeHooks[ntIndex +nodeHooksOffset]
 	if h == nil {
-		h = pc.nonTermHooks[anyOffset + nonTermHooksOffset]
+		h = pc.nodeHooks[anyOffset +nodeHooksOffset]
 	}
 	if h != nil {
-		res, e = h(pc.parser.grammar.NonTerms[ntIndex].Name, tok, pc)
+		res, e = h(pc.parser.grammar.Nodes[ntIndex].Name, tok, pc)
 	} else {
 		e = nil
 	}
@@ -736,7 +731,7 @@ func (pc *ParseContext) isAsideToken (t *Token) bool {
 }
 
 func (pc *ParseContext) ntHandleAsides () (res error) {
-	ntr := pc.nonTerm
+	ntr := pc.node
 	if ntr == nil || ntr.asides == nil {
 		return nil
 	}
@@ -754,7 +749,7 @@ func (pc *ParseContext) ntHandleAsides () (res error) {
 }
 
 func (pc *ParseContext) ntHandleToken (tok *Token) (res error) {
-	ntr := pc.nonTerm
+	ntr := pc.node
 	if pc.isAsideToken(tok) {
 		ntr.asides = append(ntr.asides, tok)
 	} else {

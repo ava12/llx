@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-func TestNonTermNode_AddChild (t *testing.T) {
-	ntn := &nonTermNode{}
+func TestNodeNode_AddChild (t *testing.T) {
+	ntn := &nodeNode{}
 	tn1 := &tokenNode{}
 	tn2 := &tokenNode{}
 	tn3 := &tokenNode{}
@@ -41,8 +41,8 @@ func TestNonTermNode_AddChild (t *testing.T) {
 	assert(t, tn2.prev == tn3)
 }
 
-func TestNonTermNode_RemoveChild (t *testing.T) {
-	ntn := &nonTermNode{}
+func TestNodeNode_RemoveChild (t *testing.T) {
+	ntn := &nodeNode{}
 	tn1 := &tokenNode{}
 	tn2 := &tokenNode{}
 	tn3 := &tokenNode{}

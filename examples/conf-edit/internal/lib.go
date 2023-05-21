@@ -31,19 +31,19 @@ const (
 )
 
 type Conf struct {
-	RootNode tree.NonTermNode
+	RootNode tree.NodeNode
 	Sections map[string]*Section
 	updated  bool
 }
 
 type Section struct {
-	Nodes   []tree.NonTermNode
+	Nodes   []tree.NodeNode
 	Entries map[string]*Entry
 	Updated bool
 }
 
 type Entry struct {
-	Node      tree.NonTermNode
+	Node      tree.NodeNode
 	ValueNode tree.Node
 	Value     string
 }
@@ -73,8 +73,8 @@ func nlNode () tree.Node {
 	return tree.NewTokenNode(lexer.NewToken(0, nlToken, "\n", source.Pos{}))
 }
 
-func sepNode () tree.NonTermNode {
-	result := tree.NewNonTermNode(sepNt, nil)
+func sepNode () tree.NodeNode {
+	result := tree.NewNodeNode(sepNt, nil)
 	result.AddChild(nlNode(), nil)
 	return result
 }
@@ -90,8 +90,8 @@ func splitName (name string) (sec, val string) {
 	return
 }
 
-func NewConf (root tree.NonTermNode) *Conf {
-	return &Conf{RootNode: root.(tree.NonTermNode), Sections: make(map[string]*Section)}
+func NewConf (root tree.NodeNode) *Conf {
+	return &Conf{RootNode: root.(tree.NodeNode), Sections: make(map[string]*Section)}
 }
 
 func (c *Conf) Updated () bool {
@@ -108,14 +108,14 @@ func (c *Conf) Updated () bool {
 	return false
 }
 
-func (c *Conf) AddSectionNode (n tree.NonTermNode) *Section {
+func (c *Conf) AddSectionNode (n tree.NodeNode) *Section {
 	name := defaultSectionName
 	if n.TypeName() != defSectionNt {
 		name = secNameSelector.Apply(n)[0].Token().Text()
 	}
 	result := c.Sections[name]
 	if result == nil {
-		result = &Section{Nodes: []tree.NonTermNode{n}, Entries: make(map[string]*Entry)}
+		result = &Section{Nodes: []tree.NodeNode{n}, Entries: make(map[string]*Entry)}
 		c.Sections[name] = result
 	}
 	return result
@@ -128,18 +128,18 @@ func (c *Conf) AddSection (name string) *Section {
 	}
 
 	var (
-		node tree.NonTermNode
+		node tree.NodeNode
 		child tree.Node
 	)
 
 	if name == defaultSectionName {
-		node = tree.NewNonTermNode(defSectionNt, nil)
+		node = tree.NewNodeNode(defSectionNt, nil)
 		child = c.RootNode.LastChild()
 		if child == nil {
 			c.RootNode.AddChild(node, nil)
 		} else if child.TypeName() != defSectionNt {
 			child = c.RootNode.FirstChild()
-			for child != nil && !child.IsNonTerm() {
+			for child != nil && !child.IsNode() {
 				child = child.Next()
 			}
 			if child == nil {
@@ -150,16 +150,16 @@ func (c *Conf) AddSection (name string) *Section {
 			}
 		}
 	} else {
-		node = tree.NewNonTermNode(sectionNt, nil)
-		header := tree.NewNonTermNode(headerNt, nil)
+		node = tree.NewNodeNode(sectionNt, nil)
+		header := tree.NewNodeNode(headerNt, nil)
 		header.AddChild(tokenNode(opToken, "["), nil)
 		header.AddChild(tokenNode(secNameToken, name), nil)
 		header.AddChild(tokenNode(opToken, "]"), nil)
 		header.AddChild(nlNode(), nil)
 		node.AddChild(header, nil)
 		child = c.RootNode.LastChild()
-		if child != nil && child.IsNonTerm() {
-			child := child.(tree.NonTermNode)
+		if child != nil && child.IsNode() {
+			child := child.(tree.NodeNode)
 			if child.LastChild().TypeName() != sepNt {
 				child.AddChild(sepNode(), nil)
 			}
@@ -178,7 +178,7 @@ func (c *Conf) RemoveSection (name string) {
 		for _, n := range sec.Nodes {
 			p := n.Prev()
 			if p != nil {
-				p = p.(tree.NonTermNode).LastChild()
+				p = p.(tree.NodeNode).LastChild()
 				if p != nil && p.TypeName() == sepNt {
 					tree.Detach(p)
 				}
@@ -203,7 +203,7 @@ func (c *Conf) SetEntry (name, value string) {
 	s.SetEntry(en, value)
 }
 
-func (s *Section) AddEntryNode (n tree.NonTermNode) *Entry {
+func (s *Section) AddEntryNode (n tree.NodeNode) *Entry {
 	var value string
 	name := nameSelector.Apply(n)[0].Token().Text()
 	result := s.Entries[name]
@@ -256,7 +256,7 @@ func (s *Section) SetEntry (name, value string) *Entry {
 	}
 
 	s.Updated = true
-	node := tree.NewNonTermNode(entryNt, nil)
+	node := tree.NewNodeNode(entryNt, nil)
 	if value != "" {
 		vnode = tokenNode(valueToken, value)
 	}
@@ -266,7 +266,7 @@ func (s *Section) SetEntry (name, value string) *Entry {
 	node.AddChild(nlNode(), nil)
 	snode := s.Nodes[len(s.Nodes) - 1]
 	last := snode.LastChild()
-	for last != nil && (!last.IsNonTerm() || last.TypeName() == sepNt) {
+	for last != nil && (!last.IsNode() || last.TypeName() == sepNt) {
 		last = last.Prev()
 	}
 	if last == nil {
@@ -301,8 +301,8 @@ func Parse (name string, src *[]byte) (*Conf, error) {
 				return true, nil
 			},
 		},
-		NonTerms: parser.NonTermHooks{
-			parser.AnyNonTerm: tree.NonTermHook,
+		Nodes: parser.NodeHooks{
+			parser.AnyNode: tree.NodeHook,
 		},
 	}
 	root, e := p.Parse(queue, &hs)
@@ -310,19 +310,19 @@ func Parse (name string, src *[]byte) (*Conf, error) {
 		return nil, e
 	}
 
-	rootNode := root.(tree.NonTermNode)
+	rootNode := root.(tree.NodeNode)
 	result := NewConf(rootNode)
 	children := tree.Children(rootNode)
 	for _, child := range children {
-		if !child.IsNonTerm() {
+		if !child.IsNode() {
 			continue
 		}
 
-		s := result.AddSectionNode(child.(tree.NonTermNode))
+		s := result.AddSectionNode(child.(tree.NodeNode))
 		entries := tree.Children(child)
 		for _, entry := range entries {
 			if entry.TypeName() == entryNt {
-				s.AddEntryNode(entry.(tree.NonTermNode))
+				s.AddEntryNode(entry.(tree.NodeNode))
 			}
 		}
 	}
@@ -363,7 +363,7 @@ func ParseFile (name string) (*Conf, error) {
 
 func Serialize (root tree.Node, w io.Writer) (written int, err error) {
 	visitor := func (n tree.Node) tree.WalkerFlags {
-		if !n.IsNonTerm() {
+		if !n.IsNode() {
 			i, e := w.Write([]byte(n.Token().Text()))
 			if e == nil {
 				written += i

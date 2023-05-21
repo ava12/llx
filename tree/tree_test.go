@@ -17,15 +17,15 @@ const treeGrammarDef = "!aside $space; $space = /\\s+/; " +
 	"tree-def = {$name | $string | nt}; nt = '(', $name, {$name | $string | nt}, ')';"
 
 type treeDefHook struct {
-	nt *nonTermNode
+	nt *nodeNode
 	gotName bool
 }
 
-func (h *treeDefHook) NewNonTerm (nonTerm string, token *lexer.Token) error {
+func (h *treeDefHook) NewNode (node string, token *lexer.Token) error {
 	return nil
 }
 
-func (h *treeDefHook) HandleNonTerm (nonTerm string, result interface{}) error {
+func (h *treeDefHook) HandleNode (node string, result interface{}) error {
 	h.nt.AddChild(result.(Node), nil)
 	return nil
 }
@@ -43,23 +43,23 @@ func (h *treeDefHook) HandleToken (token *lexer.Token) error {
 	return nil
 }
 
-func (h *treeDefHook) EndNonTerm () (result interface{}, e error) {
+func (h *treeDefHook) EndNode() (result interface{}, e error) {
 	return h.nt, nil
 }
 
-func newTreeDefHook (nonTerm string, tok *lexer.Token, pc *parser.ParseContext) (parser.NonTermHookInstance, error) {
-	return &treeDefHook{nt: &nonTermNode{token: tok}, gotName: (nonTerm == "tree-def")}, nil
+func newTreeDefHook (node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
+	return &treeDefHook{nt: &nodeNode{token: tok}, gotName: (node == "tree-def")}, nil
 }
 
 var (
 	treeHooks = &parser.Hooks{
-		NonTerms: parser.NonTermHooks{
-			parser.AnyNonTerm: NonTermHook,
+		Nodes: parser.NodeHooks{
+			parser.AnyNode: NodeHook,
 		},
 	}
 	treeDefHooks = &parser.Hooks{
-		NonTerms: parser.NonTermHooks{
-			parser.AnyNonTerm: newTreeDefHook,
+		Nodes: parser.NodeHooks{
+			parser.AnyNode: newTreeDefHook,
 		},
 	}
 	treeParser *parser.Parser
@@ -73,7 +73,7 @@ func init () {
 	treeParser = parser.New(g)
 }
 
-func serialize (root NonTermNode) string {
+func serialize (root NodeNode) string {
 	if root == nil {
 		return ""
 	}
@@ -89,11 +89,11 @@ func serialize (root NonTermNode) string {
 
 func serializeSiblings (n Node, b *strings.Builder) {
 	for n != nil {
-		if !n.IsNonTerm() {
+		if !n.IsNode() {
 			b.WriteString(" " + n.Token().Text())
 		} else {
 			b.WriteString(" (" + n.TypeName())
-			serializeSiblings(n.(NonTermNode).FirstChild(), b)
+			serializeSiblings(n.(NodeNode).FirstChild(), b)
 			b.WriteString(")")
 		}
 		n = n.Next()
@@ -111,7 +111,7 @@ func checkParsingSample (t *testing.T, p *parser.Parser, sampleNo int, s parsing
 		return
 	}
 
-	got := serialize(root.(NonTermNode))
+	got := serialize(root.(NodeNode))
 	if got != s.expected {
 		t.Errorf("parsingSample #%d: %q expected, got %q", sampleNo, s.expected, got)
 	}
@@ -150,7 +150,7 @@ func TestParsing (t *testing.T) {
 	checkParsing(t, grammar, samples)
 }
 
-func parseTreeDescription (t *testing.T, src string) NonTermNode {
+func parseTreeDescription (t *testing.T, src string) NodeNode {
 	if treeParser == nil {
 		t.Fatal("cannot parse tree")
 	}
@@ -160,14 +160,14 @@ func parseTreeDescription (t *testing.T, src string) NonTermNode {
 		t.Fatal("error: " + e.Error())
 	}
 
-	return res.(NonTermNode)
+	return res.(NodeNode)
 }
 
-func buildTree (t *testing.T, src string) (NonTermNode, map[string]Node) {
+func buildTree (t *testing.T, src string) (NodeNode, map[string]Node) {
 	root := parseTreeDescription(t, src)
 	index := make(map[string]Node)
 	Walk(root, WalkLtr, func (n Node) WalkerFlags {
-		if n.IsNonTerm() {
+		if n.IsNode() {
 			index[n.TypeName()] = n
 		} else {
 			index[n.Token().Text()] = n
@@ -213,11 +213,11 @@ func TestIterator (t *testing.T) {
 }
 
 func matchNodes (t *testing.T, expected string, ns ... Node) {
-	root := NewNonTermNode("", nil)
+	root := NewNodeNode("", nil)
 	for _, n := range ns {
-		if n.IsNonTerm() {
-			ntn := n.(NonTermNode)
-			root.AddChild(&nonTermNode{typeName: ntn.TypeName()}, nil)
+		if n.IsNode() {
+			ntn := n.(NodeNode)
+			root.AddChild(&nodeNode{typeName: ntn.TypeName()}, nil)
 		} else {
 			root.AddChild(&tokenNode{token: n.Token()}, nil)
 		}
@@ -296,7 +296,7 @@ func TestWalkStop (t *testing.T) {
 }
 
 func TestTransformer (t *testing.T) {
-	ntn := &nonTermNode{typeName: "foo"}
+	ntn := &nodeNode{typeName: "foo"}
 	tn := &tokenNode{token: lexer.NewToken(0, "bar", "BAR", source.Pos{})}
 	nodes := []Node{nil, ntn, nil, tn, nil, ntn, nil}
 	got := NewSelector().Apply(nodes ...)
@@ -306,7 +306,7 @@ func TestTransformer (t *testing.T) {
 
 func TestTransform (t *testing.T) {
 	f := func (n Node) []Node {
-		if n.IsNonTerm() {
+		if n.IsNode() {
 			return Children(n)
 		} else {
 			return nil
@@ -374,26 +374,26 @@ func TestSearch (t *testing.T) {
 
 func TestIsNot (t *testing.T) {
 	f := func (n Node) bool {
-		return n.IsNonTerm()
+		return n.IsNode()
 	}
 	ff := IsNot(f)
 	tn := tokenNode{}
-	ntn := nonTermNode{}
+	ntn := nodeNode{}
 	assert(t, ff(&tn))
 	assert(t, !ff(&ntn))
 }
 
 func TestIsAny (t *testing.T) {
 	f1 := func (n Node) bool {
-		return !n.IsNonTerm()
+		return !n.IsNode()
 	}
 	f2 := func (n Node) bool {
 		return (NumOfChildren(n, 0) == 0)
 	}
 	ff := IsAny(f1, f2)
 	tn := tokenNode{}
-	nt := nonTermNode{}
-	ntn := nonTermNode{firstChild: &nt}
+	nt := nodeNode{}
+	ntn := nodeNode{firstChild: &nt}
 	assert(t, ff(&tn))
 	assert(t, ff(&nt))
 	assert(t, !ff(&ntn))
@@ -401,15 +401,15 @@ func TestIsAny (t *testing.T) {
 
 func TestIsAll (t *testing.T) {
 	f1 := func (n Node) bool {
-		return n.IsNonTerm()
+		return n.IsNode()
 	}
 	f2 := func (n Node) bool {
 		return (NumOfChildren(n, 0) > 0)
 	}
 	ff := IsAll(f1, f2)
 	tn := tokenNode{}
-	nt := nonTermNode{}
-	ntn := nonTermNode{firstChild: &nt}
+	nt := nodeNode{}
+	ntn := nodeNode{firstChild: &nt}
 	assert(t, !ff(&tn))
 	assert(t, !ff(&nt))
 	assert(t, ff(&ntn))
@@ -419,8 +419,8 @@ func TestIsA (t *testing.T) {
 	ff := IsA("foo", "qux")
 	tn0 := tokenNode{token: lexer.NewToken(1, "bar", "foo", source.Pos{})}
 	tn1 := tokenNode{token: lexer.NewToken(2, "foo", "", source.Pos{})}
-	nt0 := nonTermNode{typeName: "baz"}
-	nt1 := nonTermNode{typeName: "qux"}
+	nt0 := nodeNode{typeName: "baz"}
+	nt1 := nodeNode{typeName: "qux"}
 	assert(t, ff(&tn1))
 	assert(t, !ff(&tn0))
 	assert(t, ff(&nt1))
@@ -432,7 +432,7 @@ func TestIsALiteral (t *testing.T) {
 	tn0 := tokenNode{token: lexer.NewToken(1, "foo", "bar", source.Pos{})}
 	tn1 := tokenNode{token: lexer.NewToken(2, "bar", "foo", source.Pos{})}
 	tn2 := tokenNode{token: lexer.NewToken(3, "baz", "qux", source.Pos{})}
-	nt := nonTermNode{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", source.Pos{})}
+	nt := nodeNode{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", source.Pos{})}
 	assert(t, !ff(&tn0))
 	assert(t, ff(&tn1))
 	assert(t, ff(&tn2))
@@ -479,8 +479,8 @@ func TestAny (t *testing.T) {
 			return []Node{res}
 		}
 	}
-	parent := nonTermNode{typeName: "foo"}
-	child := nonTermNode{typeName: "bar", parent: &parent}
+	parent := nodeNode{typeName: "foo"}
+	child := nodeNode{typeName: "bar", parent: &parent}
 
 	matchNodes(t, "(foo)", Any(ans, ident)(&child) ...)
 	matchNodes(t, "(foo)", Any(ans, ident)(&parent) ...)
@@ -502,8 +502,8 @@ func TestAll (t *testing.T) {
 			return []Node{res}
 		}
 	}
-	parent := nonTermNode{typeName: "foo"}
-	child := nonTermNode{typeName: "bar", parent: &parent}
+	parent := nodeNode{typeName: "foo"}
+	child := nodeNode{typeName: "bar", parent: &parent}
 
 	matchNodes(t, "(foo) (bar)", All(ans, ident)(&child) ...)
 	matchNodes(t, "(foo)", Any(ans, ident)(&parent) ...)
@@ -512,10 +512,10 @@ func TestAll (t *testing.T) {
 }
 
 func TestAncestors (t *testing.T) {
-	foo := nonTermNode{typeName: "foo"}
-	bar := nonTermNode{typeName: "bar", parent: &foo}
-	baz := nonTermNode{typeName: "baz", parent: &bar}
-	qux := nonTermNode{typeName: "qux", parent: &baz}
+	foo := nodeNode{typeName: "foo"}
+	bar := nodeNode{typeName: "bar", parent: &foo}
+	baz := nodeNode{typeName: "baz", parent: &bar}
+	qux := nodeNode{typeName: "qux", parent: &baz}
 	f := Ancestors(1, 2, 0)
 
 	matchNodes(t, "", f(&foo) ...)

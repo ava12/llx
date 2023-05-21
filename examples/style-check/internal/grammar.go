@@ -21,7 +21,7 @@ var cDataGrammar = &grammar.Grammar{
 		{Name: "[", Re: "", Groups: 1, Flags: 1},
 		{Name: "]", Re: "", Groups: 1, Flags: 1},
 	},
-	NonTerms: []grammar.NonTerm{
+	Nodes: []grammar.Node{
 		{Name: "cDataGrammar", FirstState: 0},
 		{Name: "var-def", FirstState: 2},
 		{Name: "type-def", FirstState: 8},

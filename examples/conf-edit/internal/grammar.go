@@ -17,7 +17,7 @@ var confGrammar = &grammar.Grammar{
 		{Name: "[", Re: "", Groups: 5, Flags: 1},
 		{Name: "]", Re: "", Groups: 5, Flags: 1},
 	},
-	NonTerms: []grammar.NonTerm{
+	Nodes: []grammar.Node{
 		{Name: "confGrammar", FirstState: 0},
 		{Name: "def-section", FirstState: 2},
 		{Name: "section", FirstState: 4},

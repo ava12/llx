@@ -130,28 +130,28 @@ func (c tokenChunk) IsOptional () bool {
 }
 
 func (c tokenChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
-	g.States[stateIndex].AddRule(nextIndex, grammar.SameNonTerm, int(c))
+	g.States[stateIndex].AddRule(nextIndex, grammar.SameNode, int(c))
 }
 
 
-type nonTermChunk struct {
+type nodeChunk struct {
 	name string
-	item *nonTermItem
+	item *nodeItem
 }
 
-func newNonTermChunk (name string, item *nonTermItem) *nonTermChunk {
-	return &nonTermChunk{name, item}
+func newNodeChunk (name string, item *nodeItem) *nodeChunk {
+	return &nodeChunk{name, item}
 }
 
-func (c *nonTermChunk) FirstTokens () *ints.Set {
+func (c *nodeChunk) FirstTokens () *ints.Set {
 	return c.item.FirstTokens
 }
 
-func (c *nonTermChunk) IsOptional () bool {
+func (c *nodeChunk) IsOptional () bool {
 	return false
 }
 
-func (c *nonTermChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
+func (c *nodeChunk) BuildStates (g *parseResult, stateIndex, nextIndex int) {
 	firstTokens := c.FirstTokens().ToSlice()
 	g.States[stateIndex].AddRule(nextIndex, c.item.Index, firstTokens ...)
 }

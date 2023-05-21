@@ -21,7 +21,7 @@ var calcGrammar = &grammar.Grammar{
 		{Name: "/", Re: "", Groups: 1, Flags: 1},
 		{Name: "^", Re: "", Groups: 1, Flags: 1},
 	},
-	NonTerms: []grammar.NonTerm{
+	Nodes: []grammar.Node{
 		{Name: "calcGrammar", FirstState: 0},
 		{Name: "expr", FirstState: 1},
 		{Name: "assign", FirstState: 5},

@@ -9,7 +9,7 @@ Usage is
 
 -p <name> defines Go package name, default is directory name of input file;
 
--v <name> defines generated Go variable name of type *grammar.Grammar, default is the name of root non-terminal;
+-v <name> defines generated Go variable name of type *grammar.Grammar, default is the name of root node;
 
 <file> defines grammar definition file parsable by langdef.Parse().
  */
@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,7 +44,7 @@ func main () {
 	flag.BoolVar(&generateJson, "j", false, "output JSON instead of Go")
 	flag.StringVar(&outFileName, "o", "", "output file name, default is the name of input file with .go or .json suffix")
 	flag.StringVar(&packageName, "p", "", "Go package name, default is dir name of output file")
-	flag.StringVar(&varName, "v", "", "Go variable name, default is the root non-terminal name")
+	flag.StringVar(&varName, "v", "", "Go variable name, default is the root node name")
 	flag.Parse()
 	inFileName = flag.Arg(0)
 	if inFileName == "" {
@@ -64,7 +63,7 @@ func main () {
 	}
 
 	var gr *grammar.Grammar
-	src, e := ioutil.ReadFile(inFileName)
+	src, e := os.ReadFile(inFileName)
 	if e == nil {
 		gr, e = langdef.ParseBytes(inFileName, src)
 	}
@@ -77,7 +76,7 @@ func main () {
 		}
 	}
 	if e == nil {
-		e = ioutil.WriteFile(outFileName, content, 0o666)
+		e = os.WriteFile(outFileName, content, 0o666)
 	}
 
 	if e != nil {
@@ -101,7 +100,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 		_, packageName = filepath.Split(dir[: len(dir) - 1])
 	}
 	if varName == "" {
-		varName = gr.NonTerms[0].Name
+		varName = gr.Nodes[0].Name
 	}
 
 	re := regexp.MustCompile("^[A-Za-z_][A-Za-z_0-9]*$")
@@ -125,8 +124,8 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 	}
 	buffer.WriteString("\t},\n")
 
-	buffer.WriteString("\tNonTerms: []grammar.NonTerm{\n")
-	for _, nt := range gr.NonTerms {
+	buffer.WriteString("\tNodes: []grammar.Node{\n")
+	for _, nt := range gr.Nodes {
 		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, FirstState: %d},\n", nt.Name, nt.FirstState))
 	}
 	buffer.WriteString("\t},\n")
@@ -145,7 +144,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 
 	buffer.WriteString("\tRules: []grammar.Rule{\n")
 	for _, r := range gr.Rules {
-		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d},\n", r.Token, r.State, r.NonTerm))
+		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d},\n", r.Token, r.State, r.Node))
 	}
 	buffer.WriteString("\t},\n")
 

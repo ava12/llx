@@ -2,8 +2,7 @@
 Package grammar contains data types used by LL(*) parser.
 
 Grammar is represented in the form of nondeterministic state machine.
-The machine uses stack holding currently processed non-terminals (initially the root one)
-and saved states. Each non-terminal has its own subset of states.
+The machine uses stack holding current syntax tree node and its ancestor nodes together with their current states.
 
 State contains map of transition rules (or ambiguous variants of rules).
 A key is either a token type id, a literal id, or AnyToken value.
@@ -13,25 +12,24 @@ When parser tries to match a rule for current token the priorities are:
   - AnyToken.
 
 Transition rule contains the next state index (or FinalState value
-if parsing of current non-terminal is finished) and nested non-terminal id
-(or SameNonTerm value if no non-terminal is pushed).
+if parsing of current node is finished) and new node index
+(or SameNode value if no nested node is pushed).
 
-Each time parser enters FinalState it drops non-terminal and saved state id.
+Each time parser enters FinalState it drops current node.
 
 When a rule is applied:
-  - if next non-terminal is SameNonTerm:
+  - if new node is SameNode:
     - current state is set to next state;
     - if matched rule key is not AnyToken: next token is read;
   - else:
-    - next non-terminal and next state id are pushed;
-    - current state is set to the initial state of next non-terminal;
+    - new node and its initial state index are pushed;
 
 */
 package grammar
 
 const (
-	// RootNonTerm is the index of root non-terminal in Grammar.NonTerms.
-	RootNonTerm  = 0
+	// RootNode is the index of root node in Grammar.Nodes.
+	RootNode = 0
 )
 
 // BitSet is a general bit set, where i-th bit represents item with index i.
@@ -89,25 +87,25 @@ const (
 	NoLiteralsToken
 )
 
-// NonTerm contains information about some non-terminal.
-type NonTerm struct {
-	// Name of non-terminal.
+// Node contains information about some syntax tree node.
+type Node struct {
+	// Name of node.
 	Name       string
 
-	// FirstState is an index of initial state for this non-terminal.
+	// FirstState is an index of initial state for this node.
 	FirstState int
 }
 
 const (
 	// AnyToken stored in Rule.Token matches any token except EoF.
-	// Used for fallback rules to skip optional or repeated parts of non-terminals.
+	// Used for fallback rules to skip optional or repeated parts of nodes.
 	AnyToken    = -1
 
-	// FinalState stored in Rule.State means that current non-terminal must be finalized and dropped.
+	// FinalState stored in Rule.State means that current node must be finalized and dropped.
 	FinalState  = -1
 
-	// SameNonTerm stored in Rule.NonTerm means that no nested non-terminal is pushed at this point.
-	SameNonTerm = -1
+	// SameNode stored in Rule.Node means that no nested node is pushed at this point.
+	SameNode = -1
 )
 
 // Rule contains a grammar rule for some set of tokens at some parsing state.
@@ -115,11 +113,11 @@ type Rule struct {
 	// Token is either an index in Grammar.Tokens slice or AnyToken.
 	Token   int
 
-	// State is the index of next state or FinalState if this rule is the final one for non-terminal.
+	// State is the index of next state or FinalState if this rule is the final one for node.
 	State   int
 
-	// NonTerm contains either SameNonTerm or the index of nested non-terminal to push.
-	NonTerm int
+	// Node contains either SameNode or the index of nested node to push.
+	Node int
 }
 
 // MultiRule defines a list of ambiguous rules for some set of tokens at some parsing state.
@@ -134,7 +132,7 @@ type MultiRule struct {
 	HighRule int
 }
 
-// State represents a parsing state for some nonTerminal.
+// State represents a parsing state.
 type State struct {
 	// Group is 0-based index of token group shared by all tokens
 	// that are acceptable at this point.
@@ -163,10 +161,10 @@ type Grammar struct {
 	// First go defined token types, then external tokens, and the last are literals.
 	Tokens     []Token
 
-	// NonTerms is a list of non-terminals.
-	NonTerms   []NonTerm
+	// Nodes is a list of defined nodes.
+	Nodes      []Node
 
-	// States is a list of all parsing states for all non-terminals, grouped by non-terminal.
+	// States is a list of all parsing states for all nodes, grouped by node.
 	States     []State
 
 	// MultiRules is a list of all ambiguous rule entries for all states.

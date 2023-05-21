@@ -118,7 +118,7 @@ func TestHandlerKeyErrors (t *testing.T) {
 	}{
 		{Hooks{TokenHooks{"space": nil}, nil, nil}, UnknownTokenTypeError},
 		{Hooks{nil, TokenHooks{"y": nil}, nil}, UnknownTokenLiteralError},
-		{Hooks{nil, nil, NonTermHooks{"foo": nil}}, UnknownNonTermError},
+		{Hooks{nil, nil, NodeHooks{"foo": nil}}, UnknownNodeError},
 	}
 
 	for i, sample := range samples {
@@ -423,13 +423,13 @@ type nthi struct {
 	result *[]string
 }
 
-func (hi nthi) NewNonTerm (nonTerm string, token *Token) error {
-	*hi.result = append(*hi.result, hi.nt + "^" + nonTerm + token.Text())
+func (hi nthi) NewNode(node string, token *Token) error {
+	*hi.result = append(*hi.result, hi.nt + "^" +node+ token.Text())
 	return nil
 }
 
-func (hi nthi) HandleNonTerm (nonTerm string, result any) error {
-	*hi.result = append(*hi.result, hi.nt + "$" + nonTerm + result.(string))
+func (hi nthi) HandleNode(node string, result any) error {
+	*hi.result = append(*hi.result, hi.nt + "$" +node+ result.(string))
 	return nil
 }
 
@@ -438,17 +438,17 @@ func (hi nthi) HandleToken (token *Token) error {
 	return nil
 }
 
-func (hi nthi) EndNonTerm () (result any, e error) {
+func (hi nthi) EndNode() (result any, e error) {
 	*hi.result = append(*hi.result, hi.nt + ".")
 	return hi.nt, nil
 }
 
-func TestNonTermHooks (t *testing.T) {
+func TestNodeHooks (t *testing.T) {
 	result := make([]string, 0)
 	hs := Hooks{
-		NonTerms: NonTermHooks{
-			AnyNonTerm: func (nonTerm string, token *Token, pc *ParseContext) (NonTermHookInstance, error) {
-				return &nthi{nonTerm, &result}, nil
+		Nodes: NodeHooks{
+			AnyNode: func (node string, token *Token, pc *ParseContext) (NodeHookInstance, error) {
+				return &nthi{node, &result}, nil
 			},
 		},
 	}

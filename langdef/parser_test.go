@@ -88,11 +88,11 @@ func TestTokenDefined (t *testing.T) {
 	checkErrorCode(t, samples, TokenDefinedError)
 }
 
-func TestNonTerminalDefined (t *testing.T) {
+func TestNodeDefined (t *testing.T) {
 	samples := []string{
 		"foo = 'foo'; bar = 'bar'; foo = 'baz';",
 	}
-	checkErrorCode(t, samples, NonTerminalDefinedError)
+	checkErrorCode(t, samples, NodeDefinedError)
 }
 
 func TestWrongRe (t *testing.T) {
@@ -114,18 +114,18 @@ func TestWrongRe (t *testing.T) {
 	}
 }
 
-func TestUnknownNonTerminal (t *testing.T) {
+func TestUnknownNode (t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | bar;",
 	}
-	checkErrorCode(t, samples, UnknownNonTerminalError)
+	checkErrorCode(t, samples, UnknownNodeError)
 }
 
-func TestUnusedNonTerminals (t *testing.T) {
+func TestUnusedNode (t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | 'bar'; bar = baz | 'bar'; baz = 'baz';",
 	}
-	checkErrorCode(t, samples, UnusedNonTerminalError)
+	checkErrorCode(t, samples, UnusedNodeError)
 }
 
 func TestUnresolved (t *testing.T) {

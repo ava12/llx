@@ -22,8 +22,8 @@ const (
 	// literal hook for unknown literal
 	UnknownTokenLiteralError
 
-	// non-terminal hook for unknown non-terminal
-	UnknownNonTermError
+	// node hook for unknown node
+	UnknownNodeError
 )
 
 func unexpectedEofError (t *lexer.Token, expected string) *llx.Error {
@@ -50,6 +50,6 @@ func unknownTokenLiteralError (text string) *llx.Error {
 	return llx.FormatError(UnknownTokenLiteralError, "unknown literal key: %q", text)
 }
 
-func unknownNonTermError (name string) *llx.Error {
-	return llx.FormatError(UnknownNonTermError, "unknown non-terminal key: %q", name)
+func unknownNodeError (name string) *llx.Error {
+	return llx.FormatError(UnknownNodeError, "unknown node key: %q", name)
 }

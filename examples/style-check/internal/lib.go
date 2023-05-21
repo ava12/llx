@@ -139,7 +139,7 @@ func parseSource (s *source.Source) (tree.Node, error) {
 	p := parser.New(cDataGrammar)
 	hs := &parser.Hooks{
 		Tokens: parser.TokenHooks{parser.AnyToken: handleToken},
-		NonTerms: parser.NonTermHooks{parser.AnyNonTerm: tree.NonTermHook},
+		Nodes:  parser.NodeHooks{parser.AnyNode: tree.NodeHook},
 	}
 	res, e := p.Parse(q, hs)
 	if e == nil {
@@ -238,7 +238,7 @@ func isStructFieldAlign (n tree.Node) bool {
 	expectedTypes := []string{typeNt, nameNt, varDefNt, structTypeNt}
 
 	for i, nn := range nodes {
-		if nn == nil || !nn.IsNonTerm() || nn.TypeName() != expectedTypes[i] {
+		if nn == nil || !nn.IsNode() || nn.TypeName() != expectedTypes[i] {
 			return false
 		}
 	}
@@ -262,7 +262,7 @@ func reportInconsistentStructAlign (st tree.Node, rs *reports) {
 	structs := tree.NewSelector().DeepSearch(tree.IsA(structTypeNt)).Apply(st)
 
 	selector := func (n tree.Node) []tree.Node {
-		n = n.(tree.NonTermNode).FirstChild()
+		n = n.(tree.NodeNode).FirstChild()
 		for n.TypeName() != nameNt {
 			n = n.Next()
 		}

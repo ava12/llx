@@ -12,43 +12,43 @@ import (
 
 type (
 	state map[int][]grammar.Rule
-	nonTerm struct {
+	node  struct {
 		name   string
 		states []state
 	}
-	nonTerms []nonTerm
+	nodes []node
 )
 
-func checkGrammar (g *grammar.Grammar, nti nonTerms) error {
-	ntcnt := len(g.NonTerms)
+func checkGrammar (g *grammar.Grammar, nti nodes) error {
+	ntcnt := len(g.Nodes)
 	if ntcnt > len(nti) {
 		ntcnt = len(nti)
 	}
 
 	for i := 0; i < ntcnt; i++ {
-		if g.NonTerms[i].Name != nti[i].name {
-			return errors.New(fmt.Sprintf("nt #%d: %s expected, got %s", i, nti[i].name, g.NonTerms[i].Name))
+		if g.Nodes[i].Name != nti[i].name {
+			return errors.New(fmt.Sprintf("nt #%d: %s expected, got %s", i, nti[i].name, g.Nodes[i].Name))
 		}
 	}
 
-	if len(g.NonTerms) != len(nti) {
+	if len(g.Nodes) != len(nti) {
 		if len(nti) > ntcnt {
 			missing := make([]string, 0, len(nti) - ntcnt)
 			for i := ntcnt; i < len(nti); i++ {
 				missing = append(missing, nti[i].name)
 			}
-			return errors.New("missing non-terminals: " + strings.Join(missing, ", "))
+			return errors.New("missing nodes: " + strings.Join(missing, ", "))
 		} else {
-			missing := make([]string, 0, len(g.NonTerms) - ntcnt)
-			for i := ntcnt; i < len(g.NonTerms); i++ {
-				missing = append(missing, g.NonTerms[i].Name)
+			missing := make([]string, 0, len(g.Nodes) - ntcnt)
+			for i := ntcnt; i < len(g.Nodes); i++ {
+				missing = append(missing, g.Nodes[i].Name)
 			}
-			return errors.New("unexpected non-terminals: " + strings.Join(missing, ", "))
+			return errors.New("unexpected nodes: " + strings.Join(missing, ", "))
 		}
 	}
 
-	for i, nt := range g.NonTerms {
-		e := checkNonTerm(g, i, nti[i])
+	for i, nt := range g.Nodes {
+		e := checkNode(g, i, nti[i])
 		if e != nil {
 			return errors.New(nt.Name + ": " + e.Error())
 		}
@@ -57,13 +57,13 @@ func checkGrammar (g *grammar.Grammar, nti nonTerms) error {
 	return nil
 }
 
-func checkNonTerm (g *grammar.Grammar, nti int, ent nonTerm) error {
-	firstState := g.NonTerms[nti].FirstState
+func checkNode (g *grammar.Grammar, nti int, ent node) error {
+	firstState := g.Nodes[nti].FirstState
 	var lastState int
-	if nti >= len(g.NonTerms) - 1 {
+	if nti >= len(g.Nodes) - 1 {
 		lastState = len(g.States)
 	} else {
-		lastState = g.NonTerms[nti + 1].FirstState
+		lastState = g.Nodes[nti + 1].FirstState
 	}
 	states := g.States[firstState : lastState]
 
@@ -119,7 +119,7 @@ func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) 
 		if r.State >= 0 {
 			er.State += firstState
 		}
-		if r.State != er.State || r.NonTerm != er.NonTerm {
+		if r.State != er.State || r.Node != er.Node {
 			return errors.New(fmt.Sprintf("rules for %d differ: %v (expecting %v)", k, r, er))
 		}
 	}
@@ -133,7 +133,7 @@ func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) 
 		for _, er := range ers {
 			f = false
 			for _, r := range rs {
-				if r.State == er.State && r.NonTerm == er.NonTerm {
+				if r.State == er.State && r.Node == er.Node {
 					f = true
 					break
 				}
@@ -149,7 +149,7 @@ func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) 
 				if r.State >= 0 {
 					er.State += firstState
 				}
-				if r.State == er.State && r.NonTerm == er.NonTerm {
+				if r.State == er.State && r.Node == er.Node {
 					f = true
 					break
 				}
@@ -169,21 +169,21 @@ type sample struct {
 }
 
 /*
-ntsrc: nonTerm;nonTerm
-nonTerm: name:state/state
+ntsrc: node;node
+node: name:state/state
 state: rules&rules
 rules: tokenIndex=rule|rule
-rule: stateIndex,nonTermIndex
+rule: stateIndex,nodeIndex
 */
 
-func (s sample) nts () nonTerms {
+func (s sample) nts () nodes {
 	ntsrc := strings.ReplaceAll(s.ntsrc, "\n", "")
 	ntsrc = strings.ReplaceAll(ntsrc, "\r", "")
 	ntsrc = strings.ReplaceAll(ntsrc, "\t", "")
 	ntsrc = strings.ReplaceAll(ntsrc, " ", "")
 
 	ntDefs := strings.Split(ntsrc, ";")
-	result := make(nonTerms, 0, len(ntDefs))
+	result := make(nodes, 0, len(ntDefs))
 	for _, ntDef := range ntDefs {
 		ntPair := strings.Split(ntDef, ":")
 		stateDefs := strings.Split(ntPair[1], "/")
@@ -203,7 +203,7 @@ func (s sample) nts () nonTerms {
 			}
 			states = append(states, rules)
 		}
-		result = append(result, nonTerm{ntPair[0], states})
+		result = append(result, node{ntPair[0], states})
 	}
 	return result
 }

@@ -18,7 +18,7 @@ the same grammar can be used for different purposes (translators, linters, forma
 2. Parse grammar description using either langdef subpackage "on the fly"
 or llxgen utility to generate Go file.
 
-3. Define hooks to handle tokens and/or non-terminals emitted by parser.
+3. Define hooks to handle tokens and/or syntax tree nodes emitted by parser.
 
 4. Create new parser for desired grammar and feed it source files and hooks.
 

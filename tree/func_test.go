@@ -291,7 +291,7 @@ func TestAppendSibling (t *testing.T) {
 	root, i := buildTree(t, "(1st) (2nd)")
 	first := i["1st"]
 	second := i["2nd"]
-	re := &nonTermNode{}
+	re := &nodeNode{}
 
 	AppendSibling(nil, first)
 	assert(t, first.Parent() == root)
@@ -320,7 +320,7 @@ func TestPrependSibling (t *testing.T) {
 	root, i := buildTree(t, "(1st) (2nd)")
 	first := i["1st"]
 	second := i["2nd"]
-	re := &nonTermNode{}
+	re := &nodeNode{}
 
 	PrependSibling(nil, first)
 	assert(t, first.Parent() == root)
@@ -344,9 +344,9 @@ func TestPrependSibling (t *testing.T) {
 func TestAppendChild (t *testing.T) {
 	AppendChild(nil, nil)
 
-	root := &nonTermNode{}
-	re := &nonTermNode{}
-	re2 := &nonTermNode{}
+	root := &nodeNode{}
+	re := &nodeNode{}
+	re2 := &nodeNode{}
 
 	AppendChild(root, re)
 	assert(t, root.FirstChild() == re)

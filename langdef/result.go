@@ -13,14 +13,14 @@ type stateEntry struct {
 }
 
 type parseResult struct {
-	Tokens   []grammar.Token
-	NonTerms []grammar.NonTerm
-	States   []*stateEntry
-	NTIndex  nonTermIndex
+	Tokens  []grammar.Token
+	Nodes   []grammar.Node
+	States  []*stateEntry
+	NtIndex nodeIndex
 }
 
 func newParseResult () *parseResult {
-	return &parseResult{make([]grammar.Token, 0), make([]grammar.NonTerm, 0), make([]*stateEntry, 0), make(nonTermIndex)}
+	return &parseResult{make([]grammar.Token, 0), make([]grammar.Node, 0), make([]*stateEntry, 0), make(nodeIndex)}
 }
 
 func (pr *parseResult) AddState () (stateIndex int, st *stateEntry) {
@@ -32,7 +32,7 @@ func (pr *parseResult) AddState () (stateIndex int, st *stateEntry) {
 
 func (pr *parseResult) BuildGrammar () *grammar.Grammar {
 	pr.dropUnusedStates()
-	g := &grammar.Grammar{Tokens: pr.Tokens, NonTerms: pr.NonTerms, States: make([]grammar.State, len(pr.States))}
+	g := &grammar.Grammar{Tokens: pr.Tokens, Nodes: pr.Nodes, States: make([]grammar.State, len(pr.States))}
 	for si, se := range pr.States {
 		se.BuildGrammarState(g, si)
 	}
@@ -42,7 +42,7 @@ func (pr *parseResult) BuildGrammar () *grammar.Grammar {
 func (pr *parseResult) dropUnusedStates () {
 	usedStates := ints.NewSet()
 
-	for _, nt := range pr.NonTerms {
+	for _, nt := range pr.Nodes {
 		usedStates.Add(nt.FirstState)
 	}
 	for _, se := range pr.States {
@@ -69,8 +69,8 @@ func (pr *parseResult) dropUnusedStates () {
 	}
 	pr.States = pr.States[: currentIndex]
 
-	for i, nt := range pr.NonTerms {
-		pr.NonTerms[i].FirstState = newIndexes[nt.FirstState]
+	for i, nt := range pr.Nodes {
+		pr.Nodes[i].FirstState = newIndexes[nt.FirstState]
 	}
 	for _, se := range pr.States {
 		for _, rs := range se.Rules {
@@ -97,7 +97,7 @@ func (se *stateEntry) AddRule (state, nt int, tokens ... int) {
 }
 
 func (se *stateEntry) BypassRule (nextState int) {
-	se.AddRule(nextState, grammar.SameNonTerm, grammar.AnyToken)
+	se.AddRule(nextState, grammar.SameNode, grammar.AnyToken)
 }
 
 func (se * stateEntry) CopyRules (from *stateEntry) {

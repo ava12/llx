@@ -1,20 +1,22 @@
 # Universal LL(*) parser library
 
 The goal is to create a library suitable for making different parsing tools (translators, linters, style 
-checkers/formatters, etc.). It is not meant to be super-fast or to be able to process gigabyte files. Grammars are 
+checkers/formatters, etc.). It is not meant to be superfast or to be able to process gigabyte files. Grammars are 
 described in EBNF-like language, but unlike most parser generators this library does not generate _parsers_, only 
 _data_ used by the built-in parser.
 
-This README assumes that the reader is familiar with the terms like «parser», «lexer», «grammar», «token», «terminal», 
-«non-terminal».
+This README assumes that the reader is familiar with the terms like «parser», «lexer», «grammar», «token», «syntax 
+tree».
 
-Parser uses finite-state machine with a stack for non-terminals. The bottom of the stack is the root non-terminal 
-(representing the whole grammar), and the top is the current one. Non-terminal is pushed on the stack when it is 
-expanded and dropped from the stack when all tokens it was expanded to are consumed by the parser.
+Parser uses finite-state machine with a stack for syntax tree nodes. Parser itself does not keep the whole syntax 
+tree, only the node being processed and its ancestors are stored in the stack, a node is dropped as soon as parser 
+consumes all tokens forming that node and its descendants.
 
-Parser does not build parse tree by default, it allows using token and non-terminal hooks instead. A token hook is 
-triggered when a new token is read from source file. A non-terminal hook is triggered when parser starts or finishes 
-processing a non-terminal, or when a token is consumed.
+Parser allows using two types of hooks:
+
+  - token hooks are triggered when a new token is fetched from lexer;
+  - node hooks are triggered when a syntax tree node is pushed on stack or dropped, a nested node is processed or a 
+    token is consumed by parser.
 
 Usage is:
 
@@ -89,14 +91,14 @@ value = $name, '=', [$value], $nl;
 ```
 
 The parser is LL(*), no left recursion allowed. It assumes that in most cases one token lookahead is enough. When 
-parser needs a deeper lookahead, a separate parsing branch is created for each possible variant, all branches are 
-traced simultaneously (non-terminal hooks are not used), fetched tokens and applied rules for each branch are 
-memoized. When deep lookahead is needed during this process, branches are further split. Branch is discarded when 
-an error found or when the non-terminal caused initial branching is dropped from the stack (thus the variant consuming 
-the longest run of tokens will be preferred). This process is stopped when there is only one (or none) branch left, and 
-then captured tokens and rules are «replayed».
+parser needs a deeper lookahead (i.e. there are conflicting parsing rules), a separate parsing branch is created for 
+each possible variant, all branches are traced simultaneously (node hooks are not used at this stage), fetched tokens 
+and applied rules for each branch are recorded. If another conflict is found while tracing a branch that branch is 
+split again. Branch is discarded when a syntax error encountered or when the node caused initial branching is dropped 
+from the stack (thus the variant consuming the longest run of tokens will be preferred). This process is stopped 
+when there is only one (or none) branch left, and then captured tokens and rules are «replayed» using node hooks.
 
-## Goal feature list
+## Implemented features
 
   - [x] multiple sources for the same parsing process
   - [x] multiple parsers for the same source queue
@@ -104,22 +106,20 @@ then captured tokens and rules are «replayed».
   - [x] aside tokens
   - [x] external tokens
   - [x] token hooks
-  - [x] non-terminal hooks
+  - [x] node hooks
   - [x] parse tree generation and manipulation
-  - [ ] error recovery
 
-## Implemented features
 
 ### Multiple sources for the same parsing process
 
 Parser uses source queues that may contain more than one source (prologues, epilogues, included files). All sources 
 in a queue yield unified stream of tokens, there is only one limit: a token cannot span across source boundaries. 
-Every token contains a pointer to the source it originates from.
+Every token fetched from source file contains a reference to its source. Hooks may add, drop, or seek sources freely.
 
 ### Multiple parsers for the same source queue
 
 Source queue allows using multiple parsers. E.g. an HTML parser hook can process embedded style sheet with a CSS 
-parser and then continue with HTML.
+parser and then continue with HTML using the same queue.
 
 ### Multiple lexers for the same grammar
 
@@ -144,13 +144,13 @@ A token hook is a function which is called by the parser when specific (or any) 
 hook can instruct the parser whether to keep that token or to drop it. It can also insert new tokens, manipulate source 
 queue, use another parser for the next part of source, etc.
 
-### Non-terminal hooks
+### Node hooks
 
-Non-terminal hooks are functions which are called by the parser when one of four events occur during processing 
-specific (or any) non-terminals. The events are:
+Node hooks are functions which are called by the parser when one of four events occur during processing 
+specific (or any) nodes. The events are:
 
-  - new non-terminal is pushed on the stack;
-  - non-terminal is dropped from the stack; handler returns some value (can be anything) which will be passed to 
-    parent non-terminal;
+  - new node is pushed on the stack;
+  - node is dropped from the stack; handler returns some value (can be anything) which will be passed to 
+    parent node (or returned as parsing result if it is the root node);
   - new token is consumed;
-  - nested non-terminal is dropped from the stack; handler receives the value returned by nested non-terminal handler.
+  - nested node is dropped from the stack; handler receives the value returned by nested node handler.

@@ -12,19 +12,19 @@ type StringWriter interface {
 }
 
 type Node interface {
-	IsNonTerm () bool
+	IsNode () bool
 	TypeName () string
 	Token () *lexer.Token
-	Parent () NonTermNode
+	Parent () NodeNode
 	Prev () Node
 	Next () Node
-	SetParent (NonTermNode)
+	SetParent (NodeNode)
 	SetPrev (Node)
 	SetNext (Node)
 	Pos () source.Pos
 }
 
-type NonTermNode interface {
+type NodeNode interface {
 	Node
 	FirstChild () Node
 	LastChild () Node
@@ -68,11 +68,11 @@ func SiblingIndex (n Node) (i int) {
 }
 
 func NthChild (n Node, i int) Node {
-	if n == nil || !n.IsNonTerm() {
+	if n == nil || !n.IsNode() {
 		return nil
 	}
 
-	nn := n.(NonTermNode)
+	nn := n.(NodeNode)
 	var c Node
 	if i >= 0 {
 		c = nn.FirstChild()
@@ -110,11 +110,11 @@ func NthSibling (n Node, i int) Node {
 const AllLevels = -1
 
 func NumOfChildren (parent Node, levels int) int {
-	if parent == nil || !parent.IsNonTerm() {
+	if parent == nil || !parent.IsNode() {
 		return 0
 	}
 
-	c := parent.(NonTermNode).FirstChild()
+	c := parent.(NodeNode).FirstChild()
 	i := 0
 	for c != nil {
 		i++
@@ -127,12 +127,12 @@ func NumOfChildren (parent Node, levels int) int {
 }
 
 func FirstTokenNode (n Node) Node {
-	if n == nil || !n.IsNonTerm() {
+	if n == nil || !n.IsNode() {
 		return n
 	}
 
-	n = n.(NonTermNode).FirstChild()
-	for n != nil && n.IsNonTerm() {
+	n = n.(NodeNode).FirstChild()
+	for n != nil && n.IsNode() {
 		nn := FirstTokenNode(n)
 		if nn != nil {
 			return nn
@@ -145,12 +145,12 @@ func FirstTokenNode (n Node) Node {
 }
 
 func LastTokenNode (n Node) Node {
-	if n == nil || !n.IsNonTerm() {
+	if n == nil || !n.IsNode() {
 		return n
 	}
 
-	n = n.(NonTermNode).LastChild()
-	for n != nil && n.IsNonTerm() {
+	n = n.(NodeNode).LastChild()
+	for n != nil && n.IsNode() {
 		nn := LastTokenNode(n)
 		if nn != nil {
 			return nn
@@ -199,12 +199,12 @@ func PrevTokenNode (n Node) Node {
 }
 
 func Children (n Node) []Node {
-	if n == nil || !n.IsNonTerm() {
+	if n == nil || !n.IsNode() {
 		return nil
 	}
 
 	res := make([]Node, 0)
-	c := n.(NonTermNode).FirstChild()
+	c := n.(NodeNode).FirstChild()
 	for c != nil {
 		res = append(res, c)
 		c = c.Next()
@@ -274,7 +274,7 @@ func PrependSibling (next, node Node) {
 	}
 }
 
-func AppendChild (parent NonTermNode, node Node) {
+func AppendChild (parent NodeNode, node Node) {
 	if parent == nil || node == nil {
 		return
 	}
@@ -324,11 +324,11 @@ func (it *Iterator) Step (f WalkerFlags) Node {
 
 	n := it.current
 	rtl := (it.mode & WalkRtl) != 0
-	if n.IsNonTerm() && (f & WalkerSkipChildren) == 0 {
+	if n.IsNode() && (f & WalkerSkipChildren) == 0 {
 		if rtl {
-			n = n.(NonTermNode).LastChild()
+			n = n.(NodeNode).LastChild()
 		} else {
-			n = n.(NonTermNode).FirstChild()
+			n = n.(NodeNode).FirstChild()
 		}
 		if n != nil {
 			it.pushFlags(f)
@@ -554,7 +554,7 @@ func IsA (names ... string) NodeFilter {
 
 func IsALiteral (texts ... string) NodeFilter {
 	return func (n Node) bool {
-		if n.IsNonTerm() {
+		if n.IsNode() {
 			return false
 		}
 
@@ -656,7 +656,7 @@ func NthSiblings (indexes ... int) NodeExtractor {
 
 
 type tokenNode struct {
-	parent     NonTermNode
+	parent     NodeNode
 	prev, next Node
 	token      *lexer.Token
 }
@@ -665,7 +665,7 @@ func NewTokenNode (t *lexer.Token) Node {
 	return &tokenNode{token: t}
 }
 
-func (tn *tokenNode) IsNonTerm () bool {
+func (tn *tokenNode) IsNode() bool {
 	return false
 }
 
@@ -673,7 +673,7 @@ func (tn *tokenNode) TypeName () string {
 	return tn.token.TypeName()
 }
 
-func (tn *tokenNode) Parent () NonTermNode {
+func (tn *tokenNode) Parent () NodeNode {
 	return tn.parent
 }
 
@@ -693,7 +693,7 @@ func (tn *tokenNode) Token () *lexer.Token {
 	return tn.token
 }
 
-func (tn *tokenNode) SetParent (p NonTermNode) {
+func (tn *tokenNode) SetParent (p NodeNode) {
 	tn.parent = p
 }
 
@@ -705,55 +705,55 @@ func (tn *tokenNode) SetNext (n Node) {
 	tn.next = n
 }
 
-type nonTermNode struct {
+type nodeNode struct {
 	typeName              string
 	token                 *lexer.Token
-	parent                NonTermNode
+	parent                NodeNode
 	prev, next            Node
 	firstChild, lastChild Node
 }
 
-func NewNonTermNode (typeName string, tok *lexer.Token) NonTermNode {
-	return &nonTermNode{typeName: typeName, token: tok}
+func NewNodeNode (typeName string, tok *lexer.Token) NodeNode {
+	return &nodeNode{typeName: typeName, token: tok}
 }
 
-func (ntn *nonTermNode) IsNonTerm () bool {
+func (ntn *nodeNode) IsNode() bool {
 	return true
 }
 
-func (ntn *nonTermNode) TypeName () string {
+func (ntn *nodeNode) TypeName () string {
 	return ntn.typeName
 }
 
-func (ntn *nonTermNode) Token () *lexer.Token {
+func (ntn *nodeNode) Token () *lexer.Token {
 	return ntn.token
 }
 
-func (ntn *nonTermNode) Parent () NonTermNode {
+func (ntn *nodeNode) Parent () NodeNode {
 	return ntn.parent
 }
 
-func (ntn *nonTermNode) FirstChild () Node {
+func (ntn *nodeNode) FirstChild () Node {
 	return ntn.firstChild
 }
 
-func (ntn *nonTermNode) LastChild () Node {
+func (ntn *nodeNode) LastChild () Node {
 	return ntn.lastChild
 }
 
-func (ntn *nonTermNode) Prev () Node {
+func (ntn *nodeNode) Prev () Node {
 	return ntn.prev
 }
 
-func (ntn *nonTermNode) Next () Node {
+func (ntn *nodeNode) Next () Node {
 	return ntn.next
 }
 
-func (ntn *nonTermNode) SetParent (p NonTermNode) {
+func (ntn *nodeNode) SetParent (p NodeNode) {
 	ntn.parent = p
 }
 
-func (ntn *nonTermNode) AddChild (c, before Node) {
+func (ntn *nodeNode) AddChild (c, before Node) {
 	if c == nil || (before != nil && before.Parent() != ntn) {
 		return
 	}
@@ -781,7 +781,7 @@ func (ntn *nonTermNode) AddChild (c, before Node) {
 	}
 }
 
-func (ntn *nonTermNode) RemoveChild (c Node) {
+func (ntn *nodeNode) RemoveChild (c Node) {
 	if c == nil || c.Parent() != ntn {
 		return
 	}
@@ -803,15 +803,15 @@ func (ntn *nonTermNode) RemoveChild (c Node) {
 	}
 }
 
-func (ntn *nonTermNode) SetPrev (p Node) {
+func (ntn *nodeNode) SetPrev (p Node) {
 	ntn.prev = p
 }
 
-func (ntn *nonTermNode) SetNext (n Node) {
+func (ntn *nodeNode) SetNext (n Node) {
 	ntn.next = n
 }
 
-func (ntn *nonTermNode) Pos () source.Pos {
+func (ntn *nodeNode) Pos () source.Pos {
 	if ntn.firstChild == nil {
 		return source.Pos{}
 	} else {
@@ -820,21 +820,21 @@ func (ntn *nonTermNode) Pos () source.Pos {
 }
 
 type HookInstance struct {
-	node NonTermNode
+	node NodeNode
 }
 
 func NewHookInstance (typeName string, tok *lexer.Token) *HookInstance {
-	return &HookInstance{NewNonTermNode(typeName, tok)}
+	return &HookInstance{NewNodeNode(typeName, tok)}
 }
 
-func (hi *HookInstance) NewNonTerm (nonTerm string, token *lexer.Token) error {
+func (hi *HookInstance) NewNode(node string, token *lexer.Token) error {
 	return nil
 }
 
-func (hi *HookInstance) HandleNonTerm (nonTerm string, result interface{}) error {
+func (hi *HookInstance) HandleNode(name string, result interface{}) error {
 	node, is := result.(Node)
 	if !is {
-		return errors.New("non-terminal " + nonTerm + " is not a tree.Node")
+		return errors.New("node " + name + " is not a tree.Node")
 	}
 
 	hi.node.AddChild(node, nil)
@@ -846,10 +846,10 @@ func (hi *HookInstance) HandleToken (token *lexer.Token) error {
 	return nil
 }
 
-func (hi *HookInstance) EndNonTerm () (result interface{}, e error) {
+func (hi *HookInstance) EndNode() (result interface{}, e error) {
 	return hi.node, nil
 }
 
-func NonTermHook (nonTerm string, tok *lexer.Token, pc *parser.ParseContext) (parser.NonTermHookInstance, error) {
-	return NewHookInstance(nonTerm, tok), nil
+func NodeHook (node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
+	return NewHookInstance(node, tok), nil
 }
