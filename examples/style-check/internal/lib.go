@@ -134,7 +134,7 @@ func CheckFile (name string) ([]ReportLine, error) {
 	return Check(source.New(name, content))
 }
 
-func parseSource (s *source.Source) (tree.Node, error) {
+func parseSource (s *source.Source) (tree.Element, error) {
 	q := source.NewQueue().Append(s)
 	p := parser.New(cDataGrammar)
 	hs := &parser.Hooks{
@@ -143,7 +143,7 @@ func parseSource (s *source.Source) (tree.Node, error) {
 	}
 	res, e := p.Parse(q, hs)
 	if e == nil {
-		return res.(tree.Node), nil
+		return res.(tree.Element), nil
 	} else {
 		return nil, e
 	}
@@ -158,10 +158,10 @@ func handleToken (token *lexer.Token, pc *parser.ParseContext) (emit bool, e err
 	return (tn != commentType), nil
 }
 
-func inspectCode (st tree.Node) *reports {
+func inspectCode (st tree.Element) *reports {
 	res := newReports()
 
-	checks := []func (tree.Node, *reports){
+	checks := []func (tree.Element, *reports){
 		reportNoFinalNl,
 		reportMultipleSpaces,
 		reportIncorrectSpaces,
@@ -179,8 +179,8 @@ func inspectCode (st tree.Node) *reports {
 	return res
 }
 
-func reportNoFinalNl (st tree.Node, rs *reports) {
-	lt := tree.LastTokenNode(st).Token()
+func reportNoFinalNl (st tree.Element, rs *reports) {
+	lt := tree.LastTokenElement(st).Token()
 	if lt.TypeName() != indentType {
 		line := lt.Line()
 		col := lt.Col() + len(lt.Text())
@@ -188,8 +188,8 @@ func reportNoFinalNl (st tree.Node, rs *reports) {
 	}
 }
 
-func reportTabs (st tree.Node, rs *reports) {
-	hasTab := func (n tree.Node) bool {
+func reportTabs (st tree.Element, rs *reports) {
+	hasTab := func (n tree.Element) bool {
 		return strings.ContainsAny(n.Token().Text(), "\t")
 	}
 	sel := tree.NewSelector().
@@ -200,8 +200,8 @@ func reportTabs (st tree.Node, rs *reports) {
 	}
 }
 
-func reportTrailingSpaces (st tree.Node, rs *reports) {
-	indentFollows := func (n tree.Node) bool {
+func reportTrailingSpaces (st tree.Element, rs *reports) {
+	indentFollows := func (n tree.Element) bool {
 		nn := n.Next()
 		return (nn == nil || nn.TypeName() == indentType)
 	}
@@ -223,13 +223,13 @@ func reportTrailingSpaces (st tree.Node, rs *reports) {
 	}
 }
 
-func isStructFieldAlign (n tree.Node) bool {
+func isStructFieldAlign (n tree.Element) bool {
 	parent := n.Parent()
 	if parent == nil {
 		return false
 	}
 
-	nodes := []tree.Node{
+	nodes := []tree.Element{
 		n.Prev(),
 		n.Next(),
 		parent,
@@ -245,7 +245,7 @@ func isStructFieldAlign (n tree.Node) bool {
 	return true
 }
 
-func reportMultipleSpaces (st tree.Node, rs *reports) {
+func reportMultipleSpaces (st tree.Element, rs *reports) {
 	sel := tree.NewSelector().
 		Search(tree.IsA(spaceType)).
 		Filter(tree.IsNot(
@@ -258,15 +258,15 @@ func reportMultipleSpaces (st tree.Node, rs *reports) {
 	}
 }
 
-func reportInconsistentStructAlign (st tree.Node, rs *reports) {
+func reportInconsistentStructAlign (st tree.Element, rs *reports) {
 	structs := tree.NewSelector().DeepSearch(tree.IsA(structTypeNt)).Apply(st)
 
-	selector := func (n tree.Node) []tree.Node {
-		n = n.(tree.NodeNode).FirstChild()
+	selector := func (n tree.Element) []tree.Element {
+		n = n.(tree.NodeElement).FirstChild()
 		for n.TypeName() != nameNt {
 			n = n.Next()
 		}
-		return []tree.Node{n}
+		return []tree.Element{n}
 	}
 
 	nameSelector := tree.NewSelector().Search(tree.IsA(varDefNt)).Extract(selector)
@@ -277,18 +277,18 @@ func reportInconsistentStructAlign (st tree.Node, rs *reports) {
 			continue
 		}
 
-		defaultCol := tree.FirstTokenNode(names[0]).Token().Col()
+		defaultCol := tree.FirstTokenElement(names[0]).Token().Col()
 		for i := 1; i < len(names); i++ {
-			col := tree.FirstTokenNode(names[i]).Token().Col()
+			col := tree.FirstTokenElement(names[i]).Token().Col()
 			if col != defaultCol {
-				rs.reportToken(tree.FirstTokenNode(names[i]).Token(), ErrAlign)
+				rs.reportToken(tree.FirstTokenElement(names[i]).Token(), ErrAlign)
 				break
 			}
 		}
 	}
 }
 
-func reportIncorrectSpaces (st tree.Node, rs *reports) {
+func reportIncorrectSpaces (st tree.Element, rs *reports) {
 	messages := [2]string{ErrNoSpace, ErrWrongSpace}
 	ops := tree.NewSelector().Search(tree.IsA(opType)).Apply(st)
 
@@ -300,8 +300,8 @@ func reportIncorrectSpaces (st tree.Node, rs *reports) {
 	)
 
 	for _, n := range ops {
-		prev := tree.PrevTokenNode(n)
-		next := tree.NextTokenNode(n)
+		prev := tree.PrevTokenElement(n)
+		next := tree.NextTokenElement(n)
 		flags := 0
 		if prev != nil && prev.TypeName() == spaceType {
 			flags |= (gotLead | wrongLead)
@@ -337,27 +337,27 @@ func reportIncorrectSpaces (st tree.Node, rs *reports) {
 	}
 }
 
-func reportLiteralStructs (st tree.Node, rs *reports) {
+func reportLiteralStructs (st tree.Element, rs *reports) {
 	literalStructs := tree.NewSelector().
 		DeepSearch(tree.IsA(varDefNt)).
 		Search(tree.IsA(structTypeNt)).
 		Apply(st)
 
 	for _, n := range literalStructs {
-		rs.reportToken(tree.FirstTokenNode(n).Token(), ErrLiteral)
+		rs.reportToken(tree.FirstTokenElement(n).Token(), ErrLiteral)
 	}
 }
 
-func reportIncorrectIndents (st tree.Node, rs *reports) {
+func reportIncorrectIndents (st tree.Element, rs *reports) {
 	indentItems := []string{varDefNt, typeDefNt}
 	indentContainers := []string{rootNt, structTypeNt}
 
-	blockIndentSize := func (n tree.Node) (size int, firstOnLine bool) {
+	blockIndentSize := func (n tree.Element) (size int, firstOnLine bool) {
 		firstOnLine = true
-		p := tree.PrevTokenNode(n)
+		p := tree.PrevTokenElement(n)
 		for p != nil && p.TypeName() != indentType {
 			firstOnLine = false
-			p = tree.PrevTokenNode(p)
+			p = tree.PrevTokenElement(p)
 		}
 
 		if p == nil {
@@ -388,12 +388,12 @@ func reportIncorrectIndents (st tree.Node, rs *reports) {
 		for _, item := range items {
 			indent, isFirst := blockIndentSize(item)
 			if !isFirst {
-				rs.reportToken(tree.FirstTokenNode(item).Token(), ErrSameLine)
+				rs.reportToken(tree.FirstTokenElement(item).Token(), ErrSameLine)
 				continue
 			}
 
 			if indent != expectedIndent {
-				rs.reportToken(tree.FirstTokenNode(item).Token(), ErrIndent)
+				rs.reportToken(tree.FirstTokenElement(item).Token(), ErrIndent)
 				break
 			}
 		}

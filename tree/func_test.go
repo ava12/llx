@@ -117,36 +117,36 @@ func TestNumOfChildren (t *testing.T) {
 	assert(t, NumOfChildren(leaf, 0) == 0)
 }
 
-func TestFirstTokenNode (t *testing.T) {
-	assert (t, FirstTokenNode(nil) == nil)
+func TestFirstTokenElement (t *testing.T) {
+	assert (t, FirstTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd leaf other)")
 	first := i["1st"]
 	second := i["2nd"]
 	leaf := i["leaf"]
 
-	assert(t, FirstTokenNode(root) == leaf)
-	assert(t, FirstTokenNode(first) == nil)
-	assert(t, FirstTokenNode(second) == leaf)
-	assert(t, FirstTokenNode(leaf) == leaf)
+	assert(t, FirstTokenElement(root) == leaf)
+	assert(t, FirstTokenElement(first) == nil)
+	assert(t, FirstTokenElement(second) == leaf)
+	assert(t, FirstTokenElement(leaf) == leaf)
 }
 
-func TestLastTokenNode (t *testing.T) {
-	assert (t, LastTokenNode(nil) == nil)
+func TestLastTokenElement (t *testing.T) {
+	assert (t, LastTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd leaf other)")
 	first := i["1st"]
 	second := i["2nd"]
 	other := i["other"]
 
-	assert(t, LastTokenNode(root) == other)
-	assert(t, LastTokenNode(first) == nil)
-	assert(t, LastTokenNode(second) == other)
-	assert(t, LastTokenNode(other) == other)
+	assert(t, LastTokenElement(root) == other)
+	assert(t, LastTokenElement(first) == nil)
+	assert(t, LastTokenElement(second) == other)
+	assert(t, LastTokenElement(other) == other)
 }
 
-func TestNextTokenNode(t *testing.T) {
-	assert(t, NextTokenNode(nil) == nil)
+func TestNextTokenElement (t *testing.T) {
+	assert(t, NextTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd (nested foo bar)) (3rd baz)")
 	first := i["1st"]
@@ -156,17 +156,17 @@ func TestNextTokenNode(t *testing.T) {
 	bar := i["bar"]
 	baz := i["baz"]
 
-	assert(t, NextTokenNode(root) == nil)
-	assert(t, NextTokenNode(first) == foo)
-	assert(t, NextTokenNode(second) == baz)
-	assert(t, NextTokenNode(third) == nil)
-	assert(t, NextTokenNode(foo) == bar)
-	assert(t, NextTokenNode(bar) == baz)
-	assert(t, NextTokenNode(baz) == nil)
+	assert(t, NextTokenElement(root) == nil)
+	assert(t, NextTokenElement(first) == foo)
+	assert(t, NextTokenElement(second) == baz)
+	assert(t, NextTokenElement(third) == nil)
+	assert(t, NextTokenElement(foo) == bar)
+	assert(t, NextTokenElement(bar) == baz)
+	assert(t, NextTokenElement(baz) == nil)
 }
 
-func TestPrevTokenNode(t *testing.T) {
-	assert(t, NextTokenNode(nil) == nil)
+func TestPrevTokenElement (t *testing.T) {
+	assert(t, NextTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st foo) (2nd (nested bar baz)) (3rd)")
 	first := i["1st"]
@@ -176,13 +176,13 @@ func TestPrevTokenNode(t *testing.T) {
 	bar := i["bar"]
 	baz := i["baz"]
 
-	assert(t, PrevTokenNode(root) == nil)
-	assert(t, PrevTokenNode(first) == nil)
-	assert(t, PrevTokenNode(second) == foo)
-	assert(t, PrevTokenNode(third) == baz)
-	assert(t, PrevTokenNode(foo) == nil)
-	assert(t, PrevTokenNode(bar) == foo)
-	assert(t, PrevTokenNode(baz) == bar)
+	assert(t, PrevTokenElement(root) == nil)
+	assert(t, PrevTokenElement(first) == nil)
+	assert(t, PrevTokenElement(second) == foo)
+	assert(t, PrevTokenElement(third) == baz)
+	assert(t, PrevTokenElement(foo) == nil)
+	assert(t, PrevTokenElement(bar) == foo)
+	assert(t, PrevTokenElement(baz) == bar)
 }
 
 func TestChildren (t *testing.T) {
@@ -291,7 +291,7 @@ func TestAppendSibling (t *testing.T) {
 	root, i := buildTree(t, "(1st) (2nd)")
 	first := i["1st"]
 	second := i["2nd"]
-	re := &nodeNode{}
+	re := &nodeElement{}
 
 	AppendSibling(nil, first)
 	assert(t, first.Parent() == root)
@@ -320,7 +320,7 @@ func TestPrependSibling (t *testing.T) {
 	root, i := buildTree(t, "(1st) (2nd)")
 	first := i["1st"]
 	second := i["2nd"]
-	re := &nodeNode{}
+	re := &nodeElement{}
 
 	PrependSibling(nil, first)
 	assert(t, first.Parent() == root)
@@ -344,9 +344,9 @@ func TestPrependSibling (t *testing.T) {
 func TestAppendChild (t *testing.T) {
 	AppendChild(nil, nil)
 
-	root := &nodeNode{}
-	re := &nodeNode{}
-	re2 := &nodeNode{}
+	root := &nodeElement{}
+	re := &nodeElement{}
+	re2 := &nodeElement{}
 
 	AppendChild(root, re)
 	assert(t, root.FirstChild() == re)

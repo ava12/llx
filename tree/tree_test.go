@@ -17,7 +17,7 @@ const treeGrammarDef = "!aside $space; $space = /\\s+/; " +
 	"tree-def = {$name | $string | nt}; nt = '(', $name, {$name | $string | nt}, ')';"
 
 type treeDefHook struct {
-	nt *nodeNode
+	nt *nodeElement
 	gotName bool
 }
 
@@ -26,7 +26,7 @@ func (h *treeDefHook) NewNode (node string, token *lexer.Token) error {
 }
 
 func (h *treeDefHook) HandleNode (node string, result interface{}) error {
-	h.nt.AddChild(result.(Node), nil)
+	h.nt.AddChild(result.(Element), nil)
 	return nil
 }
 
@@ -34,7 +34,7 @@ func (h *treeDefHook) HandleToken (token *lexer.Token) error {
 	t := token.Text()
 	if t != "(" && t != ")" {
 		if h.gotName {
-			h.nt.AddChild(NewTokenNode(token), nil)
+			h.nt.AddChild(NewTokenElement(token), nil)
 		} else {
 			h.nt.typeName = t
 			h.gotName = true
@@ -48,7 +48,7 @@ func (h *treeDefHook) EndNode() (result interface{}, e error) {
 }
 
 func newTreeDefHook (node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
-	return &treeDefHook{nt: &nodeNode{token: tok}, gotName: (node == "tree-def")}, nil
+	return &treeDefHook{nt: &nodeElement{token: tok}, gotName: (node == "tree-def")}, nil
 }
 
 var (
@@ -73,7 +73,7 @@ func init () {
 	treeParser = parser.New(g)
 }
 
-func serialize (root NodeNode) string {
+func serialize (root NodeElement) string {
 	if root == nil {
 		return ""
 	}
@@ -87,13 +87,13 @@ func serialize (root NodeNode) string {
 	}
 }
 
-func serializeSiblings (n Node, b *strings.Builder) {
+func serializeSiblings (n Element, b *strings.Builder) {
 	for n != nil {
 		if !n.IsNode() {
 			b.WriteString(" " + n.Token().Text())
 		} else {
 			b.WriteString(" (" + n.TypeName())
-			serializeSiblings(n.(NodeNode).FirstChild(), b)
+			serializeSiblings(n.(NodeElement).FirstChild(), b)
 			b.WriteString(")")
 		}
 		n = n.Next()
@@ -111,7 +111,7 @@ func checkParsingSample (t *testing.T, p *parser.Parser, sampleNo int, s parsing
 		return
 	}
 
-	got := serialize(root.(NodeNode))
+	got := serialize(root.(NodeElement))
 	if got != s.expected {
 		t.Errorf("parsingSample #%d: %q expected, got %q", sampleNo, s.expected, got)
 	}
@@ -150,7 +150,7 @@ func TestParsing (t *testing.T) {
 	checkParsing(t, grammar, samples)
 }
 
-func parseTreeDescription (t *testing.T, src string) NodeNode {
+func parseTreeDescription (t *testing.T, src string) NodeElement {
 	if treeParser == nil {
 		t.Fatal("cannot parse tree")
 	}
@@ -160,13 +160,13 @@ func parseTreeDescription (t *testing.T, src string) NodeNode {
 		t.Fatal("error: " + e.Error())
 	}
 
-	return res.(NodeNode)
+	return res.(NodeElement)
 }
 
-func buildTree (t *testing.T, src string) (NodeNode, map[string]Node) {
+func buildTree (t *testing.T, src string) (NodeElement, map[string]Element) {
 	root := parseTreeDescription(t, src)
-	index := make(map[string]Node)
-	Walk(root, WalkLtr, func (n Node) WalkerFlags {
+	index := make(map[string]Element)
+	Walk(root, WalkLtr, func (n Element) WalkerFlags {
 		if n.IsNode() {
 			index[n.TypeName()] = n
 		} else {
@@ -212,14 +212,14 @@ func TestIterator (t *testing.T) {
 	assert(t, it.Step(WalkerSkipSiblings) == nil)
 }
 
-func matchNodes (t *testing.T, expected string, ns ... Node) {
-	root := NewNodeNode("", nil)
+func matchNodes (t *testing.T, expected string, ns ...Element) {
+	root := NewNodeElement("", nil)
 	for _, n := range ns {
 		if n.IsNode() {
-			ntn := n.(NodeNode)
-			root.AddChild(&nodeNode{typeName: ntn.TypeName()}, nil)
+			ntn := n.(NodeElement)
+			root.AddChild(&nodeElement{typeName: ntn.TypeName()}, nil)
 		} else {
-			root.AddChild(&tokenNode{token: n.Token()}, nil)
+			root.AddChild(&tokenElement{token: n.Token()}, nil)
 		}
 	}
 	got := serialize(root)
@@ -234,8 +234,8 @@ func TestWalkSkipChildren (t *testing.T) {
 	expectedLtr := "() (foo) (f1) f2 (bar) b1 (baz)"
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1)"
 	root := parseTreeDescription(t, src)
-	nodes := make([]Node, 0)
-	f := func (n Node) (flags WalkerFlags) {
+	nodes := make([]Element, 0)
+	f := func (n Element) (flags WalkerFlags) {
 		nodes = append(nodes, n)
 		if NodeLevel(n) >= 2 {
 			flags = WalkerSkipChildren
@@ -256,8 +256,8 @@ func TestWalkSkipSiblings (t *testing.T) {
 	expectedLtr := "() (foo) f0 (f1) (f11) f111 (bar) b1 (baz)"
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1) (f11) f111"
 	root := parseTreeDescription(t, src)
-	nodes := make([]Node, 0)
-	f := func (n Node) (flags WalkerFlags) {
+	nodes := make([]Element, 0)
+	f := func (n Element) (flags WalkerFlags) {
 		nodes = append(nodes, n)
 		if n.TypeName() == "f1" {
 			flags = WalkerSkipSiblings
@@ -278,8 +278,8 @@ func TestWalkStop (t *testing.T) {
 	expectedLtr := "() (foo) f0 (f1)"
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1)"
 	root := parseTreeDescription(t, src)
-	nodes := make([]Node, 0)
-	f := func (n Node) (flags WalkerFlags) {
+	nodes := make([]Element, 0)
+	f := func (n Element) (flags WalkerFlags) {
 		nodes = append(nodes, n)
 		if n.TypeName() == "f1" {
 			flags = WalkerStop
@@ -296,16 +296,16 @@ func TestWalkStop (t *testing.T) {
 }
 
 func TestTransformer (t *testing.T) {
-	ntn := &nodeNode{typeName: "foo"}
-	tn := &tokenNode{token: lexer.NewToken(0, "bar", "BAR", source.Pos{})}
-	nodes := []Node{nil, ntn, nil, tn, nil, ntn, nil}
+	ntn := &nodeElement{typeName: "foo"}
+	tn := &tokenElement{token: lexer.NewToken(0, "bar", "BAR", source.Pos{})}
+	nodes := []Element{nil, ntn, nil, tn, nil, ntn, nil}
 	got := NewSelector().Apply(nodes ...)
 	assert(t, len(got) == 2)
 	matchNodes(t, "(foo) BAR", got ...)
 }
 
 func TestTransform (t *testing.T) {
-	f := func (n Node) []Node {
+	f := func (n Element) []Element {
 		if n.IsNode() {
 			return Children(n)
 		} else {
@@ -332,7 +332,7 @@ func TestTransform (t *testing.T) {
 }
 
 func TestFilter (t *testing.T) {
-	f := func (n Node) bool {
+	f := func (n Element) bool {
 		return (NumOfChildren(n, 0) == 1)
 	}
 
@@ -345,7 +345,7 @@ func TestFilter (t *testing.T) {
 }
 
 func TestSelect (t *testing.T) {
-	f := func (n Node) []Node {
+	f := func (n Element) []Element {
 		return Children(n)
 	}
 
@@ -358,7 +358,7 @@ func TestSelect (t *testing.T) {
 }
 
 func TestSearch (t *testing.T) {
-	f := func (n Node) bool {
+	f := func (n Element) bool {
 		return (NumOfChildren(n, 0) == 1)
 	}
 
@@ -373,43 +373,43 @@ func TestSearch (t *testing.T) {
 }
 
 func TestIsNot (t *testing.T) {
-	f := func (n Node) bool {
+	f := func (n Element) bool {
 		return n.IsNode()
 	}
 	ff := IsNot(f)
-	tn := tokenNode{}
-	ntn := nodeNode{}
+	tn := tokenElement{}
+	ntn := nodeElement{}
 	assert(t, ff(&tn))
 	assert(t, !ff(&ntn))
 }
 
 func TestIsAny (t *testing.T) {
-	f1 := func (n Node) bool {
+	f1 := func (n Element) bool {
 		return !n.IsNode()
 	}
-	f2 := func (n Node) bool {
+	f2 := func (n Element) bool {
 		return (NumOfChildren(n, 0) == 0)
 	}
 	ff := IsAny(f1, f2)
-	tn := tokenNode{}
-	nt := nodeNode{}
-	ntn := nodeNode{firstChild: &nt}
+	tn := tokenElement{}
+	nt := nodeElement{}
+	ntn := nodeElement{firstChild: &nt}
 	assert(t, ff(&tn))
 	assert(t, ff(&nt))
 	assert(t, !ff(&ntn))
 }
 
 func TestIsAll (t *testing.T) {
-	f1 := func (n Node) bool {
+	f1 := func (n Element) bool {
 		return n.IsNode()
 	}
-	f2 := func (n Node) bool {
+	f2 := func (n Element) bool {
 		return (NumOfChildren(n, 0) > 0)
 	}
 	ff := IsAll(f1, f2)
-	tn := tokenNode{}
-	nt := nodeNode{}
-	ntn := nodeNode{firstChild: &nt}
+	tn := tokenElement{}
+	nt := nodeElement{}
+	ntn := nodeElement{firstChild: &nt}
 	assert(t, !ff(&tn))
 	assert(t, !ff(&nt))
 	assert(t, ff(&ntn))
@@ -417,10 +417,10 @@ func TestIsAll (t *testing.T) {
 
 func TestIsA (t *testing.T) {
 	ff := IsA("foo", "qux")
-	tn0 := tokenNode{token: lexer.NewToken(1, "bar", "foo", source.Pos{})}
-	tn1 := tokenNode{token: lexer.NewToken(2, "foo", "", source.Pos{})}
-	nt0 := nodeNode{typeName: "baz"}
-	nt1 := nodeNode{typeName: "qux"}
+	tn0 := tokenElement{token: lexer.NewToken(1, "bar", "foo", source.Pos{})}
+	tn1 := tokenElement{token: lexer.NewToken(2, "foo", "", source.Pos{})}
+	nt0 := nodeElement{typeName: "baz"}
+	nt1 := nodeElement{typeName: "qux"}
 	assert(t, ff(&tn1))
 	assert(t, !ff(&tn0))
 	assert(t, ff(&nt1))
@@ -429,10 +429,10 @@ func TestIsA (t *testing.T) {
 
 func TestIsALiteral (t *testing.T) {
 	ff := IsALiteral("foo", "qux")
-	tn0 := tokenNode{token: lexer.NewToken(1, "foo", "bar", source.Pos{})}
-	tn1 := tokenNode{token: lexer.NewToken(2, "bar", "foo", source.Pos{})}
-	tn2 := tokenNode{token: lexer.NewToken(3, "baz", "qux", source.Pos{})}
-	nt := nodeNode{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", source.Pos{})}
+	tn0 := tokenElement{token: lexer.NewToken(1, "foo", "bar", source.Pos{})}
+	tn1 := tokenElement{token: lexer.NewToken(2, "bar", "foo", source.Pos{})}
+	tn2 := tokenElement{token: lexer.NewToken(3, "baz", "qux", source.Pos{})}
+	nt := nodeElement{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", source.Pos{})}
 	assert(t, !ff(&tn0))
 	assert(t, ff(&tn1))
 	assert(t, ff(&tn2))
@@ -465,22 +465,22 @@ func TestHas (t *testing.T) {
 }
 
 func TestAny (t *testing.T) {
-	empty := func (n Node) []Node {
+	empty := func (n Element) []Element {
 		return nil
 	}
-	ident := func (n Node) []Node {
-		return []Node{n}
+	ident := func (n Element) []Element {
+		return []Element{n}
 	}
-	ans := func (n Node) []Node {
+	ans := func (n Element) []Element {
 		res := Ancestor(n, 0)
 		if res == nil {
 			return nil
 		} else {
-			return []Node{res}
+			return []Element{res}
 		}
 	}
-	parent := nodeNode{typeName: "foo"}
-	child := nodeNode{typeName: "bar", parent: &parent}
+	parent := nodeElement{typeName: "foo"}
+	child := nodeElement{typeName: "bar", parent: &parent}
 
 	matchNodes(t, "(foo)", Any(ans, ident)(&child) ...)
 	matchNodes(t, "(foo)", Any(ans, ident)(&parent) ...)
@@ -488,22 +488,22 @@ func TestAny (t *testing.T) {
 }
 
 func TestAll (t *testing.T) {
-	empty := func (n Node) []Node {
+	empty := func (n Element) []Element {
 		return nil
 	}
-	ident := func (n Node) []Node {
-		return []Node{n}
+	ident := func (n Element) []Element {
+		return []Element{n}
 	}
-	ans := func (n Node) []Node {
+	ans := func (n Element) []Element {
 		res := Ancestor(n, 0)
 		if res == nil {
 			return nil
 		} else {
-			return []Node{res}
+			return []Element{res}
 		}
 	}
-	parent := nodeNode{typeName: "foo"}
-	child := nodeNode{typeName: "bar", parent: &parent}
+	parent := nodeElement{typeName: "foo"}
+	child := nodeElement{typeName: "bar", parent: &parent}
 
 	matchNodes(t, "(foo) (bar)", All(ans, ident)(&child) ...)
 	matchNodes(t, "(foo)", Any(ans, ident)(&parent) ...)
@@ -512,10 +512,10 @@ func TestAll (t *testing.T) {
 }
 
 func TestAncestors (t *testing.T) {
-	foo := nodeNode{typeName: "foo"}
-	bar := nodeNode{typeName: "bar", parent: &foo}
-	baz := nodeNode{typeName: "baz", parent: &bar}
-	qux := nodeNode{typeName: "qux", parent: &baz}
+	foo := nodeElement{typeName: "foo"}
+	bar := nodeElement{typeName: "bar", parent: &foo}
+	baz := nodeElement{typeName: "baz", parent: &bar}
+	qux := nodeElement{typeName: "qux", parent: &baz}
 	f := Ancestors(1, 2, 0)
 
 	matchNodes(t, "", f(&foo) ...)

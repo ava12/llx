@@ -4,11 +4,11 @@ import (
 	"testing"
 )
 
-func TestNodeNode_AddChild (t *testing.T) {
-	ntn := &nodeNode{}
-	tn1 := &tokenNode{}
-	tn2 := &tokenNode{}
-	tn3 := &tokenNode{}
+func TestNodeElement_AddChild (t *testing.T) {
+	ntn := &nodeElement{}
+	tn1 := &tokenElement{}
+	tn2 := &tokenElement{}
+	tn3 := &tokenElement{}
 
 	ntn.AddChild(tn1, nil)
 	assert(t, tn1.parent == ntn)
@@ -41,11 +41,11 @@ func TestNodeNode_AddChild (t *testing.T) {
 	assert(t, tn2.prev == tn3)
 }
 
-func TestNodeNode_RemoveChild (t *testing.T) {
-	ntn := &nodeNode{}
-	tn1 := &tokenNode{}
-	tn2 := &tokenNode{}
-	tn3 := &tokenNode{}
+func TestNodeElement_RemoveChild (t *testing.T) {
+	ntn := &nodeElement{}
+	tn1 := &tokenElement{}
+	tn2 := &tokenElement{}
+	tn3 := &tokenElement{}
 
 	ntn.AddChild(tn1, nil)
 	ntn.RemoveChild(nil)

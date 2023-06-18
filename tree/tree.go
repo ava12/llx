@@ -7,33 +7,29 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-type StringWriter interface {
-	WriteString (string) (int, error)
-}
-
-type Node interface {
+type Element interface {
 	IsNode () bool
 	TypeName () string
 	Token () *lexer.Token
-	Parent () NodeNode
-	Prev () Node
-	Next () Node
-	SetParent (NodeNode)
-	SetPrev (Node)
-	SetNext (Node)
+	Parent () NodeElement
+	Prev () Element
+	Next () Element
+	SetParent (NodeElement)
+	SetPrev (Element)
+	SetNext (Element)
 	Pos () source.Pos
 }
 
-type NodeNode interface {
-	Node
-	FirstChild () Node
-	LastChild () Node
-	AddChild (n, before Node)
-	RemoveChild (Node)
+type NodeElement interface {
+	Element
+	FirstChild () Element
+	LastChild () Element
+	AddChild (n, before Element)
+	RemoveChild (Element)
 }
 
 
-func Ancestor (n Node, level int) Node {
+func Ancestor (n Element, level int) Element {
 	for n != nil && level >= 0 {
 		n = n.Parent()
 		level--
@@ -41,7 +37,7 @@ func Ancestor (n Node, level int) Node {
 	return n
 }
 
-func NodeLevel (n Node) (l int) {
+func NodeLevel (n Element) (l int) {
 	if n == nil {
 		return
 	}
@@ -54,7 +50,7 @@ func NodeLevel (n Node) (l int) {
 	return
 }
 
-func SiblingIndex (n Node) (i int) {
+func SiblingIndex (n Element) (i int) {
 	if n == nil {
 		return
 	}
@@ -67,13 +63,13 @@ func SiblingIndex (n Node) (i int) {
 	return
 }
 
-func NthChild (n Node, i int) Node {
+func NthChild (n Element, i int) Element {
 	if n == nil || !n.IsNode() {
 		return nil
 	}
 
-	nn := n.(NodeNode)
-	var c Node
+	nn := n.(NodeElement)
+	var c Element
 	if i >= 0 {
 		c = nn.FirstChild()
 		for c != nil && i > 0 {
@@ -92,7 +88,7 @@ func NthChild (n Node, i int) Node {
 	return c
 }
 
-func NthSibling (n Node, i int) Node {
+func NthSibling (n Element, i int) Element {
 	if i < 0 {
 		for n != nil && i < 0 {
 			n = n.Prev()
@@ -109,12 +105,12 @@ func NthSibling (n Node, i int) Node {
 
 const AllLevels = -1
 
-func NumOfChildren (parent Node, levels int) int {
+func NumOfChildren (parent Element, levels int) int {
 	if parent == nil || !parent.IsNode() {
 		return 0
 	}
 
-	c := parent.(NodeNode).FirstChild()
+	c := parent.(NodeElement).FirstChild()
 	i := 0
 	for c != nil {
 		i++
@@ -126,14 +122,14 @@ func NumOfChildren (parent Node, levels int) int {
 	return i
 }
 
-func FirstTokenNode (n Node) Node {
+func FirstTokenElement (n Element) Element {
 	if n == nil || !n.IsNode() {
 		return n
 	}
 
-	n = n.(NodeNode).FirstChild()
+	n = n.(NodeElement).FirstChild()
 	for n != nil && n.IsNode() {
-		nn := FirstTokenNode(n)
+		nn := FirstTokenElement(n)
 		if nn != nil {
 			return nn
 		}
@@ -144,14 +140,14 @@ func FirstTokenNode (n Node) Node {
 	return n
 }
 
-func LastTokenNode (n Node) Node {
+func LastTokenElement (n Element) Element {
 	if n == nil || !n.IsNode() {
 		return n
 	}
 
-	n = n.(NodeNode).LastChild()
+	n = n.(NodeElement).LastChild()
 	for n != nil && n.IsNode() {
-		nn := LastTokenNode(n)
+		nn := LastTokenElement(n)
 		if nn != nil {
 			return nn
 		}
@@ -162,7 +158,7 @@ func LastTokenNode (n Node) Node {
 	return n
 }
 
-func NextTokenNode (n Node) Node {
+func NextTokenElement (n Element) Element {
 	if n == nil {
 		return nil
 	}
@@ -177,10 +173,10 @@ func NextTokenNode (n Node) Node {
 		nn = n.Next()
 	}
 
-	return FirstTokenNode(nn)
+	return FirstTokenElement(nn)
 }
 
-func PrevTokenNode (n Node) Node {
+func PrevTokenElement (n Element) Element {
 	if n == nil {
 		return nil
 	}
@@ -195,16 +191,16 @@ func PrevTokenNode (n Node) Node {
 		nn = n.Prev()
 	}
 
-	return LastTokenNode(nn)
+	return LastTokenElement(nn)
 }
 
-func Children (n Node) []Node {
+func Children (n Element) []Element {
 	if n == nil || !n.IsNode() {
 		return nil
 	}
 
-	res := make([]Node, 0)
-	c := n.(NodeNode).FirstChild()
+	res := make([]Element, 0)
+	c := n.(NodeElement).FirstChild()
 	for c != nil {
 		res = append(res, c)
 		c = c.Next()
@@ -213,7 +209,7 @@ func Children (n Node) []Node {
 }
 
 
-func Detach (n Node) {
+func Detach (n Element) {
 	if n == nil || n.Parent() == nil {
 		return
 	}
@@ -221,7 +217,7 @@ func Detach (n Node) {
 	n.Parent().RemoveChild(n)
 }
 
-func Replace (old, n Node) {
+func Replace (old, n Element) {
 	if n == nil || old == nil {
 		Detach(old)
 		return
@@ -234,7 +230,7 @@ func Replace (old, n Node) {
 	pa.AddChild(n, ne)
 }
 
-func AppendSibling (prev, node Node) {
+func AppendSibling (prev, node Element) {
 	if node == nil || prev == nil {
 		return
 	}
@@ -254,7 +250,7 @@ func AppendSibling (prev, node Node) {
 	}
 }
 
-func PrependSibling (next, node Node) {
+func PrependSibling (next, node Element) {
 	if node == nil || next == nil {
 		return
 	}
@@ -274,7 +270,7 @@ func PrependSibling (next, node Node) {
 	}
 }
 
-func AppendChild (parent NodeNode, node Node) {
+func AppendChild (parent NodeElement, node Element) {
 	if parent == nil || node == nil {
 		return
 	}
@@ -298,16 +294,16 @@ const (
 )
 
 type Iterator struct {
-	root, current Node
+	root, current Element
 	flagStack     []WalkerFlags
 	mode          WalkMode
 }
 
-func NewIterator (n Node, m WalkMode) *Iterator {
+func NewIterator (n Element, m WalkMode) *Iterator {
 	return &Iterator{root: n, mode: m}
 }
 
-func (it *Iterator) Step (f WalkerFlags) Node {
+func (it *Iterator) Step (f WalkerFlags) Element {
 	if (f & WalkerStop) != 0 {
 		it.root = nil
 		it.flagStack = nil
@@ -326,9 +322,9 @@ func (it *Iterator) Step (f WalkerFlags) Node {
 	rtl := (it.mode & WalkRtl) != 0
 	if n.IsNode() && (f & WalkerSkipChildren) == 0 {
 		if rtl {
-			n = n.(NodeNode).LastChild()
+			n = n.(NodeElement).LastChild()
 		} else {
-			n = n.(NodeNode).FirstChild()
+			n = n.(NodeElement).FirstChild()
 		}
 		if n != nil {
 			it.pushFlags(f)
@@ -364,7 +360,7 @@ func (it *Iterator) Step (f WalkerFlags) Node {
 	return nil
 }
 
-func (it *Iterator) Next () Node {
+func (it *Iterator) Next () Element {
 	return it.Step(0)
 }
 
@@ -380,9 +376,9 @@ func (it *Iterator) popFlags () (f WalkerFlags) {
 }
 
 
-type NodeVisitor func (n Node) WalkerFlags
+type NodeVisitor func (n Element) WalkerFlags
 
-func Walk (n Node, mode WalkMode, visitor NodeVisitor) {
+func Walk (n Element, mode WalkMode, visitor NodeVisitor) {
 	flags := 0
 	it := NewIterator(n, mode)
 	n = it.Step(flags)
@@ -397,10 +393,10 @@ func Walk (n Node, mode WalkMode, visitor NodeVisitor) {
 }
 
 
-type NodeFilter func (n Node) bool
-type NodeExtractor func (n Node) []Node
+type NodeFilter func (n Element) bool
+type NodeExtractor func (n Element) []Element
 
-type NodeSelector func (n Node) []Node
+type NodeSelector func (n Element) []Element
 
 type Selector struct {
 	selectors []NodeSelector
@@ -410,9 +406,9 @@ func NewSelector () *Selector {
 	return &Selector{}
 }
 
-func (s *Selector) Apply (input ... Node) []Node {
-	res := make([]Node, 0)
-	index := make(map[Node]bool)
+func (s *Selector) Apply (input ...Element) []Element {
+	res := make([]Element, 0)
+	index := make(map[Element]bool)
 	hasTransformers := (len(s.selectors) > 0)
 
 	for i, n := range input {
@@ -420,7 +416,7 @@ func (s *Selector) Apply (input ... Node) []Node {
 			continue
 		}
 
-		var ns []Node
+		var ns []Element
 		if hasTransformers {
 			ns = selectNodes(input[i : i + 1], s.selectors)
 		} else {
@@ -438,8 +434,8 @@ func (s *Selector) Apply (input ... Node) []Node {
 	return res
 }
 
-func selectNodes (ns []Node, nss []NodeSelector) []Node {
-	res := make([]Node, 0)
+func selectNodes (ns []Element, nss []NodeSelector) []Element {
+	res := make([]Element, 0)
 	s := nss[0]
 	nss = nss[1 :]
 	goDeeper := (len(nss) > 0)
@@ -461,9 +457,9 @@ func (s *Selector) Use (ns NodeSelector) *Selector {
 }
 
 func (s *Selector) Filter (nf NodeFilter) *Selector {
-	return s.Use(func (n Node) []Node {
+	return s.Use(func (n Element) []Element {
 		if nf(n) {
-			return []Node{n}
+			return []Element{n}
 		} else {
 			return nil
 		}
@@ -471,7 +467,7 @@ func (s *Selector) Filter (nf NodeFilter) *Selector {
 }
 
 func (s *Selector) Extract (ne NodeExtractor) *Selector {
-	return s.Use(func (n Node) []Node {
+	return s.Use(func (n Element) []Element {
 		return ne(n)
 	})
 }
@@ -481,9 +477,9 @@ func (s *Selector) search (nf NodeFilter, deepSearch bool) *Selector {
 	if !deepSearch {
 		flags = WalkerSkipChildren
 	}
-	return s.Use(func (n Node) []Node {
+	return s.Use(func (n Element) []Element {
 		f := 0
-		res := make([]Node, 0)
+		res := make([]Element, 0)
 		it := NewIterator(n, WalkLtr)
 		for {
 			nn := it.Step(f)
@@ -512,13 +508,13 @@ func (s *Selector) DeepSearch (nf NodeFilter) *Selector {
 
 
 func IsNot (f NodeFilter) NodeFilter {
-	return func (n Node) bool {
+	return func (n Element) bool {
 		return !f(n)
 	}
 }
 
 func IsAny (fs ... NodeFilter) NodeFilter {
-	return func (n Node) bool {
+	return func (n Element) bool {
 		for _, f := range fs {
 			if f(n) {
 				return true
@@ -529,7 +525,7 @@ func IsAny (fs ... NodeFilter) NodeFilter {
 }
 
 func IsAll (fs ... NodeFilter) NodeFilter {
-	return func (n Node) bool {
+	return func (n Element) bool {
 		for _, f := range fs {
 			if !f(n) {
 				return false
@@ -540,7 +536,7 @@ func IsAll (fs ... NodeFilter) NodeFilter {
 }
 
 func IsA (names ... string) NodeFilter {
-	return func (n Node) bool {
+	return func (n Element) bool {
 		tn := n.TypeName()
 		for _, name := range names {
 			if tn == name {
@@ -553,7 +549,7 @@ func IsA (names ... string) NodeFilter {
 }
 
 func IsALiteral (texts ... string) NodeFilter {
-	return func (n Node) bool {
+	return func (n Element) bool {
 		if n.IsNode() {
 			return false
 		}
@@ -571,7 +567,7 @@ func IsALiteral (texts ... string) NodeFilter {
 
 func Has (ne NodeExtractor, nf NodeFilter) NodeFilter {
 	if ne == nil {
-		return func(n Node) bool {
+		return func(n Element) bool {
 			it := NewIterator(n, WalkLtr)
 			for nn := it.Next(); nn != nil; nn = it.Next() {
 				if nf == nil || nf(nn) {
@@ -581,7 +577,7 @@ func Has (ne NodeExtractor, nf NodeFilter) NodeFilter {
 			return false
 		}
 	} else {
-		return func (n Node) bool {
+		return func (n Element) bool {
 			ns := ne(n)
 			for _, nn := range ns {
 				if nf == nil || nf(nn) {
@@ -595,7 +591,7 @@ func Has (ne NodeExtractor, nf NodeFilter) NodeFilter {
 
 
 func Any (nes ...NodeExtractor) NodeExtractor {
-	return func (n Node) (res []Node) {
+	return func (n Element) (res []Element) {
 		for _, ne := range nes {
 			res = ne(n)
 			if len(res) > 0 {
@@ -607,7 +603,7 @@ func Any (nes ...NodeExtractor) NodeExtractor {
 }
 
 func All (nes ...NodeExtractor) NodeExtractor {
-	return func (n Node) (res []Node) {
+	return func (n Element) (res []Element) {
 		for _, ne := range nes {
 			res = append(res, ne(n) ...)
 		}
@@ -616,8 +612,8 @@ func All (nes ...NodeExtractor) NodeExtractor {
 }
 
 func Ancestors (levels ... int) NodeExtractor {
-	return func (n Node) []Node {
-		res := make([]Node, 0)
+	return func (n Element) []Element {
+		res := make([]Element, 0)
 		for _, i := range levels {
 			nn := Ancestor(n, i)
 			if nn != nil {
@@ -629,8 +625,8 @@ func Ancestors (levels ... int) NodeExtractor {
 }
 
 func NthChildren (indexes ... int) NodeExtractor {
-	return func (n Node) []Node {
-		res := make([]Node, 0)
+	return func (n Element) []Element {
+		res := make([]Element, 0)
 		for _, i := range indexes {
 			nn := NthChild(n, i)
 			if nn != nil {
@@ -642,8 +638,8 @@ func NthChildren (indexes ... int) NodeExtractor {
 }
 
 func NthSiblings (indexes ... int) NodeExtractor {
-	return func (n Node) []Node {
-		res := make([]Node, 0)
+	return func (n Element) []Element {
+		res := make([]Element, 0)
 		for _, i := range indexes {
 			nn := NthSibling(n, i)
 			if nn != nil {
@@ -655,105 +651,105 @@ func NthSiblings (indexes ... int) NodeExtractor {
 }
 
 
-type tokenNode struct {
-	parent     NodeNode
-	prev, next Node
+type tokenElement struct {
+	parent     NodeElement
+	prev, next Element
 	token      *lexer.Token
 }
 
-func NewTokenNode (t *lexer.Token) Node {
-	return &tokenNode{token: t}
+func NewTokenElement (t *lexer.Token) Element {
+	return &tokenElement{token: t}
 }
 
-func (tn *tokenNode) IsNode() bool {
+func (tn *tokenElement) IsNode() bool {
 	return false
 }
 
-func (tn *tokenNode) TypeName () string {
+func (tn *tokenElement) TypeName () string {
 	return tn.token.TypeName()
 }
 
-func (tn *tokenNode) Parent () NodeNode {
+func (tn *tokenElement) Parent () NodeElement {
 	return tn.parent
 }
 
-func (tn *tokenNode) Prev () Node {
+func (tn *tokenElement) Prev () Element {
 	return tn.prev
 }
 
-func (tn *tokenNode) Next () Node {
+func (tn *tokenElement) Next () Element {
 	return tn.next
 }
 
-func (tn *tokenNode) Pos () source.Pos {
+func (tn *tokenElement) Pos () source.Pos {
 	return tn.token.Pos()
 }
 
-func (tn *tokenNode) Token () *lexer.Token {
+func (tn *tokenElement) Token () *lexer.Token {
 	return tn.token
 }
 
-func (tn *tokenNode) SetParent (p NodeNode) {
+func (tn *tokenElement) SetParent (p NodeElement) {
 	tn.parent = p
 }
 
-func (tn *tokenNode) SetPrev (p Node) {
+func (tn *tokenElement) SetPrev (p Element) {
 	tn.prev = p
 }
 
-func (tn *tokenNode) SetNext (n Node) {
+func (tn *tokenElement) SetNext (n Element) {
 	tn.next = n
 }
 
-type nodeNode struct {
+type nodeElement struct {
 	typeName              string
 	token                 *lexer.Token
-	parent                NodeNode
-	prev, next            Node
-	firstChild, lastChild Node
+	parent                NodeElement
+	prev, next            Element
+	firstChild, lastChild Element
 }
 
-func NewNodeNode (typeName string, tok *lexer.Token) NodeNode {
-	return &nodeNode{typeName: typeName, token: tok}
+func NewNodeElement (typeName string, tok *lexer.Token) NodeElement {
+	return &nodeElement{typeName: typeName, token: tok}
 }
 
-func (ntn *nodeNode) IsNode() bool {
+func (ntn *nodeElement) IsNode() bool {
 	return true
 }
 
-func (ntn *nodeNode) TypeName () string {
+func (ntn *nodeElement) TypeName () string {
 	return ntn.typeName
 }
 
-func (ntn *nodeNode) Token () *lexer.Token {
+func (ntn *nodeElement) Token () *lexer.Token {
 	return ntn.token
 }
 
-func (ntn *nodeNode) Parent () NodeNode {
+func (ntn *nodeElement) Parent () NodeElement {
 	return ntn.parent
 }
 
-func (ntn *nodeNode) FirstChild () Node {
+func (ntn *nodeElement) FirstChild () Element {
 	return ntn.firstChild
 }
 
-func (ntn *nodeNode) LastChild () Node {
+func (ntn *nodeElement) LastChild () Element {
 	return ntn.lastChild
 }
 
-func (ntn *nodeNode) Prev () Node {
+func (ntn *nodeElement) Prev () Element {
 	return ntn.prev
 }
 
-func (ntn *nodeNode) Next () Node {
+func (ntn *nodeElement) Next () Element {
 	return ntn.next
 }
 
-func (ntn *nodeNode) SetParent (p NodeNode) {
+func (ntn *nodeElement) SetParent (p NodeElement) {
 	ntn.parent = p
 }
 
-func (ntn *nodeNode) AddChild (c, before Node) {
+func (ntn *nodeElement) AddChild (c, before Element) {
 	if c == nil || (before != nil && before.Parent() != ntn) {
 		return
 	}
@@ -781,7 +777,7 @@ func (ntn *nodeNode) AddChild (c, before Node) {
 	}
 }
 
-func (ntn *nodeNode) RemoveChild (c Node) {
+func (ntn *nodeElement) RemoveChild (c Element) {
 	if c == nil || c.Parent() != ntn {
 		return
 	}
@@ -803,15 +799,15 @@ func (ntn *nodeNode) RemoveChild (c Node) {
 	}
 }
 
-func (ntn *nodeNode) SetPrev (p Node) {
+func (ntn *nodeElement) SetPrev (p Element) {
 	ntn.prev = p
 }
 
-func (ntn *nodeNode) SetNext (n Node) {
+func (ntn *nodeElement) SetNext (n Element) {
 	ntn.next = n
 }
 
-func (ntn *nodeNode) Pos () source.Pos {
+func (ntn *nodeElement) Pos () source.Pos {
 	if ntn.firstChild == nil {
 		return source.Pos{}
 	} else {
@@ -820,11 +816,11 @@ func (ntn *nodeNode) Pos () source.Pos {
 }
 
 type HookInstance struct {
-	node NodeNode
+	node NodeElement
 }
 
 func NewHookInstance (typeName string, tok *lexer.Token) *HookInstance {
-	return &HookInstance{NewNodeNode(typeName, tok)}
+	return &HookInstance{NewNodeElement(typeName, tok)}
 }
 
 func (hi *HookInstance) NewNode(node string, token *lexer.Token) error {
@@ -832,9 +828,9 @@ func (hi *HookInstance) NewNode(node string, token *lexer.Token) error {
 }
 
 func (hi *HookInstance) HandleNode(name string, result interface{}) error {
-	node, is := result.(Node)
+	node, is := result.(Element)
 	if !is {
-		return errors.New("node " + name + " is not a tree.Node")
+		return errors.New("node " + name + " is not a tree.Element")
 	}
 
 	hi.node.AddChild(node, nil)
@@ -842,7 +838,7 @@ func (hi *HookInstance) HandleNode(name string, result interface{}) error {
 }
 
 func (hi *HookInstance) HandleToken (token *lexer.Token) error {
-	hi.node.AddChild(NewTokenNode(token), nil)
+	hi.node.AddChild(NewTokenElement(token), nil)
 	return nil
 }
 
