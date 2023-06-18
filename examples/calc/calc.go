@@ -32,11 +32,11 @@ func showHelp () {
 You can:
   - compute an expression and show its result: <expression> (without brackets)
   - set a variable: <var_name> = <expression>
-  - set a function: func <name> (<arg_name> [, <arg_name> ...]) <expression>
+  - set a function: <name> (<arg_name> [, <arg_name> ...]) = <expression>
 
-Expressions can contain numbers, arithmetic operators (+, -, *, /),
+Expressions may contain numbers, arithmetic operators (+, -, *, /),
 ^ for exponentiation, brackets, variable (or argument) names, and 
-function calls ( <name>([<arg>[,<arg>]]) ). An argument can be any expression.
+function calls ( <name>([<arg>[,<arg>]]) ). An argument may be any expression.
 
 Unary minus must be the first part of (sub)expression. Inputs like
 "- x + y", "x / (-y)", or "x - (-(-y))" are correct, but "x * -y" or
