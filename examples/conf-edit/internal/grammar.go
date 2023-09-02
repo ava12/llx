@@ -6,8 +6,8 @@ import "github.com/ava12/llx/grammar"
 
 var confGrammar = &grammar.Grammar{
 	Tokens: []grammar.Token{
-		{Name: "space", Re: "[ \\t]+", Groups: 7, Flags: 132},
-		{Name: "comment", Re: "#.*?(?:\\n|$)", Groups: 7, Flags: 132},
+		{Name: "space", Re: "[ \\t]+", Groups: 6, Flags: 132},
+		{Name: "comment", Re: "#.*?(?:\\n|$)", Groups: 6, Flags: 132},
 		{Name: "nl", Re: "\\n", Groups: 6, Flags: 128},
 		{Name: "sec-name", Re: "[a-zA-Z_][a-zA-Z_0-9]*(?:[.-][a-zA-Z_][a-zA-Z_0-9]*)*", Groups: 1, Flags: 128},
 		{Name: "name", Re: "[a-zA-Z_][a-zA-Z_0-9]*(?:-[a-zA-Z_][a-zA-Z_0-9]*)*", Groups: 4, Flags: 128},

@@ -14,7 +14,6 @@ import (
 const toks = "$tok = /\\S+/;"
 
 func checkErrorCode (t *testing.T, samples []string, code int) {
-	eCode := strconv.Itoa(code)
 	for index, src := range samples {
 		errPrefix := "input #" + strconv.Itoa(index)
 		_, e := Parse(source.New("string", []byte(src)))
@@ -34,12 +33,12 @@ func checkErrorCode (t *testing.T, samples []string, code int) {
 
 		pe, is := e.(*llx.Error)
 		if !is {
-			t.Error(errPrefix + ": ParseError expected, got \"" + e.Error() + "\"")
+			t.Errorf("%s: ParseError expected, got %q", errPrefix, e.Error())
 			return
 		}
 
 		if pe.Code != code {
-			t.Error(errPrefix + ": expected error code " + eCode + ", got " + strconv.Itoa(pe.Code))
+			t.Errorf("%s: expected error code %d, got %d (%s)", errPrefix, code, pe.Code, pe.Error())
 			return
 		}
 	}
@@ -164,7 +163,7 @@ func TestUnresolvedGroupsError (t *testing.T) {
 
 func TestDisjointGroupsError (t *testing.T) {
 	samples := []string{
-		"!group $c; $c = /\\w+/; $d = /\\d+/; g = $c | $d;",
+		"!group $c; !group $d; $c = /\\w+/; $d = /\\d+/; g = $c | $d;",
 	}
 	checkErrorCode(t, samples, DisjointGroupsError)
 }
@@ -176,11 +175,11 @@ func TestUndefinedTokenError (t *testing.T) {
 	checkErrorCode(t, samples, UndefinedTokenError)
 }
 
-func TestAsideTokenError (t *testing.T) {
+func TestUnassignedError (t *testing.T) {
 	samples := []string{
 		"!aside $sp; !group $sp; $sp = /\\s/; $name = /\\w+/; g = {$name};",
 	}
-	checkErrorCode(t, samples, AsideGroupError)
+	checkErrorCode(t, samples, NoGroupAssignedError)
 }
 
 func TestUnknownLiteralError (t *testing.T) {
@@ -193,10 +192,11 @@ func TestUnknownLiteralError (t *testing.T) {
 func TestNoError (t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		toks + "!aside; !extern; !error; !shrink; !group; !literal; !caseless; !reserved; foo = 'foo';",
-		"!aside $space; !group $name; $space = /\\s/; $name = /\\w/; g = {$name};",
+		toks + "!aside; !extern; !error; !shrink; !literal; !caseless; !reserved; foo = 'foo';",
+		"!aside $space; !group $name $space; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 		"!literal $name 'a' 'b'; $name = /\\w+/; g = $name | 'a' | 'b';",
+		"!extern $ex; $name = /\\s+/; g = $name, $ex;",
 	}
 	checkErrorCode(t, samples, 0)
 }
@@ -288,13 +288,13 @@ func TestTokenGroups (t *testing.T) {
 		src string
 		groups []int
 	}{
-		{"!extern $ex; !group $name; $name = /\\w+/; $num = /\\d+/; g = $name, $ex, $num, 'foo';",
+		{"!extern $ex; !group $name; !group $num $ex; $name = /\\w+/; $num = /\\d+/; g = $name, $ex, $num, 'foo';",
 			[]int{1, 2, 2, 1}},
-		{"!aside $sp; !group $name; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
+		{"!aside $sp; !group $name $sp; !group $num $sp; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
 			[]int{3, 1, 2}},
-		{"!aside $sp; !group $name; !group $num; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
+		{"!aside $sp; !group $name $sp; !group $num $sp; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
 			[]int{3, 1, 2}},
-		{"!aside $sp; !literal $op; !group $name; $sp = /\\s+/; $name = /\\w+/; $op = /=/; g = $name, '=', $name;",
+		{"!aside $sp; !literal $op; !group $name $sp; !group $op $sp; $sp = /\\s+/; $name = /\\w+/; $op = /=/; g = $name, '=', $name;",
 			[]int{3, 1, 2}},
 	}
 

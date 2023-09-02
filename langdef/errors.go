@@ -54,8 +54,8 @@ const (
 	// token type listed in directive is not defined
 	UndefinedTokenError
 
-	// assigning aside token to some group
-	AsideGroupError
+	// there are token types that are not assigned to any group
+	NoGroupAssignedError
 
 	// node definition uses string literal that is not whitelisted
 	UnknownLiteralError
@@ -121,10 +121,10 @@ func undefinedTokenError (name string) *llx.Error {
 	return llx.FormatError(UndefinedTokenError, "token %q mentioned but not defined", name)
 }
 
-func asideGroupError (name string) *llx.Error {
-	return llx.FormatError(AsideGroupError, "cannot assign %q token to a separate group: aside tokens belong to all groups", name)
-}
-
 func unknownLiteralError (text string) *llx.Error {
 	return llx.FormatError(UnknownLiteralError, "cannot use %q literal: it is not whitelisted", text)
+}
+
+func noGroupAssignedError (types []string) *llx.Error {
+	return llx.FormatError(NoGroupAssignedError, "tokens types (%s) are not assigned to any group", strings.Join(types, ", "))
 }

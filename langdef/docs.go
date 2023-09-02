@@ -108,12 +108,12 @@ case-insensitive token types must be uppercase, e.g.
 E.g. $indent and $dedent tokens emitted by hooks when source text indentation level changes.
 
 !group directive lists token types forming a separate group, which effectively defines a separate lexer.
-There may be no more than 30 of groups.
-All types not listed form default group. Every aside token belongs to all groups.
-Token type may belong to more than one group, but all tokens allowed at some parsing state must belong
-to the same group (or more than one group, in this case langdef parser chooses one).
+All tokens acceptable at some parsing state must belong to the same group
+(or more than one group, in this case langdef parser chooses one).
 Grouping allows to distinguish tokens that belong to different types but may have same content,
 e.g. HTML parser can use two token groups: one to separate tags from raw text and another one to parse tag contents.
+There may be no more than 30 groups. By default, all defined token types form a single group.
+When !group directive is used each defined type must be assigned to at least one group.
 
 !literal directive lists allowed token types for literals and/or string literals allowed in node definitions.
 By default, all defined token types and any literals are allowed, i.e. langdef parser accepts any literal

@@ -60,9 +60,9 @@ func Parse (s *source.Source) (*grammar.Grammar, error) {
 	}
 
 	e = assignTokenGroups(result, e)
-	e = findUndefinedNodes(result.NtIndex, e)
-	e = findUnusedNodes(result.Nodes, result.NtIndex, e)
-	e = resolveDependencies(result.Nodes, result.NtIndex, e)
+	e = findUndefinedNodes(result.NIndex, e)
+	e = findUnusedNodes(result.Nodes, result.NIndex, e)
+	e = resolveDependencies(result.Nodes, result.NIndex, e)
 	e = buildStates(result, e)
 	e = findRecursions(result, e)
 	e = assignStateGroups(result, e)
@@ -122,6 +122,7 @@ type parseContext struct {
 	currentGroup int
 	restrictLtts bool
 	restrictLs   bool
+	grouping     bool
 }
 
 func init () {
@@ -162,7 +163,7 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 	ti := tokenIndex{}
 	lti := tokenIndex{}
 	g := newParseResult()
-	c := &parseContext{q, l, g, make([]literalToken, 0), ti, lti, ets, eti, 0, false, false}
+	c := &parseContext{q, l, g, make([]literalToken, 0), ti, lti, ets, eti, 0, false, false, false}
 
 	var t *lexer.Token
 	for e == nil {
@@ -231,7 +232,27 @@ func parseLangDef (s *source.Source) (*parseResult, error) {
 		useLiteralToken(lt.name, lt.flags, c)
 	}
 
-	nti := g.NtIndex
+	if c.grouping {
+		var unassigned []string
+		for _, tt := range g.Tokens {
+			if tt.Flags & grammar.LiteralToken == 0 && tt.Groups == 0 {
+				unassigned = append(unassigned, tt.Name)
+			}
+		}
+		if len(unassigned) > 0 {
+			return nil, noGroupAssignedError(unassigned)
+		}
+	} else {
+		for i, tt := range g.Tokens {
+			if tt.Flags & grammar.LiteralToken == 0 {
+				g.Tokens[i].Groups = 1
+			} else {
+				break
+			}
+		}
+	}
+
+	nti := g.NIndex
 	for e == nil && t != nil && !isEof(t) {
 		_, has := nti[t.Text()]
 		if has && nti[t.Text()].Chunk != nil {
@@ -431,6 +452,7 @@ func parseDir (name string, c *parseContext) error {
 }
 
 func parseGroupDir (c *parseContext) error {
+	c.grouping = true
 	tokens, e := fetchAll(c.q, c.l, []string{tokenNameTok}, nil)
 	e = skipOne(c.q, c.l, semicolonTok, e)
 	if e != nil {
@@ -512,7 +534,7 @@ func addNode (name string, c *parseContext, define bool) *nodeItem {
 	if define {
 		group = newGroupChunk(false, false)
 	}
-	result := c.g.NtIndex[name]
+	result := c.g.NIndex[name]
 	if result != nil {
 		if result.Chunk == nil && define {
 			result.Chunk = group
@@ -521,7 +543,7 @@ func addNode (name string, c *parseContext, define bool) *nodeItem {
 	}
 
 	result = &nodeItem{len(c.g.Nodes), ints.NewSet(), ints.NewSet(), group}
-	c.g.NtIndex[name] = result
+	c.g.NIndex[name] = result
 	c.g.Nodes = append(c.g.Nodes, grammar.Node{name, 0})
 	return result
 }
@@ -595,7 +617,7 @@ func parseVariant (name string, c *parseContext) (chunk, error) {
 	switch t.TypeName() {
 	case nameTok:
 		nt := addNode(t.Text(), c, false)
-		c.g.NtIndex[name].DependsOn.Add(nt.Index)
+		c.g.NIndex[name].DependsOn.Add(nt.Index)
 		return newNodeChunk(t.Text(), nt), nil
 
 	case tokenNameTok:
@@ -781,7 +803,7 @@ func buildStates (g *parseResult, e error) error {
 		return e
 	}
 
-	nti := g.NtIndex
+	nti := g.NIndex
 	for i, nt := range g.Nodes {
 		firstState, _ := g.AddState()
 		item := nti[nt.Name]
@@ -830,7 +852,7 @@ func assignTokenGroups (g *parseResult, e error) error {
 	}
 
 	var (
-		rcnt, allGroups int
+		rcnt int
 		t grammar.Token
 	)
 	res := make(map[int]*regexp.Regexp)
@@ -840,40 +862,16 @@ func assignTokenGroups (g *parseResult, e error) error {
 			break
 		}
 
-		if (t.Flags & grammar.AsideToken) != 0 {
-			continue
-		}
-
-		allGroups |= t.Groups
 		if (t.Flags & grammar.NoLiteralsToken) == 0 {
 			res[rcnt] = regexp.MustCompile(t.Re)
 		}
 	}
-
 	rts := ts[: rcnt]
-	for rcnt < len(g.Tokens) && (ts[rcnt].Flags & grammar.LiteralToken) == 0 {
-		allGroups |= ts[rcnt].Groups
+
+	for rcnt < len(ts) && ts[rcnt].Flags & grammar.LiteralToken == 0 {
 		rcnt++
 	}
-
-	rets := ts[: rcnt]
 	lts := ts[rcnt :]
-	defaultGroups := 1 << bits.Len(uint(allGroups))
-	for i, ret := range rets {
-		if ret.Groups == 0 && (ret.Flags & grammar.AsideToken) == 0 {
-			rets[i].Groups = defaultGroups
-			allGroups |= defaultGroups
-		}
-	}
-	for i, ret := range rets {
-		if (ret.Flags & grammar.AsideToken) != 0 {
-			if ret.Groups == 0 {
-				rets[i].Groups = allGroups
-			} else {
-				return asideGroupError(ret.Name)
-			}
-		}
-	}
 
 	for i, lt := range lts {
 		caseless := (lt.Name == strings.ToUpper(lt.Name))

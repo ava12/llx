@@ -13,10 +13,10 @@ type stateEntry struct {
 }
 
 type parseResult struct {
-	Tokens  []grammar.Token
-	Nodes   []grammar.Node
-	States  []*stateEntry
-	NtIndex nodeIndex
+	Tokens []grammar.Token
+	Nodes  []grammar.Node
+	States []*stateEntry
+	NIndex nodeIndex
 }
 
 func newParseResult () *parseResult {

@@ -205,7 +205,7 @@ func TestMultiRuleAri (t *testing.T) {
 
 func TestGroups (t *testing.T) {
 	name := "groups"
-	grammar := "!aside $space; !group $eol $name; !group $str $any;" +
+	grammar := "!aside $space; !group $eol $name $space; !group $str $any $space;" +
 		"$space = /[ \\t]+/; $eol = /\\n/; $name = /\\w+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
 		"g = {$name, val, $eol}; val = $str | $any;"
 	samples := []srcExprSample{
@@ -219,7 +219,7 @@ func TestGroups (t *testing.T) {
 
 func TestMultiGroups (t *testing.T) {
 	name := "multi-groups"
-	grammar := spaceDef + "!group $name; !group $str $any; $name = /[a-z]+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
+	grammar := spaceDef + "!group $name $space; !group $str $any $space; $name = /[a-z]+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
 		"g = {s | a}; s = $name, $str; a = $name, $any;"
 	samples := []srcExprSample{
 		{
