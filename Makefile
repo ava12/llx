@@ -1,9 +1,9 @@
-.PHONY: help generate test
+.PHONY: help cmd generate test
 
 help:
 	@echo valid targets are  cmd, generate, test
 
-cmd : cmd/llxgen/llxgen.go cmd/llxgen/version
+cmd:
 	go build -o bin/llxgen ./cmd/llxgen/llxgen.go
 
 generate:
