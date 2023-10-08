@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
-	"github.com/ava12/llx/source"
 )
 
 type Element interface {
@@ -17,7 +16,6 @@ type Element interface {
 	SetParent (NodeElement)
 	SetPrev (Element)
 	SetNext (Element)
-	Pos () source.Pos
 }
 
 type NodeElement interface {
@@ -681,10 +679,6 @@ func (tn *tokenElement) Next () Element {
 	return tn.next
 }
 
-func (tn *tokenElement) Pos () source.Pos {
-	return tn.token.Pos()
-}
-
 func (tn *tokenElement) Token () *lexer.Token {
 	return tn.token
 }
@@ -805,14 +799,6 @@ func (ntn *nodeElement) SetPrev (p Element) {
 
 func (ntn *nodeElement) SetNext (n Element) {
 	ntn.next = n
-}
-
-func (ntn *nodeElement) Pos () source.Pos {
-	if ntn.firstChild == nil {
-		return source.Pos{}
-	} else {
-		return ntn.firstChild.Pos()
-	}
 }
 
 type HookInstance struct {
