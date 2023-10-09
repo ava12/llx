@@ -1,3 +1,5 @@
+// Package tree provides functions for building, manipulating, and traversing parse trees.
+// A tree consists of linked node and token elements, the root is the initial node element.
 package tree
 
 import (
@@ -6,23 +8,43 @@ import (
 	"github.com/ava12/llx/parser"
 )
 
+// Element represents parse tree element, either a node or a token.
 type Element interface {
+	// IsNode returns true for node element, false for token element.
 	IsNode () bool
+	// TypeName returns token or node type name.
 	TypeName () string
+	// Token returns token for this element (for node it is initial token).
 	Token () *lexer.Token
+	// Parent returns parent node element, nil for tree root.
 	Parent () NodeElement
+	// Prev returns previous sibling for element, nil for first child.
 	Prev () Element
+	// Next returns the next sibling for element, nil for last child.
 	Next () Element
+	// SetParent sets parent node for element, nil to remove element from tree.
+	// Used by SetChild and RemoveChild.
 	SetParent (NodeElement)
+	// SetPrev sets previous sibling for element, nil to make the first sibling or to remove element from tree.
+	// Used by functions manipulating child and sibling elements.
 	SetPrev (Element)
+	// SetNext sets the next sibling for element, nil to make the last sibling or to remove element from tree.
+	// Used by functions manipulating child and sibling elements.
 	SetNext (Element)
 }
 
+// NodeElement represents parse tree node.
 type NodeElement interface {
 	Element
+	// FirstChild returns first child element or nil if there are no children.
 	FirstChild () Element
+	// LastChild returns last child element or nil if there are no children.
 	LastChild () Element
+	// AddChild inserts child element. New child is placed before given one or after the last child.
+	// Does nothing if n is nil or given element does not belong to node.
 	AddChild (n, before Element)
+	// RemoveChild detaches given child element from node.
+	// Does nothing if given element is not this node's child.
 	RemoveChild (Element)
 }
 
@@ -35,14 +57,14 @@ func Ancestor (n Element, level int) Element {
 	return n
 }
 
-func NodeLevel (n Element) (l int) {
+func NodeLevel (n Element) (level int) {
 	if n == nil {
 		return
 	}
 
 	p := n.Parent()
 	for p != nil {
-		l++
+		level++
 		p = p.Parent()
 	}
 	return
@@ -659,40 +681,40 @@ func NewTokenElement (t *lexer.Token) Element {
 	return &tokenElement{token: t}
 }
 
-func (tn *tokenElement) IsNode() bool {
+func (t *tokenElement) IsNode() bool {
 	return false
 }
 
-func (tn *tokenElement) TypeName () string {
-	return tn.token.TypeName()
+func (t *tokenElement) TypeName () string {
+	return t.token.TypeName()
 }
 
-func (tn *tokenElement) Parent () NodeElement {
-	return tn.parent
+func (t *tokenElement) Parent () NodeElement {
+	return t.parent
 }
 
-func (tn *tokenElement) Prev () Element {
-	return tn.prev
+func (t *tokenElement) Prev () Element {
+	return t.prev
 }
 
-func (tn *tokenElement) Next () Element {
-	return tn.next
+func (t *tokenElement) Next () Element {
+	return t.next
 }
 
-func (tn *tokenElement) Token () *lexer.Token {
-	return tn.token
+func (t *tokenElement) Token () *lexer.Token {
+	return t.token
 }
 
-func (tn *tokenElement) SetParent (p NodeElement) {
-	tn.parent = p
+func (t *tokenElement) SetParent (p NodeElement) {
+	t.parent = p
 }
 
-func (tn *tokenElement) SetPrev (p Element) {
-	tn.prev = p
+func (t *tokenElement) SetPrev (p Element) {
+	t.prev = p
 }
 
-func (tn *tokenElement) SetNext (n Element) {
-	tn.next = n
+func (t *tokenElement) SetNext (n Element) {
+	t.next = n
 }
 
 type nodeElement struct {
@@ -707,56 +729,56 @@ func NewNodeElement (typeName string, tok *lexer.Token) NodeElement {
 	return &nodeElement{typeName: typeName, token: tok}
 }
 
-func (ntn *nodeElement) IsNode() bool {
+func (n *nodeElement) IsNode() bool {
 	return true
 }
 
-func (ntn *nodeElement) TypeName () string {
-	return ntn.typeName
+func (n *nodeElement) TypeName () string {
+	return n.typeName
 }
 
-func (ntn *nodeElement) Token () *lexer.Token {
-	return ntn.token
+func (n *nodeElement) Token () *lexer.Token {
+	return n.token
 }
 
-func (ntn *nodeElement) Parent () NodeElement {
-	return ntn.parent
+func (n *nodeElement) Parent () NodeElement {
+	return n.parent
 }
 
-func (ntn *nodeElement) FirstChild () Element {
-	return ntn.firstChild
+func (n *nodeElement) FirstChild () Element {
+	return n.firstChild
 }
 
-func (ntn *nodeElement) LastChild () Element {
-	return ntn.lastChild
+func (n *nodeElement) LastChild () Element {
+	return n.lastChild
 }
 
-func (ntn *nodeElement) Prev () Element {
-	return ntn.prev
+func (n *nodeElement) Prev () Element {
+	return n.prev
 }
 
-func (ntn *nodeElement) Next () Element {
-	return ntn.next
+func (n *nodeElement) Next () Element {
+	return n.next
 }
 
-func (ntn *nodeElement) SetParent (p NodeElement) {
-	ntn.parent = p
+func (n *nodeElement) SetParent (p NodeElement) {
+	n.parent = p
 }
 
-func (ntn *nodeElement) AddChild (c, before Element) {
-	if c == nil || (before != nil && before.Parent() != ntn) {
+func (n *nodeElement) AddChild (c, before Element) {
+	if c == nil || (before != nil && before.Parent() != n) {
 		return
 	}
 
-	c.SetParent(ntn)
+	c.SetParent(n)
 	if before == nil {
-		if ntn.lastChild == nil {
-			ntn.firstChild = c
+		if n.lastChild == nil {
+			n.firstChild = c
 		} else {
-			c.SetPrev(ntn.lastChild)
-			ntn.lastChild.SetNext(c)
+			c.SetPrev(n.lastChild)
+			n.lastChild.SetNext(c)
 		}
-		ntn.lastChild = c
+		n.lastChild = c
 		return
 	}
 
@@ -765,14 +787,14 @@ func (ntn *nodeElement) AddChild (c, before Element) {
 	c.SetNext(before)
 	c.SetPrev(prev)
 	if prev == nil {
-		ntn.firstChild = c
+		n.firstChild = c
 	} else {
 		prev.SetNext(c)
 	}
 }
 
-func (ntn *nodeElement) RemoveChild (c Element) {
-	if c == nil || c.Parent() != ntn {
+func (n *nodeElement) RemoveChild (c Element) {
+	if c == nil || c.Parent() != n {
 		return
 	}
 
@@ -782,23 +804,23 @@ func (ntn *nodeElement) RemoveChild (c Element) {
 	c.SetPrev(nil)
 	c.SetNext(nil)
 	if prev == nil {
-		ntn.firstChild = next
+		n.firstChild = next
 	} else {
 		prev.SetNext(next)
 	}
 	if next == nil {
-		ntn.lastChild = prev
+		n.lastChild = prev
 	} else {
 		next.SetPrev(prev)
 	}
 }
 
-func (ntn *nodeElement) SetPrev (p Element) {
-	ntn.prev = p
+func (n *nodeElement) SetPrev (p Element) {
+	n.prev = p
 }
 
-func (ntn *nodeElement) SetNext (n Element) {
-	ntn.next = n
+func (n *nodeElement) SetNext (next Element) {
+	n.next = next
 }
 
 type HookInstance struct {
