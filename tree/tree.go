@@ -49,99 +49,6 @@ type NodeElement interface {
 }
 
 
-func Ancestor (n Element, level int) Element {
-	for n != nil && level >= 0 {
-		n = n.Parent()
-		level--
-	}
-	return n
-}
-
-func NodeLevel (n Element) (level int) {
-	if n == nil {
-		return
-	}
-
-	p := n.Parent()
-	for p != nil {
-		level++
-		p = p.Parent()
-	}
-	return
-}
-
-func SiblingIndex (n Element) (i int) {
-	if n == nil {
-		return
-	}
-
-	p := n.Prev()
-	for p != nil {
-		i++
-		p = p.Prev()
-	}
-	return
-}
-
-func NthChild (n Element, i int) Element {
-	if n == nil || !n.IsNode() {
-		return nil
-	}
-
-	nn := n.(NodeElement)
-	var c Element
-	if i >= 0 {
-		c = nn.FirstChild()
-		for c != nil && i > 0 {
-			c = c.Next()
-			i--
-		}
-	} else {
-		i++
-		c = nn.LastChild()
-		for c != nil && i < 0 {
-			c = c.Prev()
-			i++
-		}
-	}
-
-	return c
-}
-
-func NthSibling (n Element, i int) Element {
-	if i < 0 {
-		for n != nil && i < 0 {
-			n = n.Prev()
-			i++
-		}
-	} else {
-		for n != nil && i > 0 {
-			n = n.Next()
-			i--
-		}
-	}
-	return n
-}
-
-const AllLevels = -1
-
-func NumOfChildren (parent Element, levels int) int {
-	if parent == nil || !parent.IsNode() {
-		return 0
-	}
-
-	c := parent.(NodeElement).FirstChild()
-	i := 0
-	for c != nil {
-		i++
-		if levels != 0 {
-			i += NumOfChildren(c, levels - 1)
-		}
-		c = c.Next()
-	}
-	return i
-}
-
 func FirstTokenElement (n Element) Element {
 	if n == nil || !n.IsNode() {
 		return n
@@ -219,7 +126,7 @@ func Children (n Element) []Element {
 		return nil
 	}
 
-	res := make([]Element, 0)
+	var res []Element
 	c := n.(NodeElement).FirstChild()
 	for c != nil {
 		res = append(res, c)
@@ -413,13 +320,11 @@ func Walk (n Element, mode WalkMode, visitor NodeVisitor) {
 }
 
 
-type NodeFilter func (n Element) bool
-type NodeExtractor func (n Element) []Element
-
-type NodeSelector func (n Element) []Element
+type Filter func (n Element) bool
+type Extractor func (n Element) []Element
 
 type Selector struct {
-	selectors []NodeSelector
+	extractors []Extractor
 }
 
 func NewSelector () *Selector {
@@ -429,7 +334,7 @@ func NewSelector () *Selector {
 func (s *Selector) Apply (input ...Element) []Element {
 	res := make([]Element, 0)
 	index := make(map[Element]bool)
-	hasTransformers := (len(s.selectors) > 0)
+	hasTransformers := (len(s.extractors) > 0)
 
 	for i, n := range input {
 		if n == nil {
@@ -438,7 +343,7 @@ func (s *Selector) Apply (input ...Element) []Element {
 
 		var ns []Element
 		if hasTransformers {
-			ns = selectNodes(input[i : i + 1], s.selectors)
+			ns = selectNodes(input[i : i + 1], s.extractors)
 		} else {
 			ns = input[i : i + 1]
 		}
@@ -454,7 +359,7 @@ func (s *Selector) Apply (input ...Element) []Element {
 	return res
 }
 
-func selectNodes (ns []Element, nss []NodeSelector) []Element {
+func selectNodes (ns []Element, nss []Extractor) []Element {
 	res := make([]Element, 0)
 	s := nss[0]
 	nss = nss[1 :]
@@ -469,15 +374,15 @@ func selectNodes (ns []Element, nss []NodeSelector) []Element {
 	return res
 }
 
-func (s *Selector) Use (ns NodeSelector) *Selector {
-	if ns != nil {
-		s.selectors = append(s.selectors, ns)
+func (s *Selector) Extract (ex Extractor) *Selector {
+	if ex != nil {
+		s.extractors = append(s.extractors, ex)
 	}
 	return s
 }
 
-func (s *Selector) Filter (nf NodeFilter) *Selector {
-	return s.Use(func (n Element) []Element {
+func (s *Selector) Filter (nf Filter) *Selector {
+	return s.Extract(func (n Element) []Element {
 		if nf(n) {
 			return []Element{n}
 		} else {
@@ -486,18 +391,12 @@ func (s *Selector) Filter (nf NodeFilter) *Selector {
 	})
 }
 
-func (s *Selector) Extract (ne NodeExtractor) *Selector {
-	return s.Use(func (n Element) []Element {
-		return ne(n)
-	})
-}
-
-func (s *Selector) search (nf NodeFilter, deepSearch bool) *Selector {
+func (s *Selector) search (nf Filter, deepSearch bool) *Selector {
 	flags := 0
 	if !deepSearch {
 		flags = WalkerSkipChildren
 	}
-	return s.Use(func (n Element) []Element {
+	return s.Extract(func (n Element) []Element {
 		f := 0
 		res := make([]Element, 0)
 		it := NewIterator(n, WalkLtr)
@@ -518,22 +417,22 @@ func (s *Selector) search (nf NodeFilter, deepSearch bool) *Selector {
 	})
 }
 
-func (s *Selector) Search (nf NodeFilter) *Selector {
+func (s *Selector) Search (nf Filter) *Selector {
 	return s.search(nf, false)
 }
 
-func (s *Selector) DeepSearch (nf NodeFilter) *Selector {
+func (s *Selector) DeepSearch (nf Filter) *Selector {
 	return s.search(nf, true)
 }
 
 
-func IsNot (f NodeFilter) NodeFilter {
+func IsNot (f Filter) Filter {
 	return func (n Element) bool {
 		return !f(n)
 	}
 }
 
-func IsAny (fs ... NodeFilter) NodeFilter {
+func IsAny (fs ...Filter) Filter {
 	return func (n Element) bool {
 		for _, f := range fs {
 			if f(n) {
@@ -544,7 +443,7 @@ func IsAny (fs ... NodeFilter) NodeFilter {
 	}
 }
 
-func IsAll (fs ... NodeFilter) NodeFilter {
+func IsAll (fs ...Filter) Filter {
 	return func (n Element) bool {
 		for _, f := range fs {
 			if !f(n) {
@@ -555,7 +454,7 @@ func IsAll (fs ... NodeFilter) NodeFilter {
 	}
 }
 
-func IsA (names ... string) NodeFilter {
+func IsA (names ... string) Filter {
 	return func (n Element) bool {
 		tn := n.TypeName()
 		for _, name := range names {
@@ -568,7 +467,7 @@ func IsA (names ... string) NodeFilter {
 	}
 }
 
-func IsALiteral (texts ... string) NodeFilter {
+func IsALiteral (texts ... string) Filter {
 	return func (n Element) bool {
 		if n.IsNode() {
 			return false
@@ -585,7 +484,7 @@ func IsALiteral (texts ... string) NodeFilter {
 	}
 }
 
-func Has (ne NodeExtractor, nf NodeFilter) NodeFilter {
+func Has (ne Extractor, nf Filter) Filter {
 	if ne == nil {
 		return func(n Element) bool {
 			it := NewIterator(n, WalkLtr)
@@ -610,7 +509,7 @@ func Has (ne NodeExtractor, nf NodeFilter) NodeFilter {
 }
 
 
-func Any (nes ...NodeExtractor) NodeExtractor {
+func Any (nes ...Extractor) Extractor {
 	return func (n Element) (res []Element) {
 		for _, ne := range nes {
 			res = ne(n)
@@ -622,7 +521,7 @@ func Any (nes ...NodeExtractor) NodeExtractor {
 	}
 }
 
-func All (nes ...NodeExtractor) NodeExtractor {
+func All (nes ...Extractor) Extractor {
 	return func (n Element) (res []Element) {
 		for _, ne := range nes {
 			res = append(res, ne(n) ...)
@@ -631,43 +530,69 @@ func All (nes ...NodeExtractor) NodeExtractor {
 	}
 }
 
-func Ancestors (levels ... int) NodeExtractor {
-	return func (n Element) []Element {
-		res := make([]Element, 0)
-		for _, i := range levels {
-			nn := Ancestor(n, i)
-			if nn != nil {
-				res = append(res, nn)
+func Nth(ex Extractor, indexes... int) Extractor {
+	return func (el Element) []Element {
+		var res []Element
+		els := ex(el)
+		l := len(els)
+		for _, i := range indexes {
+			if i >= 0 && i < l {
+				res = append(res, els[i])
 			}
 		}
 		return res
 	}
 }
 
-func NthChildren (indexes ... int) NodeExtractor {
-	return func (n Element) []Element {
-		res := make([]Element, 0)
-		for _, i := range indexes {
-			nn := NthChild(n, i)
-			if nn != nil {
-				res = append(res, nn)
-			}
-		}
-		return res
+func Ancestors (el Element) []Element {
+	if el == nil {
+		return nil
 	}
+
+	var res []Element
+	for {
+		el = el.Parent()
+		if el == nil {
+			break
+		}
+
+		res = append(res, el)
+	}
+	return res
 }
 
-func NthSiblings (indexes ... int) NodeExtractor {
-	return func (n Element) []Element {
-		res := make([]Element, 0)
-		for _, i := range indexes {
-			nn := NthSibling(n, i)
-			if nn != nil {
-				res = append(res, nn)
-			}
-		}
-		return res
+func PrevSiblings(el Element) []Element {
+	if el == nil {
+		return nil
 	}
+
+	var res []Element
+	for {
+		el = el.Prev()
+		if el == nil {
+			break
+		}
+
+		res = append(res, el)
+	}
+	return res
+}
+
+func NextSiblings(el Element) []Element {
+	if el == nil {
+		return nil
+	}
+
+	var res []Element
+	for {
+		el = el.Next()
+		if el == nil {
+			break
+		}
+
+		res = append(res, el)
+	}
+	return res
 }
 
 

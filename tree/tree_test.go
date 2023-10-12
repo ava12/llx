@@ -237,7 +237,7 @@ func TestWalkSkipChildren (t *testing.T) {
 	nodes := make([]Element, 0)
 	f := func (n Element) (flags WalkerFlags) {
 		nodes = append(nodes, n)
-		if NodeLevel(n) >= 2 {
+		if n.Parent() != nil && n.Parent().Parent() != nil {
 			flags = WalkerSkipChildren
 		}
 		return
@@ -319,13 +319,13 @@ func TestTransform (t *testing.T) {
 	expect2 := "(y)"
 	nodes := Children(parseTreeDescription(t, src))
 
-	xf := NewSelector().Use(f)
+	xf := NewSelector().Extract(f)
 	got1 := xf.Apply(nodes ...)
 	got2 := xf.Apply(got1 ...)
 	matchNodes(t, expect1, got1 ...)
 	matchNodes(t, expect2, got2 ...)
 
-	got := NewSelector().Use(f).Use(f).Apply(nodes ...)
+	got := NewSelector().Extract(f).Extract(f).Apply(nodes ...)
 	matchNodes(t, expect2, got ...)
 
 	matchNodes(t, children, nodes ...)
@@ -333,7 +333,8 @@ func TestTransform (t *testing.T) {
 
 func TestFilter (t *testing.T) {
 	f := func (n Element) bool {
-		return (NumOfChildren(n, 0) == 1)
+		nn, v := n.(NodeElement)
+		return v && nn.FirstChild() != nil && nn.FirstChild().Next() == nil
 	}
 
 	src := "(foo) (bar baz) (qux (x) (y z)) (a b)"
@@ -359,7 +360,8 @@ func TestSelect (t *testing.T) {
 
 func TestSearch (t *testing.T) {
 	f := func (n Element) bool {
-		return (NumOfChildren(n, 0) == 1)
+		nn, v := n.(NodeElement)
+		return v && nn.FirstChild() != nil && nn.FirstChild().Next() == nil
 	}
 
 	src := "(foo) (bar baz) (qux (x y)) (a b (c d))"
@@ -388,7 +390,8 @@ func TestIsAny (t *testing.T) {
 		return !n.IsNode()
 	}
 	f2 := func (n Element) bool {
-		return (NumOfChildren(n, 0) == 0)
+		nn, v := n.(NodeElement)
+		return v && nn.FirstChild() == nil
 	}
 	ff := IsAny(f1, f2)
 	tn := tokenElement{}
@@ -404,7 +407,8 @@ func TestIsAll (t *testing.T) {
 		return n.IsNode()
 	}
 	f2 := func (n Element) bool {
-		return (NumOfChildren(n, 0) > 0)
+		nn, v := n.(NodeElement)
+		return v && nn.FirstChild() != nil
 	}
 	ff := IsAll(f1, f2)
 	tn := tokenElement{}
@@ -472,7 +476,7 @@ func TestAny (t *testing.T) {
 		return []Element{n}
 	}
 	ans := func (n Element) []Element {
-		res := Ancestor(n, 0)
+		res := n.Parent()
 		if res == nil {
 			return nil
 		} else {
@@ -495,7 +499,7 @@ func TestAll (t *testing.T) {
 		return []Element{n}
 	}
 	ans := func (n Element) []Element {
-		res := Ancestor(n, 0)
+		res := n.Parent()
 		if res == nil {
 			return nil
 		} else {
@@ -511,43 +515,82 @@ func TestAll (t *testing.T) {
 	matchNodes(t, "", Any(ans, empty)(&parent) ...)
 }
 
+func TestNth (t *testing.T) {
+	els := []Element{
+		&nodeElement{typeName: "foo"},
+		&nodeElement{typeName: "bar"},
+		&nodeElement{typeName: "baz"},
+		&nodeElement{typeName: "qux"},
+	}
+	ex := func (Element) []Element {
+		return els
+	}
+	samples := []struct {
+		in, expected []int
+	}{
+		{nil, nil},
+		{[]int{1}, []int{1}},
+		{[]int{2, 4, 0}, []int{2, 0}},
+		{[]int{-1, 0, 1}, []int{0, 1}},
+	}
+	for i, s := range samples {
+		name := fmt.Sprintf("sample #%d", i)
+		t.Run(name, func (t *testing.T){
+			got := Nth(ex, s.in...)(els[0])
+			if len(got) != len(s.expected) {
+				t.Errorf("expecting %d elements, got %d", len(s.expected), len(got))
+				return
+			}
+
+			for i, el := range got {
+				if el != els[s.expected[i]] {
+					t.Errorf("element #%d: expecting %q, got %q", i, els[s.expected[i]].TypeName(), el.TypeName())
+					return
+				}
+			}
+		})
+	}
+}
+
 func TestAncestors (t *testing.T) {
 	foo := nodeElement{typeName: "foo"}
 	bar := nodeElement{typeName: "bar", parent: &foo}
 	baz := nodeElement{typeName: "baz", parent: &bar}
 	qux := nodeElement{typeName: "qux", parent: &baz}
-	f := Ancestors(1, 2, 0)
-
-	matchNodes(t, "", f(&foo) ...)
-	matchNodes(t, "(foo)", f(&bar) ...)
-	matchNodes(t, "(foo) (bar)", f(&baz) ...)
-	matchNodes(t, "(bar) (foo) (baz)", f(&qux) ...)
+	matchNodes(t, "", Ancestors(&foo) ...)
+	matchNodes(t, "(foo)", Ancestors(&bar) ...)
+	matchNodes(t, "(bar) (foo)", Ancestors(&baz) ...)
+	matchNodes(t, "(baz) (bar) (foo)", Ancestors(&qux) ...)
 }
 
-func TestNthChildren (t *testing.T) {
-	src := "(foo bar baz) (a b) (x)"
-	root, i := buildTree(t, src)
-	f := NthChildren(1, 2, 0, -1, -2)
+func TestPrevSiblings(t *testing.T) {
+	els := []Element{
+		&nodeElement{typeName: "foo"},
+		&nodeElement{typeName: "bar"},
+		&nodeElement{typeName: "baz"},
+	}
+	parent := &nodeElement{}
+	for _, el := range els {
+		parent.AddChild(el, nil)
+	}
 
-	matchNodes(t, "(a) (x) (foo) (x) (a)", f(root) ...)
-	matchNodes(t, "baz bar baz bar", f(i["foo"]) ...)
-	matchNodes(t, "b b", f(i["a"]) ...)
-	matchNodes(t, "", f(i["x"]) ...)
+	matchNodes(t, "", PrevSiblings(els[0])...)
+	matchNodes(t, "(foo)", PrevSiblings(els[1])...)
+	matchNodes(t, "(bar) (foo)", PrevSiblings(els[2])...)
 }
 
-func TestNthSiblings (t *testing.T) {
-	src := "(foo bar baz qux) (a b c) (x y) (z)"
-	_, i := buildTree(t, src)
-	f := NthSiblings(1, 2, 0, -2, -1)
+func TestNextSiblings(t *testing.T) {
+	els := []Element{
+		&nodeElement{typeName: "foo"},
+		&nodeElement{typeName: "bar"},
+		&nodeElement{typeName: "baz"},
+	}
+	parent := &nodeElement{}
+	for _, el := range els {
+		parent.AddChild(el, nil)
+	}
 
-	matchNodes(t, "(a) (x) (foo)", f(i["foo"]) ...)
-	matchNodes(t, "baz qux bar", f(i["bar"]) ...)
-	matchNodes(t, "qux baz bar", f(i["baz"]) ...)
-	matchNodes(t, "qux bar baz", f(i["qux"]) ...)
-	matchNodes(t, "(x) (z) (a) (foo)", f(i["a"]) ...)
-	matchNodes(t, "c b", f(i["b"]) ...)
-	matchNodes(t, "c b", f(i["c"]) ...)
-	matchNodes(t, "(z) (x) (foo) (a)", f(i["x"]) ...)
-	matchNodes(t, "y", f(i["y"]) ...)
-	matchNodes(t, "(z) (a) (x)", f(i["z"]) ...)
+	matchNodes(t, "(bar) (baz)", NextSiblings(els[0])...)
+	matchNodes(t, "(baz)", NextSiblings(els[1])...)
+	matchNodes(t, "", NextSiblings(els[2])...)
 }

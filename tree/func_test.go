@@ -4,121 +4,8 @@ import (
 	"testing"
 )
 
-func TestAncestor (t *testing.T) {
-	assert(t, Ancestor(nil, 0) == nil)
-	assert(t, Ancestor(nil, -1) == nil)
-	assert(t, Ancestor(nil, 1) == nil)
-
-	root, i := buildTree(t, "(child t (nt))")
-	child := i["child"]
-	grandT := i["t"]
-	grandNT := i["nt"]
-
-	assert(t, Ancestor(root, 0) == nil)
-
-	assert(t, Ancestor(grandT, -10) == grandT)
-	assert(t, Ancestor(grandT, -1) == grandT)
-	assert(t, Ancestor(grandT, 0) == child)
-	assert(t, Ancestor(grandT, 1) == root)
-	assert(t, Ancestor(grandT, 2) == nil)
-	assert(t, Ancestor(grandT, 20) == nil)
-
-	assert(t, Ancestor(grandNT, -10) == grandNT)
-	assert(t, Ancestor(grandNT, -1) == grandNT)
-	assert(t, Ancestor(grandNT, 0) == child)
-	assert(t, Ancestor(grandNT, 1) == root)
-	assert(t, Ancestor(grandNT, 2) == nil)
-	assert(t, Ancestor(grandNT, 20) == nil)
-}
-
-func TestNodeLevel (t *testing.T) {
-	assert(t, NodeLevel(nil) == 0)
-
-	root, i := buildTree(t, "(child (grand))")
-	child := i["child"]
-	grand := i["grand"]
-
-	assert(t, NodeLevel(root) == 0)
-	assert(t, NodeLevel(child) == 1)
-	assert(t, NodeLevel(grand) == 2)
-}
-
-func TestSiblingIndex (t *testing.T) {
-	assert(t, SiblingIndex(nil) == 0)
-
-	_, i := buildTree(t, "(1st) (2nd) (3rd)")
-	first := i["1st"]
-	second := i["2nd"]
-	third := i["3rd"]
-
-	assert(t, SiblingIndex(first) == 0)
-	assert(t, SiblingIndex(second) == 1)
-	assert(t, SiblingIndex(third) == 2)
-}
-
-func TestNthChild (t *testing.T) {
-	assert(t, NthChild(nil, 0) == nil)
-
-	parent, i := buildTree(t, "(1st) (2nd grand) (3rd)")
-	first := i["1st"]
-	second := i["2nd"]
-	third := i["3rd"]
-
-	assert(t, NthChild(first, 0) == nil)
-
-	assert(t, NthChild(parent, -40) == nil)
-	assert(t, NthChild(parent, -4) == nil)
-	assert(t, NthChild(parent, -3) == first)
-	assert(t, NthChild(parent, -2) == second)
-	assert(t, NthChild(parent, -1) == third)
-	assert(t, NthChild(parent, 0) == first)
-	assert(t, NthChild(parent, 1) == second)
-	assert(t, NthChild(parent, 2) == third)
-	assert(t, NthChild(parent, 3) == nil)
-	assert(t, NthChild(parent, 30) == nil)
-}
-
-func TestNthSibling (t *testing.T) {
-	assert(t, NthSibling(nil, 0) == nil)
-
-	_, i := buildTree(t, "(1st) (2nd) (3rd) (4th)")
-	first := i["1st"]
-	second := i["2nd"]
-	third := i["3rd"]
-	fourth := i["4th"]
-
-	assert(t, NthSibling(second, -20) == nil)
-	assert(t, NthSibling(second, -2) == nil)
-	assert(t, NthSibling(second, -1) == first)
-	assert(t, NthSibling(second, 0) == second)
-	assert(t, NthSibling(second, 1) == third)
-	assert(t, NthSibling(second, 2) == fourth)
-	assert(t, NthSibling(second, 3) == nil)
-	assert(t, NthSibling(second, 30) == nil)
-}
-
-func TestNumOfChildren (t *testing.T) {
-	assert(t, NumOfChildren(nil, 0) == 0)
-
-	root, i := buildTree(t, "(1st) (2nd (leaf)) (3rd)")
-	first := i["1st"]
-	second := i["2nd"]
-	third := i["3rd"]
-	leaf := i["leaf"]
-
-	assert(t, NumOfChildren(root, AllLevels) == 4)
-	assert(t, NumOfChildren(root, 0) == 3)
-	assert(t, NumOfChildren(root, 1) == 4)
-	assert(t, NumOfChildren(root, 2) == 4)
-	assert(t, NumOfChildren(root, 20) == 4)
-	assert(t, NumOfChildren(first, 0) == 0)
-	assert(t, NumOfChildren(second, 0) == 1)
-	assert(t, NumOfChildren(third, 0) == 0)
-	assert(t, NumOfChildren(leaf, 0) == 0)
-}
-
 func TestFirstTokenElement (t *testing.T) {
-	assert (t, FirstTokenElement(nil) == nil)
+	assert(t, FirstTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd leaf other)")
 	first := i["1st"]
@@ -132,7 +19,7 @@ func TestFirstTokenElement (t *testing.T) {
 }
 
 func TestLastTokenElement (t *testing.T) {
-	assert (t, LastTokenElement(nil) == nil)
+	assert(t, LastTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd leaf other)")
 	first := i["1st"]
