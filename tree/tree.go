@@ -1,4 +1,4 @@
-// Package tree provides functions for building, manipulating, and traversing parse trees.
+// Package tree provides basic functions for building, manipulating, and traversing parse trees.
 // A tree consists of linked node and token elements, the root is the initial node element.
 package tree
 
@@ -18,9 +18,9 @@ type Element interface {
 	Token () *lexer.Token
 	// Parent returns parent node element, nil for tree root.
 	Parent () NodeElement
-	// Prev returns previous sibling for element, nil for first child.
+	// Prev returns previous sibling for element, nil for first child or tree root.
 	Prev () Element
-	// Next returns the next sibling for element, nil for last child.
+	// Next returns the next sibling for element, nil for last child or tree root.
 	Next () Element
 	// SetParent sets parent node for element, nil to remove element from tree.
 	// Used by SetChild and RemoveChild.
@@ -48,7 +48,9 @@ type NodeElement interface {
 	RemoveChild (Element)
 }
 
-
+// FirstTokenElement returns element itself if it's not a node
+// or returns the first token element captured by node or its descendant nodes.
+// Returns nil if neither node nor its descendants contain token elements.
 func FirstTokenElement (n Element) Element {
 	if n == nil || !n.IsNode() {
 		return n
@@ -67,6 +69,9 @@ func FirstTokenElement (n Element) Element {
 	return n
 }
 
+// LastTokenElement returns element itself if it's not a node
+// or returns the last token element captured by node or its descendant nodes.
+// Returns nil if neither node nor its descendants contain token elements. 
 func LastTokenElement (n Element) Element {
 	if n == nil || !n.IsNode() {
 		return n
@@ -85,6 +90,8 @@ func LastTokenElement (n Element) Element {
 	return n
 }
 
+// NextTokenElement returns the first token element after given one, if there are any.
+// I.e. the first token element in the next sibling or its parent's next sibling etc.
 func NextTokenElement (n Element) Element {
 	if n == nil {
 		return nil
@@ -103,6 +110,8 @@ func NextTokenElement (n Element) Element {
 	return FirstTokenElement(nn)
 }
 
+// PrevTokenElement returns the last token element before given one, if there are any.
+// I.e. the last token element in the previous sibling or its parent's previous sibling etc.
 func PrevTokenElement (n Element) Element {
 	if n == nil {
 		return nil
@@ -121,6 +130,7 @@ func PrevTokenElement (n Element) Element {
 	return LastTokenElement(nn)
 }
 
+// Children returns child elements (if there are any) or nil if given element is not a node.
 func Children (n Element) []Element {
 	if n == nil || !n.IsNode() {
 		return nil
@@ -136,6 +146,8 @@ func Children (n Element) []Element {
 }
 
 
+// Detach removes element from tree. Parent and sibling references are removed, but descendants are kept.
+// Does nothing if the element is the tree root.
 func Detach (n Element) {
 	if n == nil || n.Parent() == nil {
 		return
@@ -144,6 +156,7 @@ func Detach (n Element) {
 	n.Parent().RemoveChild(n)
 }
 
+// Replace replaces old element with new one or simply removes old element if the new one is nil.
 func Replace (old, n Element) {
 	if n == nil || old == nil {
 		Detach(old)
@@ -157,53 +170,61 @@ func Replace (old, n Element) {
 	pa.AddChild(n, ne)
 }
 
-func AppendSibling (prev, node Element) {
-	if node == nil || prev == nil {
+// AppendSibling places new element after target one.
+// Target becomes new element's previous sibling, target's next sibling (if any) becomes new element's next sibling.
+// Does nothing if either new or target element is nil.
+func AppendSibling (prev, el Element) {
+	if el == nil || prev == nil {
 		return
 	}
 
-	Detach(node)
+	Detach(el)
 	next := prev.Next()
 	parent := prev.Parent()
 	if parent == nil {
-		node.SetPrev(prev)
-		node.SetNext(next)
-		prev.SetNext(node)
+		el.SetPrev(prev)
+		el.SetNext(next)
+		prev.SetNext(el)
 		if next != nil {
-			next.SetPrev(node)
+			next.SetPrev(el)
 		}
 	} else {
-		parent.AddChild(node, next)
+		parent.AddChild(el, next)
 	}
 }
 
-func PrependSibling (next, node Element) {
-	if node == nil || next == nil {
+// PrependSibling places new element before target one.
+// Target becomes new element's next sibling, target's previous sibling (if any) becomes new element's previous sibling.
+// Does nothing if either new or target element is nil.
+func PrependSibling (next, el Element) {
+	if el == nil || next == nil {
 		return
 	}
 
-	Detach(node)
+	Detach(el)
 	parent := next.Parent()
 	if parent == nil {
 		prev := next.Prev()
-		node.SetPrev(prev)
-		node.SetNext(next)
-		next.SetPrev(node)
+		el.SetPrev(prev)
+		el.SetNext(next)
+		next.SetPrev(el)
 		if prev != nil {
-			prev.SetNext(node)
+			prev.SetNext(el)
 		}
 	} else {
-		parent.AddChild(node, next)
+		parent.AddChild(el, next)
 	}
 }
 
-func AppendChild (parent NodeElement, node Element) {
-	if parent == nil || node == nil {
+// AppendChild places new element as a child of target one.
+// New element becomes target's last child.
+func AppendChild (parent NodeElement, el Element) {
+	if parent == nil || el == nil {
 		return
 	}
 
-	Detach(node)
-	parent.AddChild(node, nil)
+	Detach(el)
+	parent.AddChild(el, nil)
 }
 
 
@@ -220,33 +241,35 @@ const (
 	WalkRtl WalkMode = 1
 )
 
-type Iterator struct {
+type Visitor func (n Element) WalkerFlags
+
+type Walker struct {
 	root, current Element
 	flagStack     []WalkerFlags
 	mode          WalkMode
 }
 
-func NewIterator (n Element, m WalkMode) *Iterator {
-	return &Iterator{root: n, mode: m}
+func NewWalker (root Element, m WalkMode) *Walker {
+	return &Walker{root: root, mode: m}
 }
 
-func (it *Iterator) Step (f WalkerFlags) Element {
+func (w *Walker) Step (f WalkerFlags) Element {
 	if (f & WalkerStop) != 0 {
-		it.root = nil
-		it.flagStack = nil
+		w.root = nil
+		w.flagStack = nil
 	}
 
-	if it.root == nil {
+	if w.root == nil {
 		return nil
 	}
 
-	if it.current == nil {
-		it.current = it.root
-		return it.current
+	if w.current == nil {
+		w.current = w.root
+		return w.current
 	}
 
-	n := it.current
-	rtl := (it.mode & WalkRtl) != 0
+	n := w.current
+	rtl := (w.mode & WalkRtl) != 0
 	if n.IsNode() && (f & WalkerSkipChildren) == 0 {
 		if rtl {
 			n = n.(NodeElement).LastChild()
@@ -254,71 +277,70 @@ func (it *Iterator) Step (f WalkerFlags) Element {
 			n = n.(NodeElement).FirstChild()
 		}
 		if n != nil {
-			it.pushFlags(f)
-			it.current = n
+			w.pushFlags(f)
+			w.current = n
 			return n
 		}
 	}
 
-	for it.current != it.root {
+	for w.current != w.root {
 		if (f & WalkerSkipSiblings) == 0 {
 			if rtl {
-				n = it.current.Prev()
+				n = w.current.Prev()
 			} else {
-				n = it.current.Next()
+				n = w.current.Next()
 			}
 			if n != nil {
-				it.current = n
+				w.current = n
 				return n
 			}
 		}
 
-		n = it.current.Parent()
-		if n == nil || len(it.flagStack) < 2 {
+		n = w.current.Parent()
+		if n == nil || len(w.flagStack) < 2 {
 			break
 		}
 
-		f = it.popFlags()
-		it.current = n
+		f = w.popFlags()
+		w.current = n
 	}
 
-	it.root = nil
-	it.flagStack = nil
+	w.root = nil
+	w.flagStack = nil
 	return nil
 }
 
-func (it *Iterator) Next () Element {
-	return it.Step(0)
+func (w *Walker) Next () Element {
+	return w.Step(0)
 }
 
-func (it *Iterator) pushFlags (f WalkerFlags) {
-	it.flagStack = append(it.flagStack, f &^ WalkerSkipChildren)
+func (w *Walker) pushFlags (f WalkerFlags) {
+	w.flagStack = append(w.flagStack, f &^ WalkerSkipChildren)
 }
 
-func (it *Iterator) popFlags () (f WalkerFlags) {
-	l := len(it.flagStack) - 1
-	f = it.flagStack[l]
-	it.flagStack = it.flagStack[: l]
+func (w *Walker) popFlags () (f WalkerFlags) {
+	l := len(w.flagStack) - 1
+	f = w.flagStack[l]
+	w.flagStack = w.flagStack[: l]
 	return
 }
 
-
-type NodeVisitor func (n Element) WalkerFlags
-
-func Walk (n Element, mode WalkMode, visitor NodeVisitor) {
+func (w *Walker) Walk (visitor Visitor) {
 	flags := 0
-	it := NewIterator(n, mode)
-	n = it.Step(flags)
-	for n != nil {
-		flags = visitor(n)
+	el := w.Step(flags)
+	for el != nil {
+		flags = visitor(el)
 		if (flags & WalkerStop) != 0 {
 			return
 		}
 
-		n = it.Step(flags)
+		el = w.Step(flags)
 	}
 }
 
+func Walk (root Element, mode WalkMode, visitor Visitor) {
+	NewWalker(root, mode).Walk(visitor)
+}
 
 type Filter func (n Element) bool
 type Extractor func (n Element) []Element
@@ -399,9 +421,9 @@ func (s *Selector) search (nf Filter, deepSearch bool) *Selector {
 	return s.Extract(func (n Element) []Element {
 		f := 0
 		res := make([]Element, 0)
-		it := NewIterator(n, WalkLtr)
+		w := NewWalker(n, WalkLtr)
 		for {
-			nn := it.Step(f)
+			nn := w.Step(f)
 			if nn == nil {
 				break
 			}
@@ -487,8 +509,8 @@ func IsALiteral (texts ... string) Filter {
 func Has (ne Extractor, nf Filter) Filter {
 	if ne == nil {
 		return func(n Element) bool {
-			it := NewIterator(n, WalkLtr)
-			for nn := it.Next(); nn != nil; nn = it.Next() {
+			w := NewWalker(n, WalkLtr)
+			for nn := w.Next(); nn != nil; nn = w.Next() {
 				if nf == nil || nf(nn) {
 					return true
 				}

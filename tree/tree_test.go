@@ -178,18 +178,18 @@ func buildTree (t *testing.T, src string) (NodeElement, map[string]Element) {
 	return root, index
 }
 
-func TestIterator (t *testing.T) {
-	it := NewIterator(nil, WalkLtr)
+func TestWalker (t *testing.T) {
+	it := NewWalker(nil, WalkLtr)
 	assert(t, it.Next() == nil)
 
 	src := "(foo (f1 (f11 f111 f112)) f2)(bar b1)(baz)"
 	root, i := buildTree(t, src)
 
-	it = NewIterator(root, WalkLtr)
+	it = NewWalker(root, WalkLtr)
 	assert(t, it.Step(WalkerStop) == nil)
 	assert(t, it.Next() == nil)
 
-	it = NewIterator(root, WalkLtr)
+	it = NewWalker(root, WalkLtr)
 	assert(t, it.Next() == root)
 	assert(t, it.Next() == i["foo"])
 	assert(t, it.Next() == i["f1"])
@@ -200,7 +200,7 @@ func TestIterator (t *testing.T) {
 	assert(t, it.Step(WalkerSkipChildren) == i["baz"])
 	assert(t, it.Next() == nil)
 
-	it = NewIterator(root, WalkRtl)
+	it = NewWalker(root, WalkRtl)
 	assert(t, it.Next() == root)
 	assert(t, it.Next() == i["baz"])
 	assert(t, it.Next() == i["bar"])
