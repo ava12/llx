@@ -137,17 +137,25 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 	}
 	buffer.WriteString("\t},\n")
 
-	buffer.WriteString("\tMultiRules: []grammar.MultiRule{\n")
-	for _, mr := range gr.MultiRules {
-		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d},\n", mr.Token, mr.LowRule, mr.HighRule))
+	buffer.WriteString("\tMultiRules: []grammar.MultiRule{")
+	if len(gr.MultiRules) == 0 {
+		buffer.WriteString("},\n")
+	} else {
+		for _, mr := range gr.MultiRules {
+			buffer.WriteString(fmt.Sprintf("\n\t\t{%d, %d, %d},", mr.Token, mr.LowRule, mr.HighRule))
+		}
+		buffer.WriteString("\n\t},\n")
 	}
-	buffer.WriteString("\t},\n")
 
-	buffer.WriteString("\tRules: []grammar.Rule{\n")
-	for _, r := range gr.Rules {
-		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d},\n", r.Token, r.State, r.Node))
+	buffer.WriteString("\tRules: []grammar.Rule{")
+	if len(gr.Rules) == 0 {
+		buffer.WriteString("},\n")
+	} else {
+		for _, r := range gr.Rules {
+			buffer.WriteString(fmt.Sprintf("\n\t\t{%d, %d, %d},", r.Token, r.State, r.Node))
+		}
+		buffer.WriteString("\n\t},\n")
 	}
-	buffer.WriteString("\t},\n")
 
 	buffer.WriteString("}\n")
 	return buffer.Bytes(), nil
