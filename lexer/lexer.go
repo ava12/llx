@@ -22,12 +22,12 @@ const (
 
 // Error codes used by lexer:
 const (
-	// ErrWrongChar is the error code indicating that lexer cannot fetch any token at current position.
+	// WrongCharError indicates that lexer cannot fetch any token at current position.
 	// Error message contains the rune at current source position.
-	ErrWrongChar = iota + 102
+	WrongCharError = llx.LexicalErrors + iota
 
-	// ErrBadToken is the error code indicating that lexer has fetched a token of ErrorTokenType.
-	ErrBadToken
+	// BadTokenError indicates that lexer has fetched a token of ErrorTokenType.
+	BadTokenError
 )
 
 // TokenType describes token type for specific capturing group of regular expression.
@@ -62,11 +62,11 @@ func New (re *regexp.Regexp, types []TokenType) *Lexer {
 func wrongCharError (s *source.Source, content []byte, line, col int) *llx.Error {
 	r, _ := utf8.DecodeRune(content)
 	msg := fmt.Sprintf("wrong char \"%c\" (u+%x)", r, r)
-	return llx.NewError(ErrWrongChar, msg, s.Name(), line, col)
+	return llx.NewError(WrongCharError, msg, s.Name(), line, col)
 }
 
 func wrongTokenError (t *Token) *llx.Error {
-	return llx.FormatErrorPos(t, ErrBadToken, "bad token %q", t.Text())
+	return llx.FormatErrorPos(t, BadTokenError, "bad token %q", t.Text())
 }
 
 func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token, int, error) {

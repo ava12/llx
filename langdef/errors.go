@@ -10,53 +10,37 @@ import (
 // Error codes used by langdef.Parse* functions:
 const (
 	// EoF reached when token expected
-	UnexpectedEofError = iota + 1
-
+	UnexpectedEofError = llx.LangDefErrors + iota
 	// fetched token of unexpected type or with unexpected content
 	UnexpectedTokenError
-
 	// node definition uses undefined token type
 	UnknownTokenError
-
 	// node definition uses aside or error token
 	WrongTokenError
-
 	// redefining already defined token type
 	TokenDefinedError
-
 	// redefining already defined node
 	NodeDefinedError
-
 	// error in regular expression
 	WrongRegexpError
-
 	// node definition uses node that was never defined
 	UnknownNodeError
-
 	// found node that is defined but not used
 	UnusedNodeError
-
 	// cannot resolve node dependencies, this maybe a circular cross-reference (e. g. foo = bar; bar = foo;)
 	UnresolvedError
-
 	// left-recursive node definition found
 	RecursionError
-
 	// too many token groups (more than 30)
 	GroupNumberError
-
 	// cannot associate string literal with any token type
 	UnresolvedGroupsError
-
 	// tokens expected at certain parsing state do not belong to the same token group
 	DisjointGroupsError
-
 	// token type listed in directive is not defined
 	UndefinedTokenError
-
 	// there are token types that are not assigned to any group
 	NoGroupAssignedError
-
 	// node definition uses string literal that is not whitelisted
 	UnknownLiteralError
 )

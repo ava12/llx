@@ -29,12 +29,17 @@ import (
 	"fmt"
 )
 
+// Error classes used by subpackages, each class contains up to 99 error codes:
+const (
+	LangDefErrors = 1   // used by langdef
+	LexicalErrors = 101 // used by lexer
+	SyntaxErrors = 201  // used by parser
+	ParserErrors = 301  // used by parser
+)
+
 // Error is the error type used by llx subpackages.
 type Error struct {
-	// Code contains non-zero error code. Different subpackages use different ranges of codes:
-	// - langdef: 1-99
-	// - lexer: 100-199
-	// - parser: 200-299
+	// Code contains non-zero error code.
 	Code int
 
 	// Message contains non-empty error message including source name and position information if provided.

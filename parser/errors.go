@@ -5,23 +5,22 @@ import (
 	"github.com/ava12/llx/lexer"
 )
 
-// Error codes used by parser:
+// Syntax error codes used by parser:
 const (
 	// expecting token, got end of input
-	UnexpectedEoiError = iota + 201
-
+	UnexpectedEoiError = llx.SyntaxErrors + iota
 	// cannot match grammar rule for incoming token
 	UnexpectedTokenError
+)
 
+// Other error codes used by parser:
+const (
 	// trying to emit token of unknown type, a literal, or an error token
-	EmitWrongTokenError
-
+	EmitWrongTokenError = llx.ParserErrors + iota
 	// token hook for unknown token type name
 	UnknownTokenTypeError
-
 	// literal hook for unknown literal
 	UnknownTokenLiteralError
-
 	// node hook for unknown node
 	UnknownNodeError
 )

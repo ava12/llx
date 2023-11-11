@@ -71,7 +71,7 @@ func TestBrokenToken (t *testing.T) {
 		t.Fatalf("expected error, got %q token", tok.TypeName())
 	}
 	ee, f := e.(*llx.Error)
-	if !f || ee.Code != ErrBadToken {
+	if !f || ee.Code != BadTokenError {
 		t.Fatalf("expected WrongTokenError, got %v", e)
 	}
 	if ee.Line != 2 || ee.Col != 3 {
@@ -193,8 +193,8 @@ func TestErrorPos (t *testing.T) {
 		src string
 		err, line, col int
 	}{
-		{"foo\n<bar> &baz", ErrWrongChar, 2, 7},
-		{"foo\n <bar\nbaz", ErrBadToken, 2, 2},
+		{"foo\n<bar> &baz", WrongCharError, 2, 7},
+		{"foo\n <bar\nbaz", BadTokenError, 2, 2},
 	}
 	q := source.NewQueue()
 	l := New(re, types)
