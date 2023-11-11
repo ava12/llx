@@ -1,4 +1,4 @@
-// Package tree provides basic functions for building, manipulating, and traversing parse trees.
+// Package tree provides basic functions for building, manipulating, and traversing syntax trees.
 // A tree consists of linked node and token elements, the root is the initial node element.
 package tree
 
@@ -131,6 +131,7 @@ func PrevTokenElement (n Element) Element {
 }
 
 // Children returns child elements (if there are any) or nil if given element is not a node.
+// Child elements are returned in left-to-right order.
 func Children (n Element) []Element {
 	if n == nil || !n.IsNode() {
 		return nil
@@ -227,32 +228,41 @@ func AppendChild (parent NodeElement, el Element) {
 	parent.AddChild(el, nil)
 }
 
-
+// WalkerFlags instruct walker which parts of subtree must be skipped.
 type WalkerFlags = int
 const (
-	WalkerStop = 1 << iota
-	WalkerSkipChildren
-	WalkerSkipSiblings
+	WalkerStop = 1 << iota // Stop traversing.
+	WalkerSkipChildren     // Skip traversing child subtrees of the last fetched element. Ignored if no elements fetched yet.
+	WalkerSkipSiblings     // Skip sibling subtrees of the last fetched element. Ignored if no elements fetched yet.
 )
 
+// WalkMode defines subtree traversing mode.
 type WalkMode int
 const (
-	WalkLtr WalkMode = 0
-	WalkRtl WalkMode = 1
+	WalkLtr WalkMode = 0 // Left to right, parent first, depth-first.
+	WalkRtl WalkMode = 1 // Right to left, parent first, depth-first.
 )
 
+// Visitor processes element fetched by walker and responds which parts of subtree must be skipped on next step.
 type Visitor func (n Element) WalkerFlags
 
+// Walker traverses given subtree in specified order.
+// References given subtree, not reusable.
+// Subtree should not be modified while walker is in use.
 type Walker struct {
 	root, current Element
 	flagStack     []WalkerFlags
 	mode          WalkMode
 }
 
+// NewWalker creates walker for given subtree.
 func NewWalker (root Element, m WalkMode) *Walker {
 	return &Walker{root: root, mode: m}
 }
 
+// Step returns the next element omitting specified parts of subtree.
+// Returns nil if WalkerStop is passed or traversal is finished.
+// When this method returns nil all future calls wil return nil.
 func (w *Walker) Step (f WalkerFlags) Element {
 	if (f & WalkerStop) != 0 {
 		w.root = nil
@@ -310,6 +320,7 @@ func (w *Walker) Step (f WalkerFlags) Element {
 	return nil
 }
 
+// Next returns next element, same as Step(0).
 func (w *Walker) Next () Element {
 	return w.Step(0)
 }
@@ -325,6 +336,8 @@ func (w *Walker) popFlags () (f WalkerFlags) {
 	return
 }
 
+// Walk traverses subtree using Step().
+// Visitor is called for each fetched element.
 func (w *Walker) Walk (visitor Visitor) {
 	flags := 0
 	el := w.Step(flags)
@@ -338,25 +351,40 @@ func (w *Walker) Walk (visitor Visitor) {
 	}
 }
 
+// Walk traverses given subtree in specified order calling visitor for each fetched element.
 func Walk (root Element, mode WalkMode, visitor Visitor) {
 	NewWalker(root, mode).Walk(visitor)
 }
 
+// Filter examines given non-nil element and decides whether it is accepted and must be kept in element list (true)
+// or rejected and must be removed from list (false).
 type Filter func (n Element) bool
+
+// Extractor returns a list of elements related to given non-nil element.
+// Result must not contain nil elements.
 type Extractor func (n Element) []Element
 
+// Selector transforms list of elements to another list using provided transformers (extractors and filters).
+// Contains list of transformers, configurable and reusable.
 type Selector struct {
 	extractors []Extractor
+	unique bool
 }
 
+// NewSelector creates selector with empty list of transformers.
 func NewSelector () *Selector {
 	return &Selector{}
 }
 
+// Apply applies stored list of transformers to passed list of elements and returns output.
+// Transformers are used in FIFO order, output is used as an input for the next transformer.
 func (s *Selector) Apply (input ...Element) []Element {
 	res := make([]Element, 0)
-	index := make(map[Element]bool)
-	hasTransformers := (len(s.extractors) > 0)
+	var index map[Element]struct{}
+	if s.unique {
+		index = make(map[Element]struct{})
+	}
+	hasExtractors := len(s.extractors) > 0
 
 	for i, n := range input {
 		if n == nil {
@@ -364,17 +392,22 @@ func (s *Selector) Apply (input ...Element) []Element {
 		}
 
 		var ns []Element
-		if hasTransformers {
+		if hasExtractors {
 			ns = selectNodes(input[i : i + 1], s.extractors)
 		} else {
 			ns = input[i : i + 1]
 		}
 
-		for _, tn := range ns {
-			if !index[tn] {
-				index[tn] = true
-				res = append(res, tn)
+		if s.unique {
+			for _, tn := range ns {
+				_, has := index[tn]
+				if !has {
+					index[tn] = struct{}{}
+					res = append(res, tn)
+				}
 			}
+		} else {
+			res = append(res, ns...)
 		}
 	}
 
@@ -385,7 +418,7 @@ func selectNodes (ns []Element, nss []Extractor) []Element {
 	res := make([]Element, 0)
 	s := nss[0]
 	nss = nss[1 :]
-	goDeeper := (len(nss) > 0)
+	goDeeper := len(nss) > 0
 	for _, n := range ns {
 		if goDeeper {
 			res = append(res, selectNodes(s(n), nss)...)
@@ -396,6 +429,15 @@ func selectNodes (ns []Element, nss []Extractor) []Element {
 	return res
 }
 
+// Unique instructs selector to remove duplicated elements from output of Apply method, by default output is returned as is.
+// Modifies selector, chainable.
+func (s *Selector) Unique () *Selector {
+	s.unique = true
+	return s
+}
+
+// Extract adds extractor to transformer list.
+// Modifies selector, chainable.
 func (s *Selector) Extract (ex Extractor) *Selector {
 	if ex != nil {
 		s.extractors = append(s.extractors, ex)
@@ -403,6 +445,8 @@ func (s *Selector) Extract (ex Extractor) *Selector {
 	return s
 }
 
+// Filter adds filter to transformer list.
+// Modifies selector, chainable.
 func (s *Selector) Filter (nf Filter) *Selector {
 	return s.Extract(func (n Element) []Element {
 		if nf(n) {
@@ -439,21 +483,32 @@ func (s *Selector) search (nf Filter, deepSearch bool) *Selector {
 	})
 }
 
+// Search adds transformer that treats input element as a subtree root and traverses this subtree
+// extracting elements that are accepted by given filter.
+// Extracted elements are not traversed, so if accepted element contains acceptable descendants,
+// those descendants will not be output.
+// Modifies selector, chainable.
 func (s *Selector) Search (nf Filter) *Selector {
 	return s.search(nf, false)
 }
 
+// DeepSearch adds transformer that treats input element as a subtree root and traverses this subtree
+// extracting elements that are accepted by given filter.
+// Extracted elements are also traversed, so if accepted element contains acceptable descendants,
+// those descendants will be output as well.
+// Modifies selector, chainable.
 func (s *Selector) DeepSearch (nf Filter) *Selector {
 	return s.search(nf, true)
 }
 
-
+// IsNot creates filter that inverts result of given filter (i.e. rejects accepted element and accepts rejected).
 func IsNot (f Filter) Filter {
 	return func (n Element) bool {
 		return !f(n)
 	}
 }
 
+// IsAny creates filter that accepts element if it is accepted by any of given filters and rejects otherwise.
 func IsAny (fs ...Filter) Filter {
 	return func (n Element) bool {
 		for _, f := range fs {
@@ -465,6 +520,7 @@ func IsAny (fs ...Filter) Filter {
 	}
 }
 
+// IsAll creates filter that accepts element if it is accepted by all of given filters and rejects otherwise.
 func IsAll (fs ...Filter) Filter {
 	return func (n Element) bool {
 		for _, f := range fs {
@@ -476,6 +532,7 @@ func IsAll (fs ...Filter) Filter {
 	}
 }
 
+// IsA creates filter that accepts elements with given type names and rejects others.
 func IsA (names ... string) Filter {
 	return func (n Element) bool {
 		tn := n.TypeName()
@@ -489,6 +546,7 @@ func IsA (names ... string) Filter {
 	}
 }
 
+// IsALiteral creates filter that accepts token elements with given content and rejects others.
 func IsALiteral (texts ... string) Filter {
 	return func (n Element) bool {
 		if n.IsNode() {
@@ -506,31 +564,9 @@ func IsALiteral (texts ... string) Filter {
 	}
 }
 
-func Has (ne Extractor, nf Filter) Filter {
-	if ne == nil {
-		return func(n Element) bool {
-			w := NewWalker(n, WalkLtr)
-			for nn := w.Next(); nn != nil; nn = w.Next() {
-				if nf == nil || nf(nn) {
-					return true
-				}
-			}
-			return false
-		}
-	} else {
-		return func (n Element) bool {
-			ns := ne(n)
-			for _, nn := range ns {
-				if nf == nil || nf(nn) {
-					return true
-				}
-			}
-			return false
-		}
-	}
-}
 
-
+// Any creates extractor that applies given extractors to input element in order until it gets non-empty output.
+// Returns first non-empty output or nil if all outputs were empty.
 func Any (nes ...Extractor) Extractor {
 	return func (n Element) (res []Element) {
 		for _, ne := range nes {
@@ -543,6 +579,8 @@ func Any (nes ...Extractor) Extractor {
 	}
 }
 
+// All creates extractor that applies all given extractors to input element.
+// Returns merged outputs, may contain duplicate elements.
 func All (nes ...Extractor) Extractor {
 	return func (n Element) (res []Element) {
 		for _, ne := range nes {
@@ -552,6 +590,8 @@ func All (nes ...Extractor) Extractor {
 	}
 }
 
+// Nth creates extractor that applies given extractor to input element and returns
+// output elements with given indexes (if present).
 func Nth(ex Extractor, indexes... int) Extractor {
 	return func (el Element) []Element {
 		var res []Element
@@ -566,6 +606,8 @@ func Nth(ex Extractor, indexes... int) Extractor {
 	}
 }
 
+// Ancestors returns ancestors of given element in closest-to-farthest order,
+// i.e. the first output element is given element's parent and the last one is the tree root.
 func Ancestors (el Element) []Element {
 	if el == nil {
 		return nil
@@ -583,6 +625,8 @@ func Ancestors (el Element) []Element {
 	return res
 }
 
+// PrevSiblings returns preceding siblings of given element in closest-to-farthest order,
+// i.e. the first output element is given element's previous sibling and the last one is the first sibling.
 func PrevSiblings(el Element) []Element {
 	if el == nil {
 		return nil
@@ -600,6 +644,8 @@ func PrevSiblings(el Element) []Element {
 	return res
 }
 
+// NextSiblings returns following siblings of given element in closest-to-farthest order,
+// i.e. the first output element is given element's next sibling and the last one is the last sibling.
 func NextSiblings(el Element) []Element {
 	if el == nil {
 		return nil
@@ -624,6 +670,7 @@ type tokenElement struct {
 	token      *lexer.Token
 }
 
+// NewTokenElement creates token element for given token.
 func NewTokenElement (t *lexer.Token) Element {
 	return &tokenElement{token: t}
 }
@@ -672,6 +719,7 @@ type nodeElement struct {
 	firstChild, lastChild Element
 }
 
+// NewNodeElement creates node element of given type with given initial token, token may be nil.
 func NewNodeElement (typeName string, tok *lexer.Token) NodeElement {
 	return &nodeElement{typeName: typeName, token: tok}
 }
@@ -801,6 +849,8 @@ func (hi *HookInstance) EndNode() (result interface{}, e error) {
 	return hi.node, nil
 }
 
+// NodeHook implements parser.NodeHook and builds syntax tree.
+// Intended to be used as node hook for parser.AnyNode.
 func NodeHook (node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
 	return NewHookInstance(node, tok), nil
 }

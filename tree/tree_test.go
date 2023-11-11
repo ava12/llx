@@ -295,12 +295,15 @@ func TestWalkStop (t *testing.T) {
 	matchNodes(t, expectedRtl, nodes ...)
 }
 
-func TestTransformer (t *testing.T) {
+func TestUnique (t *testing.T) {
 	ntn := &nodeElement{typeName: "foo"}
 	tn := &tokenElement{token: lexer.NewToken(0, "bar", "BAR", source.Pos{})}
 	nodes := []Element{nil, ntn, nil, tn, nil, ntn, nil}
+
 	got := NewSelector().Apply(nodes ...)
-	assert(t, len(got) == 2)
+	matchNodes(t, "(foo) BAR (foo)", got ...)
+
+	got = NewSelector().Unique().Apply(nodes ...)
 	matchNodes(t, "(foo) BAR", got ...)
 }
 
@@ -441,31 +444,6 @@ func TestIsALiteral (t *testing.T) {
 	assert(t, ff(&tn1))
 	assert(t, ff(&tn2))
 	assert(t, !ff(&nt))
-}
-
-func TestHas (t *testing.T) {
-	_, i := buildTree(t, "(foo (y x)) (bar z) (baz)")
-
-	ff := Has(Children, IsALiteral("x"))
-	assert(t, !ff(i["foo"]))
-	assert(t, ff(i["y"]))
-	assert(t, !ff(i["x"]))
-	assert(t, !ff(i["bar"]))
-	assert(t, !ff(i["baz"]))
-
-	ff = Has(Children, nil)
-	assert(t, ff(i["foo"]))
-	assert(t, ff(i["y"]))
-	assert(t, !ff(i["x"]))
-	assert(t, ff(i["bar"]))
-	assert(t, !ff(i["baz"]))
-
-	ff = Has(nil, IsALiteral("x"))
-	assert(t, ff(i["foo"]))
-	assert(t, ff(i["y"]))
-	assert(t, ff(i["x"]))
-	assert(t, !ff(i["bar"]))
-	assert(t, !ff(i["baz"]))
 }
 
 func TestAny (t *testing.T) {
