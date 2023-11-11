@@ -243,8 +243,17 @@ const (
 	WalkRtl WalkMode = 1 // Right to left, parent first, depth-first.
 )
 
+// WalkStat contains information about fetched subtree element.
+type WalkStat struct {
+	// Element is the fetched element. nil if subtree traversal is finished.
+	Element Element
+	// Level is the nest level of fetched element relative to subtree root.
+	// 0 is root, 1 is root's child etc.
+	Level int
+}
+
 // Visitor processes element fetched by walker and responds which parts of subtree must be skipped on next step.
-type Visitor func (n Element) WalkerFlags
+type Visitor func (s WalkStat) WalkerFlags
 
 // Walker traverses given subtree in specified order.
 // References given subtree, not reusable.
@@ -261,21 +270,22 @@ func NewWalker (root Element, m WalkMode) *Walker {
 }
 
 // Step returns the next element omitting specified parts of subtree.
-// Returns nil if WalkerStop is passed or traversal is finished.
+// Result.Element is nil if WalkerStop is passed or traversal is finished.
 // When this method returns nil all future calls wil return nil.
-func (w *Walker) Step (f WalkerFlags) Element {
+func (w *Walker) Step (f WalkerFlags) (stat WalkStat) {
 	if (f & WalkerStop) != 0 {
 		w.root = nil
 		w.flagStack = nil
 	}
 
 	if w.root == nil {
-		return nil
+		return
 	}
 
 	if w.current == nil {
 		w.current = w.root
-		return w.current
+		stat.Element = w.root
+		return
 	}
 
 	n := w.current
@@ -289,7 +299,9 @@ func (w *Walker) Step (f WalkerFlags) Element {
 		if n != nil {
 			w.pushFlags(f)
 			w.current = n
-			return n
+			stat.Element = n
+			stat.Level = len(w.flagStack)
+			return
 		}
 	}
 
@@ -302,7 +314,9 @@ func (w *Walker) Step (f WalkerFlags) Element {
 			}
 			if n != nil {
 				w.current = n
-				return n
+				stat.Element = n
+				stat.Level = len(w.flagStack)
+				return
 			}
 		}
 
@@ -317,11 +331,11 @@ func (w *Walker) Step (f WalkerFlags) Element {
 
 	w.root = nil
 	w.flagStack = nil
-	return nil
+	return
 }
 
 // Next returns next element, same as Step(0).
-func (w *Walker) Next () Element {
+func (w *Walker) Next () WalkStat {
 	return w.Step(0)
 }
 
@@ -340,14 +354,14 @@ func (w *Walker) popFlags () (f WalkerFlags) {
 // Visitor is called for each fetched element.
 func (w *Walker) Walk (visitor Visitor) {
 	flags := 0
-	el := w.Step(flags)
-	for el != nil {
-		flags = visitor(el)
+	stat := w.Step(flags)
+	for stat.Element != nil {
+		flags = visitor(stat)
 		if (flags & WalkerStop) != 0 {
 			return
 		}
 
-		el = w.Step(flags)
+		stat = w.Step(flags)
 	}
 }
 
@@ -468,12 +482,12 @@ func (s *Selector) search (nf Filter, deepSearch bool) *Selector {
 		w := NewWalker(n, WalkLtr)
 		for {
 			nn := w.Step(f)
-			if nn == nil {
+			if nn.Element == nil {
 				break
 			}
 
-			if nf(nn) {
-				res = append(res, nn)
+			if nf(nn.Element) {
+				res = append(res, nn.Element)
 				f = flags
 			} else {
 				f = 0

@@ -166,7 +166,8 @@ func parseTreeDescription (t *testing.T, src string) NodeElement {
 func buildTree (t *testing.T, src string) (NodeElement, map[string]Element) {
 	root := parseTreeDescription(t, src)
 	index := make(map[string]Element)
-	Walk(root, WalkLtr, func (n Element) WalkerFlags {
+	Walk(root, WalkLtr, func (s WalkStat) WalkerFlags {
+		n := s.Element
 		if n.IsNode() {
 			index[n.TypeName()] = n
 		} else {
@@ -180,36 +181,36 @@ func buildTree (t *testing.T, src string) (NodeElement, map[string]Element) {
 
 func TestWalker (t *testing.T) {
 	it := NewWalker(nil, WalkLtr)
-	assert(t, it.Next() == nil)
+	assert(t, it.Next().Element == nil)
 
 	src := "(foo (f1 (f11 f111 f112)) f2)(bar b1)(baz)"
 	root, i := buildTree(t, src)
 
 	it = NewWalker(root, WalkLtr)
-	assert(t, it.Step(WalkerStop) == nil)
-	assert(t, it.Next() == nil)
+	assert(t, it.Step(WalkerStop).Element == nil)
+	assert(t, it.Next().Element == nil)
 
 	it = NewWalker(root, WalkLtr)
-	assert(t, it.Next() == root)
-	assert(t, it.Next() == i["foo"])
-	assert(t, it.Next() == i["f1"])
-	assert(t, it.Next() == i["f11"])
-	assert(t, it.Next() == i["f111"])
-	assert(t, it.Step(WalkerSkipSiblings) == i["f2"])
-	assert(t, it.Next() == i["bar"])
-	assert(t, it.Step(WalkerSkipChildren) == i["baz"])
-	assert(t, it.Next() == nil)
+	assert(t, it.Next().Element == root)
+	assert(t, it.Next().Element == i["foo"])
+	assert(t, it.Next().Element == i["f1"])
+	assert(t, it.Next().Element == i["f11"])
+	assert(t, it.Next().Element == i["f111"])
+	assert(t, it.Step(WalkerSkipSiblings).Element == i["f2"])
+	assert(t, it.Next().Element == i["bar"])
+	assert(t, it.Step(WalkerSkipChildren).Element == i["baz"])
+	assert(t, it.Next().Element == nil)
 
 	it = NewWalker(root, WalkRtl)
-	assert(t, it.Next() == root)
-	assert(t, it.Next() == i["baz"])
-	assert(t, it.Next() == i["bar"])
-	assert(t, it.Step(WalkerSkipChildren) == i["foo"])
-	assert(t, it.Next() == i["f2"])
-	assert(t, it.Next() == i["f1"])
-	assert(t, it.Next() == i["f11"])
-	assert(t, it.Step(WalkerSkipSiblings) == i["f112"])
-	assert(t, it.Step(WalkerSkipSiblings) == nil)
+	assert(t, it.Next().Element == root)
+	assert(t, it.Next().Element == i["baz"])
+	assert(t, it.Next().Element == i["bar"])
+	assert(t, it.Step(WalkerSkipChildren).Element == i["foo"])
+	assert(t, it.Next().Element == i["f2"])
+	assert(t, it.Next().Element == i["f1"])
+	assert(t, it.Next().Element == i["f11"])
+	assert(t, it.Step(WalkerSkipSiblings).Element == i["f112"])
+	assert(t, it.Step(WalkerSkipSiblings).Element == nil)
 }
 
 func matchNodes (t *testing.T, expected string, ns ...Element) {
@@ -235,7 +236,8 @@ func TestWalkSkipChildren (t *testing.T) {
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1)"
 	root := parseTreeDescription(t, src)
 	nodes := make([]Element, 0)
-	f := func (n Element) (flags WalkerFlags) {
+	f := func (s WalkStat) (flags WalkerFlags) {
+		n := s.Element
 		nodes = append(nodes, n)
 		if n.Parent() != nil && n.Parent().Parent() != nil {
 			flags = WalkerSkipChildren
@@ -257,7 +259,8 @@ func TestWalkSkipSiblings (t *testing.T) {
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1) (f11) f111"
 	root := parseTreeDescription(t, src)
 	nodes := make([]Element, 0)
-	f := func (n Element) (flags WalkerFlags) {
+	f := func (s WalkStat) (flags WalkerFlags) {
+		n := s.Element
 		nodes = append(nodes, n)
 		if n.TypeName() == "f1" {
 			flags = WalkerSkipSiblings
@@ -279,7 +282,8 @@ func TestWalkStop (t *testing.T) {
 	expectedRtl := "() (baz) (bar) b1 (foo) f2 (f1)"
 	root := parseTreeDescription(t, src)
 	nodes := make([]Element, 0)
-	f := func (n Element) (flags WalkerFlags) {
+	f := func (s WalkStat) (flags WalkerFlags) {
+		n := s.Element
 		nodes = append(nodes, n)
 		if n.TypeName() == "f1" {
 			flags = WalkerStop

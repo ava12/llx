@@ -362,7 +362,8 @@ func ParseFile (name string) (*Conf, error) {
 }
 
 func Serialize (root tree.Element, w io.Writer) (written int, err error) {
-	visitor := func (n tree.Element) tree.WalkerFlags {
+	visitor := func (s tree.WalkStat) tree.WalkerFlags {
+		n := s.Element
 		if !n.IsNode() {
 			i, e := w.Write([]byte(n.Token().Text()))
 			if e == nil {
