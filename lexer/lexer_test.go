@@ -11,23 +11,23 @@ import (
 )
 
 var (
-	tokenRe *regexp.Regexp
-	tokenTypes []TokenType
+	tokenRe      *regexp.Regexp
+	tokenTypes   []TokenType
 	tokenSamples []byte
 )
 
-func init () {
+func init() {
 	tokenRe = regexp.MustCompile("(?s:[\\s]+|(\\d+)|([a-z_][a-z0-9_]*)|('.*?')|('.{0,10}))")
-	tokenTypes = []TokenType {{1, "number"}, {2, "name"}, {3, "string"}}
+	tokenTypes = []TokenType{{1, "number"}, {2, "name"}, {3, "string"}}
 	tokenSamples = []byte("123 foo 'bar'")
 }
 
-func lexer () (*Lexer, *source.Queue) {
+func lexer() (*Lexer, *source.Queue) {
 	queue := source.NewQueue()
 	return New(tokenRe, tokenTypes), queue
 }
 
-func TestEmpty (t *testing.T) {
+func TestEmpty(t *testing.T) {
 	sources := []string{"", " ", "  ", " \t\r\n "}
 	for _, src := range sources {
 		l, q := lexer()
@@ -42,7 +42,7 @@ func TestEmpty (t *testing.T) {
 	}
 }
 
-func TestTokenSamples (t *testing.T) {
+func TestTokenSamples(t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", tokenSamples))
 	for _, tokType := range tokenTypes {
@@ -63,7 +63,7 @@ func TestTokenSamples (t *testing.T) {
 	}
 }
 
-func TestBrokenToken (t *testing.T) {
+func TestBrokenToken(t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", []byte("\n  '*  *")))
 	tok, e := l.Next(q)
@@ -82,7 +82,7 @@ func TestBrokenToken (t *testing.T) {
 	}
 }
 
-func TestSourceBoundary (t *testing.T) {
+func TestSourceBoundary(t *testing.T) {
 	l, q := lexer()
 	q.Append(source.New("", []byte("foo")))
 	q.Append(source.New("", []byte("bar")))
@@ -107,7 +107,7 @@ func TestSourceBoundary (t *testing.T) {
 	}
 }
 
-func TestTokenTypes (t *testing.T) {
+func TestTokenTypes(t *testing.T) {
 	re := regexp.MustCompile("(\\d+)|\\s+|(\\w+)|#.*\\n|([+-])")
 	types := []TokenType{{0, "num"}, {2, "name"}, {4, "op"}}
 	src := "1 + foo"
@@ -133,7 +133,7 @@ func TestTokenTypes (t *testing.T) {
 	}
 }
 
-func TestShrinkToken (t *testing.T) {
+func TestShrinkToken(t *testing.T) {
 	re := regexp.MustCompile("(\\s+)|(#[a-z]+=*)")
 	types := []TokenType{{0, "space"}, {1, "name"}}
 	queue := source.NewQueue()
@@ -158,7 +158,7 @@ func TestShrinkToken (t *testing.T) {
 		if tok == nil {
 			t.Fatalf("step %d: nil token", i)
 		}
-		if tok.Type() != 1 || tok.TypeName() != "name" || tok.Text() != "#foo="[: i] {
+		if tok.Type() != 1 || tok.TypeName() != "name" || tok.Text() != "#foo="[:i] {
 			t.Fatalf("step %d: wrong token: %v", i, tok)
 		}
 	}
@@ -181,7 +181,7 @@ func TestShrinkToken (t *testing.T) {
 	}
 }
 
-func TestErrorPos (t *testing.T) {
+func TestErrorPos(t *testing.T) {
 	re := regexp.MustCompile("(\\s+)|(\\w+)|(<\\w+>)|(<.+)")
 	types := []TokenType{
 		{0, "space"},
@@ -190,7 +190,7 @@ func TestErrorPos (t *testing.T) {
 		{ErrorTokenType, ""},
 	}
 	samples := []struct {
-		src string
+		src            string
 		err, line, col int
 	}{
 		{"foo\n<bar> &baz", WrongCharError, 2, 7},

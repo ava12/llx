@@ -14,23 +14,24 @@ import (
 )
 
 const (
-	indentType = "indent"
-	spaceType = "space"
+	indentType  = "indent"
+	spaceType   = "space"
 	commentType = "comment"
-//	numberType = "number"
-//	nameType = "name"
+	//	numberType = "number"
+	//	nameType = "name"
 	opType = "op"
 )
 
 const (
-	rootNt = "cDataGrammar"
-	varDefNt = "var-def"
+	rootNt    = "cDataGrammar"
+	varDefNt  = "var-def"
 	typeDefNt = "type-def"
-	typeNt = "type"
-	nameNt = "name"
-//	simpleTypeNt = "simple-type"
+	typeNt    = "type"
+	nameNt    = "name"
+	//	simpleTypeNt = "simple-type"
 	structTypeNt = "struct-type"
-//	sizeDefNt = "size-def"
+
+// sizeDefNt = "size-def"
 )
 
 const (
@@ -48,19 +49,19 @@ const (
 
 type ReportLine struct {
 	Line, Col int
-	Message string
+	Message   string
 }
 
 type reports struct {
-	rm map[int]map[int]string
+	rm           map[int]map[int]string
 	totalReports int
 }
 
-func newReports () *reports {
+func newReports() *reports {
 	return &reports{rm: make(map[int]map[int]string)}
 }
 
-func (rs *reports) report (line, col int, message string) {
+func (rs *reports) report(line, col int, message string) {
 	lm := rs.rm[line]
 	if lm == nil {
 		rs.rm[line] = map[int]string{col: message}
@@ -70,11 +71,11 @@ func (rs *reports) report (line, col int, message string) {
 	rs.totalReports++
 }
 
-func (rs *reports) reportToken (t *lexer.Token, message string) {
+func (rs *reports) reportToken(t *lexer.Token, message string) {
 	rs.report(t.Line(), t.Col(), message)
 }
 
-func (rs *reports) flatten () []ReportLine {
+func (rs *reports) flatten() []ReportLine {
 	res := make([]ReportLine, 0, rs.totalReports)
 	lines := make([]int, 0, len(rs.rm))
 	for line := range rs.rm {
@@ -98,7 +99,7 @@ func (rs *reports) flatten () []ReportLine {
 	return res
 }
 
-func Check (s *source.Source) ([]ReportLine, error) {
+func Check(s *source.Source) ([]ReportLine, error) {
 	st, e := parseSource(s)
 	if e == nil {
 		return inspectCode(st).flatten(), nil
@@ -107,7 +108,7 @@ func Check (s *source.Source) ([]ReportLine, error) {
 	}
 }
 
-func CheckFile (name string) ([]ReportLine, error) {
+func CheckFile(name string) ([]ReportLine, error) {
 	file, e := os.Open(name)
 	if e != nil {
 		return nil, e
@@ -124,17 +125,17 @@ func CheckFile (name string) ([]ReportLine, error) {
 		return nil, errors.New("only accept files no longer than 1 MB")
 	}
 
-	content := make([]byte, fsize + 1)
+	content := make([]byte, fsize+1)
 	bytes, e := file.Read(content)
 	if bytes != int(fsize) {
 		return nil, errors.New("error reading file")
 	}
-	content = content[: fsize]
+	content = content[:fsize]
 	source.NormalizeNls(&content)
 	return Check(source.New(name, content))
 }
 
-func parseSource (s *source.Source) (tree.Element, error) {
+func parseSource(s *source.Source) (tree.Element, error) {
 	q := source.NewQueue().Append(s)
 	p := parser.New(cDataGrammar)
 	hs := &parser.Hooks{
@@ -149,19 +150,19 @@ func parseSource (s *source.Source) (tree.Element, error) {
 	}
 }
 
-func handleToken (token *lexer.Token, pc *parser.ParseContext) (emit bool, e error) {
+func handleToken(token *lexer.Token, pc *parser.ParseContext) (emit bool, e error) {
 	tn := token.TypeName()
 	if token.Line() == 1 && token.Col() == 1 && tn == spaceType {
-		return false, pc.EmitToken(lexer.NewToken(0, indentType, "\n" + token.Text(), token.Pos()))
+		return false, pc.EmitToken(lexer.NewToken(0, indentType, "\n"+token.Text(), token.Pos()))
 	}
 
 	return (tn != commentType), nil
 }
 
-func inspectCode (st tree.Element) *reports {
+func inspectCode(st tree.Element) *reports {
 	res := newReports()
 
-	checks := []func (tree.Element, *reports){
+	checks := []func(tree.Element, *reports){
 		reportNoFinalNl,
 		reportMultipleSpaces,
 		reportIncorrectSpaces,
@@ -179,7 +180,7 @@ func inspectCode (st tree.Element) *reports {
 	return res
 }
 
-func reportNoFinalNl (st tree.Element, rs *reports) {
+func reportNoFinalNl(st tree.Element, rs *reports) {
 	lt := tree.LastTokenElement(st).Token()
 	if lt.TypeName() != indentType {
 		line := lt.Line()
@@ -188,8 +189,8 @@ func reportNoFinalNl (st tree.Element, rs *reports) {
 	}
 }
 
-func reportTabs (st tree.Element, rs *reports) {
-	hasTab := func (n tree.Element) bool {
+func reportTabs(st tree.Element, rs *reports) {
+	hasTab := func(n tree.Element) bool {
 		return strings.ContainsAny(n.Token().Text(), "\t")
 	}
 	sel := tree.NewSelector().
@@ -200,8 +201,8 @@ func reportTabs (st tree.Element, rs *reports) {
 	}
 }
 
-func reportTrailingSpaces (st tree.Element, rs *reports) {
-	indentFollows := func (n tree.Element) bool {
+func reportTrailingSpaces(st tree.Element, rs *reports) {
+	indentFollows := func(n tree.Element) bool {
 		nn := n.Next()
 		return (nn == nil || nn.TypeName() == indentType)
 	}
@@ -219,11 +220,11 @@ func reportTrailingSpaces (st tree.Element, rs *reports) {
 		rs.reportToken(n.Token(), ErrTrailSpace)
 	}
 	for _, n := range indentSel.Apply(st) {
-		rs.report(n.Token().Line() + 1, 1, ErrTrailSpace)
+		rs.report(n.Token().Line()+1, 1, ErrTrailSpace)
 	}
 }
 
-func isStructFieldAlign (n tree.Element) bool {
+func isStructFieldAlign(n tree.Element) bool {
 	parent := n.Parent()
 	if parent == nil {
 		return false
@@ -245,7 +246,7 @@ func isStructFieldAlign (n tree.Element) bool {
 	return true
 }
 
-func reportMultipleSpaces (st tree.Element, rs *reports) {
+func reportMultipleSpaces(st tree.Element, rs *reports) {
 	sel := tree.NewSelector().
 		Search(tree.IsA(spaceType)).
 		Filter(tree.IsNot(
@@ -258,10 +259,10 @@ func reportMultipleSpaces (st tree.Element, rs *reports) {
 	}
 }
 
-func reportInconsistentStructAlign (st tree.Element, rs *reports) {
+func reportInconsistentStructAlign(st tree.Element, rs *reports) {
 	structs := tree.NewSelector().DeepSearch(tree.IsA(structTypeNt)).Apply(st)
 
-	selector := func (n tree.Element) []tree.Element {
+	selector := func(n tree.Element) []tree.Element {
 		n = n.(tree.NodeElement).FirstChild()
 		for n.TypeName() != nameNt {
 			n = n.Next()
@@ -288,7 +289,7 @@ func reportInconsistentStructAlign (st tree.Element, rs *reports) {
 	}
 }
 
-func reportIncorrectSpaces (st tree.Element, rs *reports) {
+func reportIncorrectSpaces(st tree.Element, rs *reports) {
 	messages := [2]string{ErrNoSpace, ErrWrongSpace}
 	ops := tree.NewSelector().Search(tree.IsA(opType)).Apply(st)
 
@@ -320,24 +321,24 @@ func reportIncorrectSpaces (st tree.Element, rs *reports) {
 			flags ^= wrongLead
 		}
 
-		if flags & (wrongLead | wrongTrail) != 0 {
+		if flags&(wrongLead|wrongTrail) != 0 {
 			if (flags & wrongLead) != 0 {
-				if flags & gotLead != 0 {
+				if flags&gotLead != 0 {
 					tok = prev.Token()
 				}
-				rs.reportToken(tok, messages[(flags & gotLead) / gotLead] + " before " + text)
+				rs.reportToken(tok, messages[(flags&gotLead)/gotLead]+" before "+text)
 			}
 			if (flags & wrongTrail) != 0 {
 				if next != nil {
 					tok = next.Token()
 				}
-				rs.reportToken(tok, messages[(flags & gotTrail) / gotTrail] + " after " + text)
+				rs.reportToken(tok, messages[(flags&gotTrail)/gotTrail]+" after "+text)
 			}
 		}
 	}
 }
 
-func reportLiteralStructs (st tree.Element, rs *reports) {
+func reportLiteralStructs(st tree.Element, rs *reports) {
 	literalStructs := tree.NewSelector().
 		DeepSearch(tree.IsA(varDefNt)).
 		Search(tree.IsA(structTypeNt)).
@@ -348,11 +349,11 @@ func reportLiteralStructs (st tree.Element, rs *reports) {
 	}
 }
 
-func reportIncorrectIndents (st tree.Element, rs *reports) {
+func reportIncorrectIndents(st tree.Element, rs *reports) {
 	indentItems := []string{varDefNt, typeDefNt}
 	indentContainers := []string{rootNt, structTypeNt}
 
-	blockIndentSize := func (n tree.Element) (size int, firstOnLine bool) {
+	blockIndentSize := func(n tree.Element) (size int, firstOnLine bool) {
 		firstOnLine = true
 		p := tree.PrevTokenElement(n)
 		for p != nil && p.TypeName() != indentType {

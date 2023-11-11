@@ -42,8 +42,7 @@ var confGrammar = &grammar.Grammar{
 		{2, 0, 0, 25, 26},
 		{2, 0, 0, 26, 27},
 	},
-	MultiRules: []grammar.MultiRule{
-	},
+	MultiRules: []grammar.MultiRule{},
 	Rules: []grammar.Rule{
 		{-1, -1, -1},
 		{2, 1, 1},

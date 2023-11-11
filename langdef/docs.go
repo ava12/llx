@@ -13,9 +13,9 @@ Grammar is described using language that resembles EBNF. Self-definition of this
 //  $regexp = /\/(?:[^\\\/]|\\.)+\//;
 //  $op = /[(){}\[\]=|,;]/;
 //  $error = /["'!].{0,10}/;
-//  
+//
 //  !aside $space $comment; !error $error;
-//  
+//
 //  # first node is the root one
 //  # no further token definitions or directives allowed after this point
 //  langdef = {directive | token-definition}, node-definition, {node-definition};

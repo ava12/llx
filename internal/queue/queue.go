@@ -9,33 +9,33 @@ type Queue[T any] struct {
 	zero       T
 }
 
-func New[T any] (items ...T) *Queue[T] {
+func New[T any](items ...T) *Queue[T] {
 	result := &Queue[T]{}
 	result.Fill(items)
 	return result
 }
 
-func (q *Queue[T]) IsEmpty () bool {
+func (q *Queue[T]) IsEmpty() bool {
 	return q.head == q.tail
 }
 
-func (q *Queue[T]) Len () int {
+func (q *Queue[T]) Len() int {
 	return (q.tail + q.size + 1 - q.head) & q.size
 }
 
-func (q *Queue[T]) Items () []T {
+func (q *Queue[T]) Items() []T {
 	if q.tail >= q.head {
-		return q.items[q.head : q.tail]
+		return q.items[q.head:q.tail]
 	}
 
 	l := q.Len()
 	result := make([]T, l)
-	copy(result, q.items[q.head : q.size + 1])
-	copy(result[q.size - q.head + 1 :], q.items[: q.tail])
+	copy(result, q.items[q.head:q.size+1])
+	copy(result[q.size-q.head+1:], q.items[:q.tail])
 	return result
 }
 
-func (q *Queue[T]) Append (item T) *Queue[T] {
+func (q *Queue[T]) Append(item T) *Queue[T] {
 	q.items[q.tail] = item
 	q.tail = (q.tail + 1) & q.size
 	if q.tail == q.head {
@@ -44,7 +44,7 @@ func (q *Queue[T]) Append (item T) *Queue[T] {
 	return q
 }
 
-func (q *Queue[T]) Prepend (item T) *Queue[T] {
+func (q *Queue[T]) Prepend(item T) *Queue[T] {
 	q.head = (q.head - 1) & q.size
 	q.items[q.head] = item
 	if q.head == q.tail {
@@ -53,7 +53,7 @@ func (q *Queue[T]) Prepend (item T) *Queue[T] {
 	return q
 }
 
-func (q *Queue[T]) First () (T, bool) {
+func (q *Queue[T]) First() (T, bool) {
 	if q.head == q.tail {
 		return q.zero, false
 	}
@@ -62,17 +62,17 @@ func (q *Queue[T]) First () (T, bool) {
 	q.items[q.head] = q.zero
 	q.head = (q.head + 1) & q.size
 
-	if q.head == 0 && q.size > minSize && (q.tail << 2) <= q.size {
+	if q.head == 0 && q.size > minSize && (q.tail<<2) <= q.size {
 		q.size = computeSize(q.tail << 1)
-		items := make([]T, q.size + 1)
-		copy(items, q.items[: q.tail])
+		items := make([]T, q.size+1)
+		copy(items, q.items[:q.tail])
 		q.items = items
 	}
 
 	return result, true
 }
 
-func (q *Queue[T]) Last () (T, bool) {
+func (q *Queue[T]) Last() (T, bool) {
 	if q.head == q.tail {
 		return q.zero, false
 	}
@@ -83,20 +83,20 @@ func (q *Queue[T]) Last () (T, bool) {
 	return result, true
 }
 
-func (q *Queue[T]) Fill (items []T) {
+func (q *Queue[T]) Fill(items []T) {
 	l := len(items)
 	q.head = 0
 	q.tail = l
 	q.size = computeSize(l)
-	q.items = make([]T, q.size + 1)
+	q.items = make([]T, q.size+1)
 	copy(q.items, items)
 }
 
-func (q *Queue[T]) Clear () {
+func (q *Queue[T]) Clear() {
 	q.Fill(make([]T, 0))
 }
 
-func computeSize (length int) (size int) {
+func computeSize(length int) (size int) {
 	if length <= minSize {
 		size = minSize
 	} else {
@@ -104,16 +104,16 @@ func computeSize (length int) (size int) {
 		length |= length >> 2
 		length |= length >> 4
 		length |= length >> 8
-		size = length | length >> 16
+		size = length | length>>16
 	}
 	return
 }
 
-func (q *Queue[T]) grow () {
-	items := make([]T, (q.size + 1) << 1)
-	copy(items, q.items[q.head :])
+func (q *Queue[T]) grow() {
+	items := make([]T, (q.size+1)<<1)
+	copy(items, q.items[q.head:])
 	if q.head > 0 {
-		copy(items[q.size + 1 - q.head :], q.items[0 : q.head])
+		copy(items[q.size+1-q.head:], q.items[0:q.head])
 	}
 	q.head = 0
 	q.tail = q.size + 1

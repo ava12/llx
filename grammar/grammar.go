@@ -19,11 +19,10 @@ Each time parser enters FinalState it drops current node.
 
 When a rule is applied:
   - if new node is SameNode:
-    - current state is set to next state;
-    - if matched rule key is not AnyToken: next token is read;
+  - current state is set to next state;
+  - if matched rule key is not AnyToken: next token is read;
   - else:
-    - new node and its initial state index are pushed;
-
+  - new node and its initial state index are pushed;
 */
 package grammar
 
@@ -41,11 +40,11 @@ type TokenFlags int
 // Token contains information about some token or literal.
 type Token struct {
 	// Name is either a token type name or exact text for a literal.
-	Name   string
+	Name string
 
 	// Re is RE2 expression defining this token type. Must not contain capturing groups.
 	// Empty string for literal and external tokens.
-	Re     string
+	Re string
 
 	// Groups is a bit set of all groups this token belongs to.
 	// First defined group has index 0, "default" group is the last one.
@@ -90,7 +89,7 @@ const (
 // Node contains information about some syntax tree node.
 type Node struct {
 	// Name of node.
-	Name       string
+	Name string
 
 	// FirstState is an index of initial state for this node.
 	FirstState int
@@ -99,10 +98,10 @@ type Node struct {
 const (
 	// AnyToken stored in Rule.Token matches any token except EoF.
 	// Used for fallback rules to skip optional or repeated parts of nodes.
-	AnyToken    = -1
+	AnyToken = -1
 
 	// FinalState stored in Rule.State means that current node must be finalized and dropped.
-	FinalState  = -1
+	FinalState = -1
 
 	// SameNode stored in Rule.Node means that no nested node is pushed at this point.
 	SameNode = -1
@@ -111,10 +110,10 @@ const (
 // Rule contains a grammar rule for some set of tokens at some parsing state.
 type Rule struct {
 	// Token is either an index in Grammar.Tokens slice or AnyToken.
-	Token   int
+	Token int
 
 	// State is the index of next state or FinalState if this rule is the final one for node.
-	State   int
+	State int
 
 	// Node contains either SameNode or the index of nested node to push.
 	Node int
@@ -123,10 +122,10 @@ type Rule struct {
 // MultiRule defines a list of ambiguous rules for some set of tokens at some parsing state.
 type MultiRule struct {
 	// Token is an index in Grammar.Tokens slice.
-	Token    int
+	Token int
 
 	// LowRule is the low index of the rule sub-slice for this token type.
-	LowRule  int
+	LowRule int
 
 	// HighRule is the high index of the rule sub-slice for this token type.
 	HighRule int
@@ -136,11 +135,11 @@ type MultiRule struct {
 type State struct {
 	// Group is 0-based index of token group shared by all tokens
 	// that are acceptable at this point.
-	Group         int `json:",omitempty"`
+	Group int `json:",omitempty"`
 
 	// LowMultiRule is the low index of the multi-rule sub-slice for this state.
 	// 0 if not used.
-	LowMultiRule  int `json:",omitempty"`
+	LowMultiRule int `json:",omitempty"`
 
 	// HighMultiRule is the high index of the multi-rule sub-slice for this state.
 	// 0 if not used.
@@ -148,24 +147,24 @@ type State struct {
 
 	// LowRule is the low index of the rule sub-slice for this state.
 	// 0 if not used.
-	LowRule       int `json:",omitempty"`
+	LowRule int `json:",omitempty"`
 
 	// HighRule is the high index of the rule sub-slice for this state.
 	// 0 if not used.
-	HighRule      int `json:",omitempty"`
+	HighRule int `json:",omitempty"`
 }
 
 // Grammar holds all information required to make a parser.
 type Grammar struct {
 	// Tokens is a list of tokens defined in grammar.
 	// First go defined token types, then external tokens, and the last are literals.
-	Tokens     []Token
+	Tokens []Token
 
 	// Nodes is a list of defined nodes.
-	Nodes      []Node
+	Nodes []Node
 
 	// States is a list of all parsing states for all nodes, grouped by node.
-	States     []State
+	States []State
 
 	// MultiRules is a list of all ambiguous rule entries for all states.
 	// Grouped by state, entries in a group are sorted by Token field.
@@ -173,5 +172,5 @@ type Grammar struct {
 
 	// Rules is a list of all parsing rules for all states.
 	// Grouped by state, entries in a group are sorted by Token field.
-	Rules      []Rule
+	Rules []Rule
 }

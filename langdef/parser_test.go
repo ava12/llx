@@ -13,7 +13,7 @@ import (
 
 const toks = "$tok = /\\S+/;"
 
-func checkErrorCode (t *testing.T, samples []string, code int) {
+func checkErrorCode(t *testing.T, samples []string, code int) {
 	for index, src := range samples {
 		errPrefix := "input #" + strconv.Itoa(index)
 		_, e := Parse(source.New("string", []byte(src)))
@@ -44,7 +44,7 @@ func checkErrorCode (t *testing.T, samples []string, code int) {
 	}
 }
 
-func TestUnexpectedEof (t *testing.T) {
+func TestUnexpectedEof(t *testing.T) {
 	samples := []string{
 		"",
 		" ",
@@ -56,7 +56,7 @@ func TestUnexpectedEof (t *testing.T) {
 	checkErrorCode(t, samples, UnexpectedEofError)
 }
 
-func TestUnexpectedToken (t *testing.T) {
+func TestUnexpectedToken(t *testing.T) {
 	samples := []string{
 		"!error =",
 		"!error $foo,",
@@ -65,14 +65,14 @@ func TestUnexpectedToken (t *testing.T) {
 	checkErrorCode(t, samples, UnexpectedTokenError)
 }
 
-func TestUnknownToken (t *testing.T) {
+func TestUnknownToken(t *testing.T) {
 	samples := []string{
 		"foo = $foo;",
 	}
 	checkErrorCode(t, samples, UnknownTokenError)
 }
 
-func TestWrongToken (t *testing.T) {
+func TestWrongToken(t *testing.T) {
 	samples := []string{
 		"!aside $foo; $foo = /foo/; bar = $foo;",
 		"!error $foo; $foo = /foo/; bar = $foo;",
@@ -80,24 +80,24 @@ func TestWrongToken (t *testing.T) {
 	checkErrorCode(t, samples, WrongTokenError)
 }
 
-func TestTokenDefined (t *testing.T) {
+func TestTokenDefined(t *testing.T) {
 	samples := []string{
 		"$foo = /a/; $bar = /b/; $foo = /c/;",
 	}
 	checkErrorCode(t, samples, TokenDefinedError)
 }
 
-func TestNodeDefined (t *testing.T) {
+func TestNodeDefined(t *testing.T) {
 	samples := []string{
 		"foo = 'foo'; bar = 'bar'; foo = 'baz';",
 	}
 	checkErrorCode(t, samples, NodeDefinedError)
 }
 
-func TestWrongRe (t *testing.T) {
+func TestWrongRe(t *testing.T) {
 	res := []string{"\x80", "(foo", "foo)", "[foo", "\\C"}
 	for _, re := range res {
-		s := source.New("", []byte("$foo = /" + re + "/;"))
+		s := source.New("", []byte("$foo = /"+re+"/;"))
 		_, e := Parse(s)
 		if e == nil {
 			t.Fatalf("expected error on re /%s/", re)
@@ -113,28 +113,28 @@ func TestWrongRe (t *testing.T) {
 	}
 }
 
-func TestUnknownNode (t *testing.T) {
+func TestUnknownNode(t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | bar;",
 	}
 	checkErrorCode(t, samples, UnknownNodeError)
 }
 
-func TestUnusedNode (t *testing.T) {
+func TestUnusedNode(t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = 'foo' | 'bar'; bar = baz | 'bar'; baz = 'baz';",
 	}
 	checkErrorCode(t, samples, UnusedNodeError)
 }
 
-func TestUnresolved (t *testing.T) {
+func TestUnresolved(t *testing.T) {
 	samples := []string{
 		"foo = bar | baz; bar = baz | foo; baz = foo | bar;",
 	}
 	checkErrorCode(t, samples, UnresolvedError)
 }
 
-func TestRecursions (t *testing.T) {
+func TestRecursions(t *testing.T) {
 	samples := []string{
 		"$name = /\\w+/; foo = bar; bar = bar | 'baz';",
 		"$name = /\\w+/; foo = bar; bar = 'bar' | baz; baz = bar, 'baz';",
@@ -142,7 +142,7 @@ func TestRecursions (t *testing.T) {
 	checkErrorCode(t, samples, RecursionError)
 }
 
-func TestGroupNumberError (t *testing.T) {
+func TestGroupNumberError(t *testing.T) {
 	var sample strings.Builder
 	r := 'A'
 	for i := 0; i < 16; i++ {
@@ -152,7 +152,7 @@ func TestGroupNumberError (t *testing.T) {
 	checkErrorCode(t, []string{sample.String()}, GroupNumberError)
 }
 
-func TestUnresolvedGroupsError (t *testing.T) {
+func TestUnresolvedGroupsError(t *testing.T) {
 	samples := []string{
 		"$num = /\\d+/; $op = /[*\\/+-]/; g = 'x' | $num, $op, $num;",
 		"!caseless $key; $key = /\\w+/; g = 'x', $key;",
@@ -161,35 +161,35 @@ func TestUnresolvedGroupsError (t *testing.T) {
 	checkErrorCode(t, samples, UnresolvedGroupsError)
 }
 
-func TestDisjointGroupsError (t *testing.T) {
+func TestDisjointGroupsError(t *testing.T) {
 	samples := []string{
 		"!group $c; !group $d; $c = /\\w+/; $d = /\\d+/; g = $c | $d;",
 	}
 	checkErrorCode(t, samples, DisjointGroupsError)
 }
 
-func TestUndefinedTokenError (t *testing.T) {
+func TestUndefinedTokenError(t *testing.T) {
 	samples := []string{
 		"!group $foo; g = $foo;",
 	}
 	checkErrorCode(t, samples, UndefinedTokenError)
 }
 
-func TestUnassignedError (t *testing.T) {
+func TestUnassignedError(t *testing.T) {
 	samples := []string{
 		"!aside $sp; !group $sp; $sp = /\\s/; $name = /\\w+/; g = {$name};",
 	}
 	checkErrorCode(t, samples, NoGroupAssignedError)
 }
 
-func TestUnknownLiteralError (t *testing.T) {
+func TestUnknownLiteralError(t *testing.T) {
 	samples := []string{
 		"!literal 'foo'; $name = /\\w+/; g = $name | 'foo' | 'bar';",
 	}
 	checkErrorCode(t, samples, UnknownLiteralError)
 }
 
-func TestNoError (t *testing.T) {
+func TestNoError(t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
 		toks + "!aside; !extern; !error; !shrink; !literal; !caseless; !reserved; foo = 'foo';",
@@ -201,8 +201,7 @@ func TestNoError (t *testing.T) {
 	checkErrorCode(t, samples, 0)
 }
 
-
-func TestNoDuplicateLiterals (t *testing.T) {
+func TestNoDuplicateLiterals(t *testing.T) {
 	sample := toks + "grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
 	expectedTokCnt := 6
 	g, e := ParseString("", sample)
@@ -220,7 +219,7 @@ func TestNoDuplicateLiterals (t *testing.T) {
 	}
 }
 
-func TestTokenDefOrder (t *testing.T) {
+func TestTokenDefOrder(t *testing.T) {
 	sample := "!reserved 'foo'; $x = /\\w+/; !extern $y; $z = /#/; s = $x | $z | 'bar' | 'foo';"
 	names := []string{"x", "z", "y", "foo", "bar"}
 	g, e := ParseString("", sample)
@@ -244,10 +243,10 @@ func TestTokenDefOrder (t *testing.T) {
 	}
 }
 
-func TestTokenFlags (t *testing.T) {
+func TestTokenFlags(t *testing.T) {
 	nd := "$name = /\\w+/; "
 	gd := " g = 'foo';"
-	samples := []struct{
+	samples := []struct {
 		src   string
 		name  string
 		flags gr.TokenFlags
@@ -262,7 +261,7 @@ func TestTokenFlags (t *testing.T) {
 		{nd + "!shrink $name;" + gd, "name", gr.ShrinkableToken},
 	}
 
-	sampleLoop:
+sampleLoop:
 	for i, s := range samples {
 		g, e := ParseString("", s.src)
 		if e != nil {
@@ -283,9 +282,9 @@ func TestTokenFlags (t *testing.T) {
 	}
 }
 
-func TestTokenGroups (t *testing.T) {
-	samples := []struct{
-		src string
+func TestTokenGroups(t *testing.T) {
+	samples := []struct {
+		src    string
 		groups []int
 	}{
 		{"!extern $ex; !group $name; !group $num $ex; $name = /\\w+/; $num = /\\d+/; g = $name, $ex, $num, 'foo';",

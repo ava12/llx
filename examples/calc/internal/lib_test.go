@@ -11,7 +11,7 @@ import (
 
 const eps = 1e-9
 
-func sign (f float64) int {
+func sign(f float64) int {
 	if math.Signbit(f) {
 		return -1
 	} else {
@@ -19,7 +19,7 @@ func sign (f float64) int {
 	}
 }
 
-func equal (a, b float64) bool {
+func equal(a, b float64) bool {
 	if math.IsNaN(a) {
 		return math.IsNaN(b)
 	}
@@ -29,7 +29,7 @@ func equal (a, b float64) bool {
 		return math.IsInf(b, s)
 	}
 
-	return (math.Abs(a - b) < eps)
+	return (math.Abs(a-b) < eps)
 }
 
 type sample struct {
@@ -38,13 +38,13 @@ type sample struct {
 	err    int
 }
 
-func testSamples (t *testing.T, samples []sample) {
+func testSamples(t *testing.T, samples []sample) {
 	var i int
 	var s sample
 
-	report := func (msg string, params ... interface{}) {
+	report := func(msg string, params ...interface{}) {
 		prefix := fmt.Sprintf("sample #%d (%q): ", i, s.input)
-		t.Fatalf(prefix + msg, params...)
+		t.Fatalf(prefix+msg, params...)
 	}
 
 	for i, s = range samples {
@@ -70,8 +70,8 @@ func testSamples (t *testing.T, samples []sample) {
 	}
 }
 
-func TestSyntaxErrors (t *testing.T) {
-	samples := []sample {
+func TestSyntaxErrors(t *testing.T) {
+	samples := []sample{
 		{" ", 0, parser.UnexpectedEoiError},
 		{"2 + ", 0, parser.UnexpectedEoiError},
 		{"(3 * 4", 0, parser.UnexpectedEoiError},
@@ -81,11 +81,11 @@ func TestSyntaxErrors (t *testing.T) {
 	testSamples(t, samples)
 }
 
-func TestCalc (t *testing.T) {
+func TestCalc(t *testing.T) {
 	samples := []sample{
 		{"2", 2, 0},
 		{"2 + 2 ^ 3 * 2", 18, 0},
-		{"2 / 6", 1.0/3, 0},
+		{"2 / 6", 1.0 / 3, 0},
 		{"1/0", math.Inf(1), 0},
 		{"-10/0", math.Inf(-1), 0},
 		{"-2^0.5", math.NaN(), 0},

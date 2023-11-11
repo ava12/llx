@@ -50,10 +50,10 @@ type Entry struct {
 
 var (
 	secNameSelector, nameSelector, valueSelector *tree.Selector
-	secNameRe *regexp.Regexp
+	secNameRe                                    *regexp.Regexp
 )
 
-func init () {
+func init() {
 	secNameSelector = tree.NewSelector().Search(tree.IsA(secNameToken))
 	nameSelector = tree.NewSelector().Search(tree.IsA(nameToken))
 	valueSelector = tree.NewSelector().Search(tree.IsA(valueToken))
@@ -65,36 +65,36 @@ func init () {
 	}
 }
 
-func tokenNode (typ, text string) tree.Element {
+func tokenNode(typ, text string) tree.Element {
 	return tree.NewTokenElement(lexer.NewToken(0, typ, text, source.Pos{}))
 }
 
-func nlNode () tree.Element {
+func nlNode() tree.Element {
 	return tree.NewTokenElement(lexer.NewToken(0, nlToken, "\n", source.Pos{}))
 }
 
-func sepNode () tree.NodeElement {
+func sepNode() tree.NodeElement {
 	result := tree.NewNodeElement(sepNt, nil)
 	result.AddChild(nlNode(), nil)
 	return result
 }
 
-func splitName (name string) (sec, val string) {
+func splitName(name string) (sec, val string) {
 	i := strings.LastIndex(name, ".")
 	if i < 0 {
 		val = name
 	} else {
-		sec = name[: i]
-		val = name[i + 1 :]
+		sec = name[:i]
+		val = name[i+1:]
 	}
 	return
 }
 
-func NewConf (root tree.NodeElement) *Conf {
+func NewConf(root tree.NodeElement) *Conf {
 	return &Conf{RootNode: root.(tree.NodeElement), Sections: make(map[string]*Section)}
 }
 
-func (c *Conf) Updated () bool {
+func (c *Conf) Updated() bool {
 	if c.updated {
 		return true
 	}
@@ -108,7 +108,7 @@ func (c *Conf) Updated () bool {
 	return false
 }
 
-func (c *Conf) AddSectionNode (n tree.NodeElement) *Section {
+func (c *Conf) AddSectionNode(n tree.NodeElement) *Section {
 	name := defaultSectionName
 	if n.TypeName() != defSectionNt {
 		name = secNameSelector.Apply(n)[0].Token().Text()
@@ -121,14 +121,14 @@ func (c *Conf) AddSectionNode (n tree.NodeElement) *Section {
 	return result
 }
 
-func (c *Conf) AddSection (name string) *Section {
+func (c *Conf) AddSection(name string) *Section {
 	result := c.Sections[name]
 	if result != nil {
 		return result
 	}
 
 	var (
-		node tree.NodeElement
+		node  tree.NodeElement
 		child tree.Element
 	)
 
@@ -171,7 +171,7 @@ func (c *Conf) AddSection (name string) *Section {
 	return c.AddSectionNode(node)
 }
 
-func (c *Conf) RemoveSection (name string) {
+func (c *Conf) RemoveSection(name string) {
 	sec := c.Sections[name]
 	if sec != nil {
 		c.updated = true
@@ -189,7 +189,7 @@ func (c *Conf) RemoveSection (name string) {
 	}
 }
 
-func (c *Conf) RemoveEntry (name string) {
+func (c *Conf) RemoveEntry(name string) {
 	sn, en := splitName(name)
 	s := c.Sections[sn]
 	if s != nil {
@@ -197,13 +197,13 @@ func (c *Conf) RemoveEntry (name string) {
 	}
 }
 
-func (c *Conf) SetEntry (name, value string) {
+func (c *Conf) SetEntry(name, value string) {
 	sn, en := splitName(name)
 	s := c.AddSection(sn)
 	s.SetEntry(en, value)
 }
 
-func (s *Section) AddEntryNode (n tree.NodeElement) *Entry {
+func (s *Section) AddEntryNode(n tree.NodeElement) *Entry {
 	var value string
 	name := nameSelector.Apply(n)[0].Token().Text()
 	result := s.Entries[name]
@@ -226,7 +226,7 @@ func (s *Section) AddEntryNode (n tree.NodeElement) *Entry {
 	return result
 }
 
-func (s *Section) SetEntry (name, value string) *Entry {
+func (s *Section) SetEntry(name, value string) *Entry {
 	result := s.Entries[name]
 	var vnode tree.Element
 
@@ -264,7 +264,7 @@ func (s *Section) SetEntry (name, value string) *Entry {
 	node.AddChild(tokenNode(opToken, "="), nil)
 	node.AddChild(vnode, nil)
 	node.AddChild(nlNode(), nil)
-	snode := s.Nodes[len(s.Nodes) - 1]
+	snode := s.Nodes[len(s.Nodes)-1]
 	last := snode.LastChild()
 	for last != nil && (!last.IsNode() || last.TypeName() == sepNt) {
 		last = last.Prev()
@@ -278,7 +278,7 @@ func (s *Section) SetEntry (name, value string) *Entry {
 	return s.AddEntryNode(node)
 }
 
-func (s *Section) RemoveEntry (name string) {
+func (s *Section) RemoveEntry(name string) {
 	entry := s.Entries[name]
 	if entry != nil {
 		s.Updated = true
@@ -287,9 +287,9 @@ func (s *Section) RemoveEntry (name string) {
 	}
 }
 
-func Parse (name string, src *[]byte) (*Conf, error) {
+func Parse(name string, src *[]byte) (*Conf, error) {
 	source.NormalizeNls(src)
-	if len(*src) > 0 && (*src)[len(*src) - 1] != '\n' {
+	if len(*src) > 0 && (*src)[len(*src)-1] != '\n' {
 		*src = append(*src, '\n')
 	}
 
@@ -297,7 +297,7 @@ func Parse (name string, src *[]byte) (*Conf, error) {
 	p := parser.New(confGrammar)
 	hs := parser.Hooks{
 		Tokens: parser.TokenHooks{
-			parser.AnyToken: func (*lexer.Token, *parser.ParseContext) (bool, error) {
+			parser.AnyToken: func(*lexer.Token, *parser.ParseContext) (bool, error) {
 				return true, nil
 			},
 		},
@@ -330,7 +330,7 @@ func Parse (name string, src *[]byte) (*Conf, error) {
 	return result, nil
 }
 
-func ParseFile (name string) (*Conf, error) {
+func ParseFile(name string) (*Conf, error) {
 	file, e := os.Open(name)
 	if e != nil {
 		if !os.IsNotExist(e) {
@@ -352,17 +352,17 @@ func ParseFile (name string) (*Conf, error) {
 		return nil, errors.New("only accept files no longer than 1 MB")
 	}
 
-	content := make([]byte, fsize + 1)
+	content := make([]byte, fsize+1)
 	bytes, e := file.Read(content)
 	if bytes != int(fsize) {
 		return nil, errors.New("error reading file")
 	}
-	content = content[: fsize]
+	content = content[:fsize]
 	return Parse(name, &content)
 }
 
-func Serialize (root tree.Element, w io.Writer) (written int, err error) {
-	visitor := func (s tree.WalkStat) tree.WalkerFlags {
+func Serialize(root tree.Element, w io.Writer) (written int, err error) {
+	visitor := func(s tree.WalkStat) tree.WalkerFlags {
 		n := s.Element
 		if !n.IsNode() {
 			i, e := w.Write([]byte(n.Token().Text()))
@@ -381,8 +381,8 @@ func Serialize (root tree.Element, w io.Writer) (written int, err error) {
 	return
 }
 
-func SaveFile (name string, root tree.Element) (int, error) {
-	f, e := os.OpenFile(name, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0644)
+func SaveFile(name string, root tree.Element) (int, error) {
+	f, e := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if e != nil {
 		return 0, e
 	}
@@ -391,6 +391,6 @@ func SaveFile (name string, root tree.Element) (int, error) {
 	return Serialize(root, f)
 }
 
-func IsValidName (name string) bool {
+func IsValidName(name string) bool {
 	return secNameRe.MatchString(name)
 }

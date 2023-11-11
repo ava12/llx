@@ -7,11 +7,11 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-func newSrc (content string) *source.Source {
+func newSrc(content string) *source.Source {
 	return source.New("src", []byte(content))
 }
 
-func TestCorrectFile (t *testing.T) {
+func TestCorrectFile(t *testing.T) {
 	src := `
 /* Correct source file. Should emit no errors. */
 
@@ -33,7 +33,7 @@ typedef struct {
 	}
 }
 
-func checkErrors (t *testing.T, index int, src string, errors []string) {
+func checkErrors(t *testing.T, index int, src string, errors []string) {
 	r, e := Check(source.New("", []byte(src)))
 	if e != nil {
 		t.Errorf("sample #%d (%q): unexpected error: %s", index, src, e.Error())
@@ -53,8 +53,8 @@ func checkErrors (t *testing.T, index int, src string, errors []string) {
 	}
 }
 
-func TestSingleErrors (t *testing.T) {
-	samples := []struct{
+func TestSingleErrors(t *testing.T) {
+	samples := []struct {
 		src, err string
 	}{
 		{"typedef struct {\n    int a;\n    float b;\n} s;\n", ErrAlign},
@@ -80,9 +80,9 @@ func TestSingleErrors (t *testing.T) {
 	}
 }
 
-func TestMultipleErrors (t *testing.T) {
-	samples := []struct{
-		src string
+func TestMultipleErrors(t *testing.T) {
+	samples := []struct {
+		src    string
 		errors []string
 	}{
 		{"typedef struct {int a;\nint b;\n} foo;\n", []string{ErrSameLine, ErrIndent, ErrAlign}},

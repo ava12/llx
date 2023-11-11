@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestFirstTokenElement (t *testing.T) {
+func TestFirstTokenElement(t *testing.T) {
 	assert(t, FirstTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd leaf other)")
@@ -18,7 +18,7 @@ func TestFirstTokenElement (t *testing.T) {
 	assert(t, FirstTokenElement(leaf) == leaf)
 }
 
-func TestLastTokenElement (t *testing.T) {
+func TestLastTokenElement(t *testing.T) {
 	assert(t, LastTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd leaf other)")
@@ -32,7 +32,7 @@ func TestLastTokenElement (t *testing.T) {
 	assert(t, LastTokenElement(other) == other)
 }
 
-func TestNextTokenElement (t *testing.T) {
+func TestNextTokenElement(t *testing.T) {
 	assert(t, NextTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st) (2nd (nested foo bar)) (3rd baz)")
@@ -52,7 +52,7 @@ func TestNextTokenElement (t *testing.T) {
 	assert(t, NextTokenElement(baz) == nil)
 }
 
-func TestPrevTokenElement (t *testing.T) {
+func TestPrevTokenElement(t *testing.T) {
 	assert(t, NextTokenElement(nil) == nil)
 
 	root, i := buildTree(t, "(1st foo) (2nd (nested bar baz)) (3rd)")
@@ -72,21 +72,21 @@ func TestPrevTokenElement (t *testing.T) {
 	assert(t, PrevTokenElement(baz) == bar)
 }
 
-func TestChildren (t *testing.T) {
+func TestChildren(t *testing.T) {
 	assert(t, len(Children(nil)) == 0)
 
 	src := "(foo) (bar baz (qux (x)))"
 	children := "(foo) (bar)"
 	root, i := buildTree(t, src)
 
-	matchNodes(t, children, Children(root) ...)
-	matchNodes(t, "", Children(i["foo"]) ...)
-	matchNodes(t, "baz (qux)", Children(i["bar"]) ...)
-	matchNodes(t, "", Children(i["baz"]) ...)
-	matchNodes(t, "(x)", Children(i["qux"]) ...)
+	matchNodes(t, children, Children(root)...)
+	matchNodes(t, "", Children(i["foo"])...)
+	matchNodes(t, "baz (qux)", Children(i["bar"])...)
+	matchNodes(t, "", Children(i["baz"])...)
+	matchNodes(t, "(x)", Children(i["qux"])...)
 }
 
-func TestDetach (t *testing.T) {
+func TestDetach(t *testing.T) {
 	Detach(nil)
 
 	root, i := buildTree(t, "(1st) (2nd) (3rd) (4th)")
@@ -125,7 +125,7 @@ func TestDetach (t *testing.T) {
 	assert(t, root.LastChild() == nil)
 }
 
-func TestReplace (t *testing.T) {
+func TestReplace(t *testing.T) {
 	Replace(nil, nil)
 
 	root, i := buildTree(t, "(1st) (2nd) (3rd) (re) (re2)")
@@ -172,7 +172,7 @@ func TestReplace (t *testing.T) {
 	assert(t, second.Next() == re)
 }
 
-func TestAppendSibling (t *testing.T) {
+func TestAppendSibling(t *testing.T) {
 	AppendSibling(nil, nil)
 
 	root, i := buildTree(t, "(1st) (2nd)")
@@ -201,7 +201,7 @@ func TestAppendSibling (t *testing.T) {
 	assert(t, re.Next() == nil)
 }
 
-func TestPrependSibling (t *testing.T) {
+func TestPrependSibling(t *testing.T) {
 	PrependSibling(nil, nil)
 
 	root, i := buildTree(t, "(1st) (2nd)")
@@ -228,7 +228,7 @@ func TestPrependSibling (t *testing.T) {
 	assert(t, re.Next() == second)
 }
 
-func TestAppendChild (t *testing.T) {
+func TestAppendChild(t *testing.T) {
 	AppendChild(nil, nil)
 
 	root := &nodeElement{}

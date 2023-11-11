@@ -11,7 +11,7 @@ type result struct {
 	pos, line, col int
 }
 
-func TestSourceLineCol (t *testing.T) {
+func TestSourceLineCol(t *testing.T) {
 	samples := map[string][]result{
 		"": {
 			{0, 1, 1},
@@ -64,7 +64,7 @@ func TestSourceLineCol (t *testing.T) {
 	}
 }
 
-func TestSourcePos (t *testing.T) {
+func TestSourcePos(t *testing.T) {
 	samples := map[string][]result{
 		"": {
 			{0, 0, 1},
@@ -122,52 +122,52 @@ func TestSourcePos (t *testing.T) {
 	}
 }
 
-func TestSkipNotAdvancesSource (t *testing.T) {
+func TestSkipNotAdvancesSource(t *testing.T) {
 	q := NewQueue().Append(src("bar"))
 	q.Skip(2)
 	c, p := q.ContentPos()
-	Assert(t, string(c) == "bar", "expecting bar, got " + string(c))
-	Assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+	Assert(t, string(c) == "bar", "expecting bar, got "+string(c))
+	Assert(t, p == 2, "expecting pos=2, got "+strconv.Itoa(p))
 
 	q.Prepend(src("foo"))
 	c, p = q.ContentPos()
-	Assert(t, string(c) == "foo", "expecting foo, got " + string(c))
-	Assert(t, p == 0, "expecting pos=0, got " + strconv.Itoa(p))
+	Assert(t, string(c) == "foo", "expecting foo, got "+string(c))
+	Assert(t, p == 0, "expecting pos=0, got "+strconv.Itoa(p))
 
 	q.Skip(4)
 	c, p = q.ContentPos()
-	Assert(t, string(c) == "foo", "expecting foo, got " + string(c))
-	Assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
+	Assert(t, string(c) == "foo", "expecting foo, got "+string(c))
+	Assert(t, p == 3, "expecting pos=3, got "+strconv.Itoa(p))
 }
 
-func TestSeekAfterEof (t *testing.T) {
+func TestSeekAfterEof(t *testing.T) {
 	q := NewQueue().Append(src("foo"))
 	q.Seek(4)
 	p := q.Pos()
-	Assert(t, p == 3, "expecting pos=3, got " + strconv.Itoa(p))
+	Assert(t, p == 3, "expecting pos=3, got "+strconv.Itoa(p))
 	Assert(t, q.Eof(), "expecting EoF")
 
 	q.Seek(2)
 	p = q.Pos()
-	Assert(t, p == 2, "expecting pos=2, got " + strconv.Itoa(p))
+	Assert(t, p == 2, "expecting pos=2, got "+strconv.Itoa(p))
 	Assert(t, !q.Eof(), "expecting no EoF")
 
 	q.Skip(4)
 	p = q.Pos()
-	Assert(t, p == 3, "expecting pos=3 again, got " + strconv.Itoa(p))
+	Assert(t, p == 3, "expecting pos=3 again, got "+strconv.Itoa(p))
 	Assert(t, q.Eof(), "expecting EoF again")
 
 	q.Rewind(2)
 	p = q.Pos()
-	Assert(t, p == 1, "expecting pos=1, got " + strconv.Itoa(p))
+	Assert(t, p == 1, "expecting pos=1, got "+strconv.Itoa(p))
 	Assert(t, !q.IsEmpty(), "expecting no EoF again")
 }
 
-func sourceChain (queue *Queue) []string {
+func sourceChain(queue *Queue) []string {
 	var res []string
 	for {
 		content, pos := queue.ContentPos()
-		src := string(content[pos :])
+		src := string(content[pos:])
 		if src == "" {
 			return res
 		}
@@ -177,7 +177,7 @@ func sourceChain (queue *Queue) []string {
 	}
 }
 
-func cmp (a, b []string) bool {
+func cmp(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -191,26 +191,26 @@ func cmp (a, b []string) bool {
 	return true
 }
 
-func assertChain (t *testing.T, expected, got []string) {
+func assertChain(t *testing.T, expected, got []string) {
 	Expect(t, cmp(expected, got), expected, got)
 }
 
-func src (content string) *Source {
+func src(content string) *Source {
 	return New(content, []byte(content))
 }
 
-func TestSourceOrder (t *testing.T) {
+func TestSourceOrder(t *testing.T) {
 	queue := NewQueue()
 	queue.Append(src("bar")).Append(src("baz")).Prepend(src("foo"))
 	assertChain(t, []string{"foo", "bar", "baz"}, sourceChain(queue))
 	content, pos := queue.ContentPos()
-	Assert(t, string(content[pos :]) == "", "non-empty content after EoF")
+	Assert(t, string(content[pos:]) == "", "non-empty content after EoF")
 	Assert(t, queue.IsEmpty(), "queue not empty after EoF")
 	src := queue.Source()
 	Assert(t, src == nil, "non-empty source after EoF")
 }
 
-func TestSourceInsert (t *testing.T) {
+func TestSourceInsert(t *testing.T) {
 	queue := NewQueue()
 	queue.Append(src("hello")).Append(src("world"))
 	queue.Skip(3)
@@ -218,15 +218,14 @@ func TestSourceInsert (t *testing.T) {
 	assertChain(t, []string{"hi", "lo", "world"}, sourceChain(queue))
 }
 
-
-func TestEmptySource (t *testing.T) {
+func TestEmptySource(t *testing.T) {
 	queue := NewQueue()
 
-	emptySrc := func (name string) *Source {
+	emptySrc := func(name string) *Source {
 		return New(name, []byte{})
 	}
 
-	assertSourceName := func (name string) {
+	assertSourceName := func(name string) {
 		src := queue.Source()
 		if src == nil {
 			t.Fatalf("expecting source \"%s\", got nil", name)
@@ -247,15 +246,15 @@ func TestEmptySource (t *testing.T) {
 	assertSourceName("baz")
 }
 
-func TestResizeSource (t *testing.T) {
+func TestResizeSource(t *testing.T) {
 	queue := NewQueue()
 	queue.Append(src("c")).Append(src("d")).Append(src("e")).Append(src("f")).
 		Append(src("g")).Prepend(src("b")).Append(src("h")).Prepend(src("a"))
 	assertChain(t, []string{"a", "b", "c", "d", "e", "f", "g", "h"}, sourceChain(queue))
 }
 
-func TestNextSource (t *testing.T) {
-	sources := []string {
+func TestNextSource(t *testing.T) {
+	sources := []string{
 		"foo",
 		"bar",
 		"baz",
@@ -285,7 +284,7 @@ func TestNextSource (t *testing.T) {
 	}
 }
 
-func TestAddSourceAfterEof (t *testing.T) {
+func TestAddSourceAfterEof(t *testing.T) {
 	queue := NewQueue().Append(New("dropped", []byte("-")))
 	queue.NextSource()
 	queue.Append(New("appended", []byte("foo")))
@@ -303,7 +302,7 @@ func TestAddSourceAfterEof (t *testing.T) {
 	}
 }
 
-func TestNormalizeNls (t *testing.T) {
+func TestNormalizeNls(t *testing.T) {
 	samples := []struct {
 		src, res string
 	}{
@@ -325,7 +324,7 @@ func TestNormalizeNls (t *testing.T) {
 	}
 }
 
-func TestPosBounds (t *testing.T) {
+func TestPosBounds(t *testing.T) {
 	q := NewQueue().Append(New("", make([]byte, 10)))
 
 	q.Seek(5)

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestNodeElement_AddChild (t *testing.T) {
+func TestNodeElement_AddChild(t *testing.T) {
 	ntn := &nodeElement{}
 	tn1 := &tokenElement{}
 	tn2 := &tokenElement{}
@@ -41,7 +41,7 @@ func TestNodeElement_AddChild (t *testing.T) {
 	assert(t, tn2.prev == tn3)
 }
 
-func TestNodeElement_RemoveChild (t *testing.T) {
+func TestNodeElement_RemoveChild(t *testing.T) {
 	ntn := &nodeElement{}
 	tn1 := &tokenElement{}
 	tn2 := &tokenElement{}

@@ -7,7 +7,7 @@ import (
 	"github.com/ava12/llx/examples/style-check/internal"
 )
 
-func main () {
+func main() {
 	if len(os.Args) != 2 {
 		fmt.Println("Usage is  style-check <file>")
 		os.Exit(1)

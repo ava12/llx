@@ -6,7 +6,7 @@ import (
 	"github.com/ava12/llx/parser"
 )
 
-func Example () {
+func Example() {
 	input := `
 foo = hello
 bar = world
@@ -38,7 +38,7 @@ value = $name, '=', [$value], $nl;
 	result := make(map[string]string)
 	prefix, name, value := "", "", ""
 	hooks := parser.Hooks{Tokens: parser.TokenHooks{
-		parser.AnyToken: func (t *parser.Token, pc *parser.ParseContext) (emit bool, e error) {
+		parser.AnyToken: func(t *parser.Token, pc *parser.ParseContext) (emit bool, e error) {
 			switch t.TypeName() {
 			case "sec-name":
 				prefix = t.Text() + "."

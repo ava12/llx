@@ -20,12 +20,12 @@ type srcErrSample struct {
 }
 
 var testTokenHooks = TokenHooks{
-	AnyToken: func (token *lexer.Token, pc *ParseContext) (emit bool, e error) {
+	AnyToken: func(token *lexer.Token, pc *ParseContext) (emit bool, e error) {
 		return true, nil
 	},
 }
 
-func testGrammarSamplesWithHooks (t *testing.T, name, grammar string, samples []srcExprSample, ths, lhs TokenHooks) {
+func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []srcExprSample, ths, lhs TokenHooks) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
@@ -46,7 +46,7 @@ func testGrammarSamplesWithHooks (t *testing.T, name, grammar string, samples []
 	}
 }
 
-func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSample, captureAside bool) {
+func testGrammarSamples(t *testing.T, name, grammar string, samples []srcExprSample, captureAside bool) {
 	var hs TokenHooks
 
 	if captureAside {
@@ -55,7 +55,7 @@ func testGrammarSamples (t *testing.T, name, grammar string, samples []srcExprSa
 	testGrammarSamplesWithHooks(t, name, grammar, samples, hs, nil)
 }
 
-func testErrorSamplesWithHooks (t *testing.T, name, grammar string, samples []srcErrSample, hs *Hooks) {
+func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []srcErrSample, hs *Hooks) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
@@ -85,13 +85,13 @@ func testErrorSamplesWithHooks (t *testing.T, name, grammar string, samples []sr
 	}
 }
 
-func testErrorSamples (t *testing.T, name, grammar string, samples []srcErrSample) {
+func testErrorSamples(t *testing.T, name, grammar string, samples []srcErrSample) {
 	testErrorSamplesWithHooks(t, name, grammar, samples, nil)
 }
 
 const spaceDef = "!aside $space; $space = /\\s+/; "
 
-func TestErrors (t *testing.T) {
+func TestErrors(t *testing.T) {
 	name := "errors"
 	grammar := spaceDef + "$name = /\\w+/; $op = /[()]/; s = 'foo' | 'bar', '(', 'bar' | 'baz', ')';"
 	samples := []srcErrSample{
@@ -101,7 +101,7 @@ func TestErrors (t *testing.T) {
 	testErrorSamples(t, name, grammar, samples)
 }
 
-func TestHandlerKeyErrors (t *testing.T) {
+func TestHandlerKeyErrors(t *testing.T) {
 	name := "handler key errors"
 	grammar := "$any = /./; g = $any;"
 	queue := source.NewQueue().Append(source.New("x", []byte("x")))
@@ -112,9 +112,9 @@ func TestHandlerKeyErrors (t *testing.T) {
 
 	parser := New(g)
 
-	samples := []struct{
+	samples := []struct {
 		hooks Hooks
-		err int
+		err   int
 	}{
 		{Hooks{TokenHooks{"space": nil}, nil, nil}, UnknownTokenTypeError},
 		{Hooks{nil, TokenHooks{"y": nil}, nil}, UnknownTokenLiteralError},
@@ -124,9 +124,9 @@ func TestHandlerKeyErrors (t *testing.T) {
 	for i, sample := range samples {
 		_, e := parser.Parse(queue, &sample.hooks)
 		var (
-			ee *llx.Error
+			ee   *llx.Error
 			code int
-			f bool
+			f    bool
 		)
 		if e != nil {
 			ee, f = e.(*llx.Error)
@@ -140,7 +140,7 @@ func TestHandlerKeyErrors (t *testing.T) {
 	}
 }
 
-func TestSimple (t *testing.T) {
+func TestSimple(t *testing.T) {
 	name := "simple"
 	grammar := "$char = /\\w/; s = {a | b | c}; a = 'a',{'a'}; b = 'b', ['b']; c = 'c', {a | b | c};"
 	samples := []srcExprSample{
@@ -151,7 +151,7 @@ func TestSimple (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestAside (t *testing.T) {
+func TestAside(t *testing.T) {
 	name := "aside"
 	grammar := "!aside $sep; $sep = /-/; $char = /\\w/; s = {'a' | 'b' | 'c'};"
 	samples := []srcExprSample{
@@ -162,7 +162,7 @@ func TestAside (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, true)
 }
 
-func TestAri (t *testing.T) {
+func TestAri(t *testing.T) {
 	name := "ari"
 	grammar := spaceDef + "$num=/\\d+/; $op=/[()^*\\/+-]/; ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num|('(',sum,')');"
 	samples := []srcExprSample{
@@ -178,7 +178,7 @@ func TestAri (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestMultiRuleAri (t *testing.T) {
+func TestMultiRuleAri(t *testing.T) {
 	name := "ari"
 	grammar := spaceDef + "$num=/\\d+/; $op=/[()^*\\/+-]/;" +
 		"ari=val|pow|pro|sum;" +
@@ -203,7 +203,7 @@ func TestMultiRuleAri (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestGroups (t *testing.T) {
+func TestGroups(t *testing.T) {
 	name := "groups"
 	grammar := "!aside $space; !group $eol $name $space; !group $str $any $space;" +
 		"$space = /[ \\t]+/; $eol = /\\n/; $name = /\\w+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
@@ -217,7 +217,7 @@ func TestGroups (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestMultiGroups (t *testing.T) {
+func TestMultiGroups(t *testing.T) {
 	name := "multi-groups"
 	grammar := spaceDef + "!group $name $space; !group $str $any $space; $name = /[a-z]+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
 		"g = {s | a}; s = $name, $str; a = $name, $any;"
@@ -230,7 +230,7 @@ func TestMultiGroups (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestTokenShrinking (t *testing.T) {
+func TestTokenShrinking(t *testing.T) {
 	name := "shrinking"
 	grammar := spaceDef + "!shrink $op; $name = /\\w+/; $op = /[()]|<<?|>>?/;" +
 		"g = val, {val};" +
@@ -248,7 +248,7 @@ func TestTokenShrinking (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestTokenHooks (t *testing.T) {
+func TestTokenHooks(t *testing.T) {
 	name := "token hooks"
 	grammar := "$space = /\\s+/; $char = /[bcdf]|aa?|ee?/; !literal 'a' 'b' 'c' 'd' 'e' 'f' 'aa' 'ee';" +
 		"g = {('b', 'aa') | ('b', 'ee', 'f') | ('f', 'a', 'c', 'e') | $space};"
@@ -258,24 +258,24 @@ func TestTokenHooks (t *testing.T) {
 
 	prevTokenText := ""
 	ths := TokenHooks{
-		"char": func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		"char": func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			f := t.Text() != prevTokenText // x x -> x
 			prevTokenText = t.Text()
 			return f, nil
 		},
-		AnyToken: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		AnyToken: func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			return false, pc.EmitToken(lexer.NewToken(0, "space", "_", source.Pos{})) // " " -> _
 		},
 	}
 	lhs := TokenHooks{
-		"e": func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		"e": func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			if prevTokenText != "b" {
 				return true, nil
 			}
 
 			return false, pc.EmitToken(lexer.NewToken(1, "char", "ee", source.Pos{})) // e -> ee
 		},
-		"c": func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		"c": func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			return true, pc.EmitToken(lexer.NewToken(1, "char", "a", source.Pos{})) // c -> a c
 		},
 	}
@@ -283,7 +283,7 @@ func TestTokenHooks (t *testing.T) {
 	testGrammarSamplesWithHooks(t, name, grammar, samples, ths, lhs)
 }
 
-func TestEofHooks (t *testing.T) {
+func TestEofHooks(t *testing.T) {
 	name := "EoF hooks"
 	grammar := "!aside $space $indent; !extern $begin $end; " +
 		"$indent = /(?:\\n|^)\\t+/; $space = /[ \\t]+/; $name = /\\w+/; " +
@@ -301,7 +301,7 @@ func TestEofHooks (t *testing.T) {
 
 	prevIndent := 0
 	hooks := TokenHooks{
-		"indent": func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		"indent": func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			text := t.Text()
 			indent := len(text)
 			if text[0] == '\n' {
@@ -318,7 +318,7 @@ func TestEofHooks (t *testing.T) {
 			}
 			return false, e
 		},
-		EofToken: func (t *lexer.Token, pc *ParseContext) (bool, error) {
+		EofToken: func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			var e error
 			for prevIndent > 0 {
 				e = pc.EmitToken(lexer.NewToken(4, "end", "}", source.Pos{}))
@@ -331,7 +331,7 @@ func TestEofHooks (t *testing.T) {
 	testGrammarSamplesWithHooks(t, name, grammar, samples, hooks, nil)
 }
 
-func TestResolveAnyTokenEof (t *testing.T) {
+func TestResolveAnyTokenEof(t *testing.T) {
 	name := "resolve * AnyToken * EoF"
 	grammar := "$name = /\\w+/; $op = /[()+]/; g = sum | call; sum = $name, ['+', $name]; call = $name, '(', $name, ')';"
 	samples := []srcErrSample{
@@ -340,7 +340,7 @@ func TestResolveAnyTokenEof (t *testing.T) {
 	testErrorSamples(t, name, grammar, samples)
 }
 
-func TestCaselessTokens (t *testing.T) {
+func TestCaselessTokens(t *testing.T) {
 	name := "caseless tokens"
 	grammar := spaceDef + "$name = /\\w+/; !caseless $name; " +
 		"g = {[key], $name}; key = 'FOO' | 'BAR';"
@@ -350,7 +350,7 @@ func TestCaselessTokens (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
-func TestTrailingAsides (t *testing.T) {
+func TestTrailingAsides(t *testing.T) {
 	name := "(non)trailing aside tokens"
 	grammar := "!aside $space; $space = /-/; $char = /[a-z]/; $digit = /\\d/; $op = /\\[|\\]/; " +
 		"g = {ch | di | bl}; ch = $char, [$digit]; di = $digit; bl = '[', {ch | di | bl}, ']';"
@@ -362,7 +362,7 @@ func TestTrailingAsides (t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples, true)
 }
 
-func TestReservedLiterals (t *testing.T) {
+func TestReservedLiterals(t *testing.T) {
 	g0 := "!aside $space; $space = /\\s+/; $name = /\\w+/; g = 'var', $name;"
 	g1 := "!reserved 'var'; " + g0
 	src := "var var"
@@ -371,10 +371,10 @@ func TestReservedLiterals (t *testing.T) {
 	testErrorSamples(t, "reserved", g1, []srcErrSample{{src, UnexpectedTokenError}})
 }
 
-func TestBypass (t *testing.T) {
+func TestBypass(t *testing.T) {
 	toks := "$w =/\\w/; "
-	samples := []struct{
-		grammar string
+	samples := []struct {
+		grammar        string
 		correct, wrong []string
 	}{
 		{toks + "g = {['a'], 'b'};", []string{"", "abb", "bab"}, []string{"a", "aba", "aab"}},
@@ -419,35 +419,35 @@ func TestBypass (t *testing.T) {
 }
 
 type nthi struct {
-	nt string
+	nt     string
 	result *[]string
 }
 
 func (hi nthi) NewNode(node string, token *Token) error {
-	*hi.result = append(*hi.result, hi.nt + "^" +node+ token.Text())
+	*hi.result = append(*hi.result, hi.nt+"^"+node+token.Text())
 	return nil
 }
 
 func (hi nthi) HandleNode(node string, result any) error {
-	*hi.result = append(*hi.result, hi.nt + "$" +node+ result.(string))
+	*hi.result = append(*hi.result, hi.nt+"$"+node+result.(string))
 	return nil
 }
 
-func (hi nthi) HandleToken (token *Token) error {
-	*hi.result = append(*hi.result, hi.nt + ":" + token.Text())
+func (hi nthi) HandleToken(token *Token) error {
+	*hi.result = append(*hi.result, hi.nt+":"+token.Text())
 	return nil
 }
 
 func (hi nthi) EndNode() (result any, e error) {
-	*hi.result = append(*hi.result, hi.nt + ".")
+	*hi.result = append(*hi.result, hi.nt+".")
 	return hi.nt, nil
 }
 
-func TestNodeHooks (t *testing.T) {
+func TestNodeHooks(t *testing.T) {
 	result := make([]string, 0)
 	hs := Hooks{
 		Nodes: NodeHooks{
-			AnyNode: func (node string, token *Token, pc *ParseContext) (NodeHookInstance, error) {
+			AnyNode: func(node string, token *Token, pc *ParseContext) (NodeHookInstance, error) {
 				return &nthi{node, &result}, nil
 			},
 		},

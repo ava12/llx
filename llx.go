@@ -21,7 +21,6 @@ or llxgen utility to generate Go file.
 3. Define hooks to handle tokens and/or syntax tree nodes emitted by parser.
 
 4. Create new parser for desired grammar and feed it source files and hooks.
-
 */
 package llx
 
@@ -33,8 +32,8 @@ import (
 const (
 	LangDefErrors = 1   // used by langdef
 	LexicalErrors = 101 // used by lexer
-	SyntaxErrors = 201  // used by parser
-	ParserErrors = 301  // used by parser
+	SyntaxErrors  = 201 // used by parser
+	ParserErrors  = 301 // used by parser
 )
 
 // Error is the error type used by llx subpackages.
@@ -52,23 +51,23 @@ type Error struct {
 	Line int
 
 	// Col contains column number in source file or 0.
-	Col  int
+	Col int
 }
 
 // SourcePos is used to retrieve source name and position information when constructing an error;
 // source.Pos and lexer.Token implement this interface.
 type SourcePos interface {
 	// SourceName returns source file name or empty string.
-	SourceName () string
+	SourceName() string
 	// Line returns line number or 0.
-	Line () int
+	Line() int
 	// Col returns column number or 0.
-	Col () int
+	Col() int
 }
 
 // NewError creates new Error structure.
 // name, line, and col will be added to error message if provided (non-zero).
-func NewError (code int, msg, name string, line, col int) *Error {
+func NewError(code int, msg, name string, line, col int) *Error {
 	if name != "" && line != 0 && col != 0 {
 		msg += fmt.Sprintf(" in %s at line %d col %d", name, line, col)
 	}
@@ -76,13 +75,13 @@ func NewError (code int, msg, name string, line, col int) *Error {
 }
 
 // Error simply returns Error.Message.
-func (e *Error) Error () string {
+func (e *Error) Error() string {
 	return e.Message
 }
 
 // FormatError creates Error structure with no source and position information.
 // params will be added to error message using fmt.Sprintf function.
-func FormatError (code int, msg string, params ... any) *Error {
+func FormatError(code int, msg string, params ...any) *Error {
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
@@ -92,7 +91,7 @@ func FormatError (code int, msg string, params ... any) *Error {
 // FormatErrorPos creates Error structure with source and position information.
 // pos must not be nil.
 // params will be added to error message using fmt.Sprintf function.
-func FormatErrorPos (pos SourcePos, code int, msg string, params ... any) *Error {
+func FormatErrorPos(pos SourcePos, code int, msg string, params ...any) *Error {
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}

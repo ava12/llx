@@ -18,26 +18,25 @@ const (
 	UnexpectedInputError
 )
 
-func unknownVarError (name string) *llx.Error {
+func unknownVarError(name string) *llx.Error {
 	return llx.FormatError(UnknownVarError, "unknown variable: %s", name)
 }
 
-func unknownFuncError (name string) *llx.Error {
+func unknownFuncError(name string) *llx.Error {
 	return llx.FormatError(UnknownFuncError, "unknown function: %s", name)
 }
 
-func wrongArgNumberError (name string, expected, got int) *llx.Error {
-	return llx.FormatError(WrongArgNumberError,"wrong number of arguments for %s: expecting %d, got %d", name, expected, got)
+func wrongArgNumberError(name string, expected, got int) *llx.Error {
+	return llx.FormatError(WrongArgNumberError, "wrong number of arguments for %s: expecting %d, got %d", name, expected, got)
 }
 
-func argDefinedError (name string) *llx.Error {
+func argDefinedError(name string) *llx.Error {
 	return llx.FormatError(ArgDefinedError, "argument %s already defined", name)
 }
 
-func unexpectedInputError (pos llx.SourcePos, text string) *llx.Error {
+func unexpectedInputError(pos llx.SourcePos, text string) *llx.Error {
 	return llx.FormatErrorPos(pos, UnexpectedInputError, "unexpected %q", text)
 }
-
 
 type function struct {
 	name     string
@@ -45,11 +44,11 @@ type function struct {
 	body     expr
 }
 
-func newFunc (name string, body expr, argNames ... string) *function {
+func newFunc(name string, body expr, argNames ...string) *function {
 	return &function{name, argNames, body}
 }
 
-func (f *function) call (c *context, args []float64) (float64, error) {
+func (f *function) call(c *context, args []float64) (float64, error) {
 	argc := len(args)
 	if argc != len(f.argNames) {
 		return 0.0, wrongArgNumberError(f.name, len(f.argNames), argc)
@@ -63,16 +62,16 @@ func (f *function) call (c *context, args []float64) (float64, error) {
 }
 
 type context struct {
-	parent *context
-	vars map[string]float64
+	parent    *context
+	vars      map[string]float64
 	functions map[string]*function
 }
 
-func newContext (parent *context) *context {
+func newContext(parent *context) *context {
 	return &context{parent, make(map[string]float64), make(map[string]*function)}
 }
 
-func (c *context) variable (name string) (res float64, e error) {
+func (c *context) variable(name string) (res float64, e error) {
 	var f bool
 	res, f = c.vars[name]
 	if !f {
@@ -85,7 +84,7 @@ func (c *context) variable (name string) (res float64, e error) {
 	return
 }
 
-func (c *context) function (name string) (res *function, e error) {
+func (c *context) function(name string) (res *function, e error) {
 	var f bool
 	res, f = c.functions[name]
 	if !f {
@@ -98,28 +97,26 @@ func (c *context) function (name string) (res *function, e error) {
 	return
 }
 
-
 type expr interface {
-	IsNumber () bool
-	Compute (*context) (float64, error)
+	IsNumber() bool
+	Compute(*context) (float64, error)
 }
 
 type number struct {
 	value float64
 }
 
-func newNumber (value float64) *number {
+func newNumber(value float64) *number {
 	return &number{value}
 }
 
-func (n number) IsNumber () bool {
+func (n number) IsNumber() bool {
 	return true
 }
 
-func (n number) Compute (*context) (float64, error) {
+func (n number) Compute(*context) (float64, error) {
 	return n.value, nil
 }
-
 
 type opVal struct {
 	op    rune
@@ -132,7 +129,7 @@ type chain struct {
 	opVals            []opVal
 }
 
-func newChain (defaultOp rune) *chain {
+func newChain(defaultOp rune) *chain {
 	res := &chain{defaultOp, defaultOp, 0.0, make([]opVal, 0)}
 	if defaultOp == '*' {
 		res.value = 1.0
@@ -140,11 +137,11 @@ func newChain (defaultOp rune) *chain {
 	return res
 }
 
-func (ch *chain) IsNumber () bool {
+func (ch *chain) IsNumber() bool {
 	return (len(ch.opVals) == 0)
 }
 
-func (ch *chain) Compute (c *context) (res float64, e error) {
+func (ch *chain) Compute(c *context) (res float64, e error) {
 	res = ch.value
 	var val float64
 	for _, ov := range ch.opVals {
@@ -158,7 +155,7 @@ func (ch *chain) Compute (c *context) (res float64, e error) {
 	return
 }
 
-func (ch *chain) update (res, val float64, op rune) float64 {
+func (ch *chain) update(res, val float64, op rune) float64 {
 	switch op {
 	case '+':
 		res += val
@@ -187,7 +184,7 @@ func (ch *chain) HandleNode(node string, result interface{}) error {
 	return nil
 }
 
-func (ch *chain) HandleToken (token *parser.Token) error {
+func (ch *chain) HandleToken(token *parser.Token) error {
 	ch.lastOp = rune(token.Text()[0])
 	return nil
 }
@@ -200,20 +197,19 @@ func (ch *chain) EndNode() (result interface{}, e error) {
 	}
 }
 
-
 type power struct {
 	base, exp expr
 }
 
-func newPower () *power {
+func newPower() *power {
 	return &power{exp: newNumber(1.0)}
 }
 
-func (p *power) IsNumber () bool {
+func (p *power) IsNumber() bool {
 	return (p.base.IsNumber() && p.exp.IsNumber())
 }
 
-func (p *power) Compute (c *context) (res float64, e error) {
+func (p *power) Compute(c *context) (res float64, e error) {
 	var exp float64
 	res, e = p.base.Compute(c)
 	if e == nil {
@@ -239,7 +235,7 @@ func (p *power) HandleNode(node string, result interface{}) error {
 	return nil
 }
 
-func (p *power) HandleToken (token *parser.Token) error {
+func (p *power) HandleToken(token *parser.Token) error {
 	return nil
 }
 
@@ -256,38 +252,36 @@ func (p *power) EndNode() (result interface{}, e error) {
 	return
 }
 
-
 type varName struct {
 	name string
 }
 
-func newVarName (name string) *varName {
+func newVarName(name string) *varName {
 	return &varName{name}
 }
 
-func (v *varName) IsNumber () bool {
+func (v *varName) IsNumber() bool {
 	return false
 }
 
-func (v *varName) Compute (c *context) (float64, error) {
+func (v *varName) Compute(c *context) (float64, error) {
 	return c.variable(v.name)
 }
-
 
 type assignment struct {
 	name  string
 	value expr
 }
 
-func newAssignment () *assignment {
+func newAssignment() *assignment {
 	return &assignment{}
 }
 
-func (a *assignment) IsNumber () bool {
+func (a *assignment) IsNumber() bool {
 	return false
 }
 
-func (a *assignment) Compute (c *context) (res float64, e error) {
+func (a *assignment) Compute(c *context) (res float64, e error) {
 	res, e = a.value.Compute(c)
 	if e == nil {
 		c.vars[a.name] = res
@@ -306,7 +300,7 @@ func (a *assignment) HandleNode(node string, result interface{}) error {
 	return nil
 }
 
-func (a *assignment) HandleToken (token *parser.Token) error {
+func (a *assignment) HandleToken(token *parser.Token) error {
 	if token.TypeName() == "name" {
 		a.name = token.Text()
 	}
@@ -317,7 +311,6 @@ func (a *assignment) EndNode() (result interface{}, e error) {
 	return a, nil
 }
 
-
 type funcDef struct {
 	name      string
 	argNames  []string
@@ -325,31 +318,31 @@ type funcDef struct {
 	nameIndex map[string]bool
 }
 
-func newFuncDef () *funcDef {
+func newFuncDef() *funcDef {
 	return &funcDef{argNames: make([]string, 0), nameIndex: make(map[string]bool)}
 }
 
-func (fd *funcDef) IsNumber () bool {
+func (fd *funcDef) IsNumber() bool {
 	return false
 }
 
-func (fd *funcDef) Compute (c *context) (res float64, e error) {
+func (fd *funcDef) Compute(c *context) (res float64, e error) {
 	c.functions[fd.name] = newFunc(fd.name, fd.body, fd.argNames...)
 	return 0.0, nil
 }
 
-func (fd *funcDef) NewNode (node string, token *parser.Token) error {
+func (fd *funcDef) NewNode(node string, token *parser.Token) error {
 	return nil
 }
 
-func (fd *funcDef) HandleNode (node string, result interface{}) error {
+func (fd *funcDef) HandleNode(node string, result interface{}) error {
 	if node == "expr" {
 		fd.body = result.(expr)
 	}
 	return nil
 }
 
-func (fd *funcDef) HandleToken (token *parser.Token) (e error) {
+func (fd *funcDef) HandleToken(token *parser.Token) (e error) {
 	if token.TypeName() != "name" {
 		return
 	}
@@ -377,21 +370,20 @@ func (fd *funcDef) EndNode() (result interface{}, e error) {
 	return fd, nil
 }
 
-
 type funcCall struct {
 	name string
 	args []expr
 }
 
-func newFuncCall () *funcCall {
+func newFuncCall() *funcCall {
 	return &funcCall{}
 }
 
-func (fc *funcCall) IsNumber () bool {
+func (fc *funcCall) IsNumber() bool {
 	return false
 }
 
-func (fc *funcCall) Compute (c *context) (float64, error) {
+func (fc *funcCall) Compute(c *context) (float64, error) {
 	f, e := c.function(fc.name)
 	args := make([]float64, len(fc.args))
 	var res float64
@@ -411,18 +403,18 @@ func (fc *funcCall) Compute (c *context) (float64, error) {
 	return res, e
 }
 
-func (fc *funcCall) NewNode (node string, token *parser.Token) error {
+func (fc *funcCall) NewNode(node string, token *parser.Token) error {
 	return nil
 }
 
-func (fc *funcCall) HandleNode (node string, result interface{}) error {
+func (fc *funcCall) HandleNode(node string, result interface{}) error {
 	if node == "expr" {
 		fc.args = append(fc.args, result.(expr))
 	}
 	return nil
 }
 
-func (fc *funcCall) HandleToken (token *parser.Token) error {
+func (fc *funcCall) HandleToken(token *parser.Token) error {
 	if token.TypeName() == "name" {
 		fc.name = token.Text()
 	}
@@ -433,25 +425,24 @@ func (fc *funcCall) EndNode() (result interface{}, e error) {
 	return fc, nil
 }
 
-
 type rootNT struct {
 	body expr
 }
 
-func newRootNT () *rootNT {
+func newRootNT() *rootNT {
 	return &rootNT{}
 }
 
-func (r *rootNT) NewNode (node string, token *parser.Token) error {
+func (r *rootNT) NewNode(node string, token *parser.Token) error {
 	return nil
 }
 
-func (r *rootNT) HandleNode (node string, result interface{}) error {
+func (r *rootNT) HandleNode(node string, result interface{}) error {
 	r.body = result.(expr)
 	return nil
 }
 
-func (r *rootNT) HandleToken (token *parser.Token) error {
+func (r *rootNT) HandleToken(token *parser.Token) error {
 	return nil
 }
 
@@ -459,12 +450,11 @@ func (r *rootNT) EndNode() (result interface{}, e error) {
 	return r.body, nil
 }
 
-
 type value struct {
 	body expr
 }
 
-func newValue () *value {
+func newValue() *value {
 	return &value{}
 }
 
@@ -477,7 +467,7 @@ func (v *value) HandleNode(node string, result interface{}) error {
 	return nil
 }
 
-func (v *value) HandleToken (token *parser.Token) error {
+func (v *value) HandleToken(token *parser.Token) error {
 	switch token.TypeName() {
 	case "name":
 		v.body = newVarName(token.Text())
@@ -496,10 +486,9 @@ func (v *value) EndNode() (result interface{}, e error) {
 	return v.body, nil
 }
 
-
 var hooks = &parser.Hooks{
 	Nodes: parser.NodeHooks{
-		parser.AnyNode: func (node string, t *parser.Token, pc *parser.ParseContext) (res parser.NodeHookInstance, e error) {
+		parser.AnyNode: func(node string, t *parser.Token, pc *parser.ParseContext) (res parser.NodeHookInstance, e error) {
 			switch node {
 			case "calcGrammar":
 				res = newRootNT()
@@ -525,22 +514,22 @@ var hooks = &parser.Hooks{
 
 var (
 	rootContext *context
-	calcParser *parser.Parser
+	calcParser  *parser.Parser
 )
 
-func init () {
+func init() {
 	rootContext = newContext(nil)
 	calcParser = parser.New(calcGrammar)
 }
 
-func Compute (text string) (float64, error) {
+func Compute(text string) (float64, error) {
 	input := []byte(text)
 	source.NormalizeNls(&input)
 	q := source.NewQueue().Append(source.New("input", input))
 	x, e := calcParser.Parse(q, hooks)
 	if e == nil && !q.IsEmpty() {
 		p := q.SourcePos()
-		e = unexpectedInputError(p, string(p.Source().Content()[p.Pos() :]))
+		e = unexpectedInputError(p, string(p.Source().Content()[p.Pos():]))
 	}
 
 	if e == nil {

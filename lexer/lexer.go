@@ -33,7 +33,7 @@ const (
 // TokenType describes token type for specific capturing group of regular expression.
 type TokenType struct {
 	// Type contains token type, may be any value. ErrorTokenType is treated specially.
-	Type     int
+	Type int
 
 	// TypeName contains token type name, may be any value.
 	TypeName string
@@ -54,23 +54,22 @@ type Lexer struct {
 // New creates new Lexer.
 // Each n-th element of types describes token type for (n+1)-th regexp capturing group.
 // A group that has no description is treated as ErrorTokenType.
-func New (re *regexp.Regexp, types []TokenType) *Lexer {
+func New(re *regexp.Regexp, types []TokenType) *Lexer {
 	return &Lexer{types: types, re: re}
 }
 
-
-func wrongCharError (s *source.Source, content []byte, line, col int) *llx.Error {
+func wrongCharError(s *source.Source, content []byte, line, col int) *llx.Error {
 	r, _ := utf8.DecodeRune(content)
 	msg := fmt.Sprintf("wrong char \"%c\" (u+%x)", r, r)
 	return llx.NewError(WrongCharError, msg, s.Name(), line, col)
 }
 
-func wrongTokenError (t *Token) *llx.Error {
+func wrongTokenError(t *Token) *llx.Error {
 	return llx.FormatErrorPos(t, BadTokenError, "bad token %q", t.Text())
 }
 
-func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token, int, error) {
-	content = content[pos :]
+func (l *Lexer) matchToken(src *source.Source, content []byte, pos int) (*Token, int, error) {
+	content = content[pos:]
 	match := l.re.FindSubmatchIndex(content)
 	if len(match) == 0 || match[0] != 0 || match[1] <= match[0] {
 		line, col := src.LineCol(pos)
@@ -78,18 +77,18 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 	}
 
 	for i := 2; i < len(match); i += 2 {
-		if match[i] >= 0 && match[i + 1] >= 0 {
-			sp := source.NewPos(src, pos + match[i])
+		if match[i] >= 0 && match[i+1] >= 0 {
+			sp := source.NewPos(src, pos+match[i])
 			tokenType := ErrorTokenType
 			typeName := ErrorTokenName
 			if len(l.types) >= (i >> 1) {
-				tokenType = l.types[(i >> 1) - 1].Type
-				typeName = l.types[(i >> 1) - 1].TypeName
+				tokenType = l.types[(i>>1)-1].Type
+				typeName = l.types[(i>>1)-1].TypeName
 			}
 			token := &Token{
 				tokenType,
 				typeName,
-				string(content[match[i] : match[i + 1]]),
+				string(content[match[i]:match[i+1]]),
 				sp,
 			}
 			if tokenType == ErrorTokenType {
@@ -103,10 +102,10 @@ func (l *Lexer) matchToken (src *source.Source, content []byte, pos int) (*Token
 	return nil, match[1], nil
 }
 
-func (l *Lexer) fetch (q *source.Queue) (*Token, error) {
+func (l *Lexer) fetch(q *source.Queue) (*Token, error) {
 	content, pos := q.ContentPos()
 	src := q.Source()
-	if len(content) - pos <= 0 {
+	if len(content)-pos <= 0 {
 		if src == nil {
 			return EoiToken(), nil
 		} else {
@@ -124,7 +123,7 @@ func (l *Lexer) fetch (q *source.Queue) (*Token, error) {
 // Returns nil token and llx.Error and does not make any changes if there is a lexical error.
 // Returns EoI token if queue is empty.
 // Returns EoF token and discards current source if current position is beyond the end of current source.
-func (l *Lexer) Next (q *source.Queue) (*Token, error) {
+func (l *Lexer) Next(q *source.Queue) (*Token, error) {
 	for {
 		t, e := l.fetch(q)
 		if t != nil || e != nil {
@@ -137,7 +136,7 @@ func (l *Lexer) Next (q *source.Queue) (*Token, error) {
 // Adjusts current position and returns shrunk token on success.
 // Makes no changes and returns nil if given token has no captured source and position information,
 // was fetched from source other than current, or a lexical error occurs.
-func (l *Lexer) Shrink (q *source.Queue, tok *Token) *Token {
+func (l *Lexer) Shrink(q *source.Queue, tok *Token) *Token {
 	if tok == nil || len(tok.text) <= 1 {
 		return nil
 	}
@@ -150,7 +149,7 @@ func (l *Lexer) Shrink (q *source.Queue, tok *Token) *Token {
 	currentPos := q.Pos()
 	q.Seek(tok.pos.Pos())
 	content, pos := q.ContentPos()
-	content = content[: pos + len(tok.Text()) - 1]
+	content = content[:pos+len(tok.Text())-1]
 	result, advance, _ := l.matchToken(q.Source(), content, pos)
 	if result == nil {
 		q.Seek(currentPos)

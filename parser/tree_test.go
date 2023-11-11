@@ -19,11 +19,11 @@ type treeNode struct {
 	children   []*treeNode
 }
 
-func nodeNode (name string) *treeNode {
+func nodeNode(name string) *treeNode {
 	return &treeNode{true, name, "", make([]*treeNode, 0)}
 }
 
-func tokenNode (name, content string) *treeNode {
+func tokenNode(name, content string) *treeNode {
 	return &treeNode{false, name, content, nil}
 }
 
@@ -36,7 +36,7 @@ func (n *treeNode) HandleNode(node string, result any) error {
 	return nil
 }
 
-func (n *treeNode) HandleToken (token *lexer.Token) error {
+func (n *treeNode) HandleToken(token *lexer.Token) error {
 	n.children = append(n.children, tokenNode(token.TypeName(), token.Text()))
 	return nil
 }
@@ -45,12 +45,11 @@ func (n *treeNode) EndNode() (result any, e error) {
 	return n, nil
 }
 
-func nodeHook (node string, t *lexer.Token, pc *ParseContext) (NodeHookInstance, error) {
+func nodeHook(node string, t *lexer.Token, pc *ParseContext) (NodeHookInstance, error) {
 	return nodeNode(node), nil
 }
 
 var testNodeHooks = NodeHooks{AnyNode: nodeHook}
-
 
 type stackNode struct {
 	parent        *stackNode
@@ -65,11 +64,11 @@ type treeValidator struct {
 
 var exprRe = regexp.MustCompile("\\(|\\)|'.+?'|[^\\s()]+")
 
-func newTreeValidator (n *treeNode, expr string) *treeValidator {
+func newTreeValidator(n *treeNode, expr string) *treeValidator {
 	return &treeValidator{&stackNode{nil, n, len(n.children), 0}, exprRe.FindAllString(expr, -1)}
 }
 
-func (tv *treeValidator) newError (message string, params ... any) error {
+func (tv *treeValidator) newError(message string, params ...any) error {
 	if len(params) > 0 {
 		message = fmt.Sprintf(message, params...)
 	}
@@ -83,13 +82,13 @@ func (tv *treeValidator) newError (message string, params ... any) error {
 	return errors.New(pathString + message)
 }
 
-func (tv *treeValidator) exprError (msg string) error {
+func (tv *treeValidator) exprError(msg string) error {
 	return tv.newError("error in validator expression: " + msg)
 }
 
-func (tv *treeValidator) matchName (name string) error {
+func (tv *treeValidator) matchName(name string) error {
 	if name[0] == '\'' {
-		name = name[1 : len(name) - 1]
+		name = name[1 : len(name)-1]
 	}
 	node := tv.sn.node
 	if tv.sn.index < 0 {
@@ -116,7 +115,7 @@ func (tv *treeValidator) matchName (name string) error {
 	return nil
 }
 
-func (tv *treeValidator) matchNtStart () error {
+func (tv *treeValidator) matchNtStart() error {
 	if tv.sn.index >= tv.sn.length {
 		return tv.newError("expecting child node, got end of node")
 	}
@@ -130,7 +129,7 @@ func (tv *treeValidator) matchNtStart () error {
 	return nil
 }
 
-func (tv *treeValidator) matchNtEnd () error {
+func (tv *treeValidator) matchNtEnd() error {
 	if tv.sn.parent == nil {
 		return tv.exprError("excessive )")
 	}
@@ -144,7 +143,7 @@ func (tv *treeValidator) matchNtEnd () error {
 	return nil
 }
 
-func (tv *treeValidator) validate () error {
+func (tv *treeValidator) validate() error {
 	var e error
 	for _, cmd := range tv.cmds {
 		switch cmd {
@@ -168,7 +167,7 @@ func (tv *treeValidator) validate () error {
 	}
 }
 
-func parseAsTestNode (g *grammar.Grammar, src string, ths, lhs TokenHooks) (*treeNode, error) {
+func parseAsTestNode(g *grammar.Grammar, src string, ths, lhs TokenHooks) (*treeNode, error) {
 	hs := &Hooks{ths, lhs, testNodeHooks}
 	parser := New(g)
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
@@ -180,12 +179,11 @@ func parseAsTestNode (g *grammar.Grammar, src string, ths, lhs TokenHooks) (*tre
 	}
 }
 
-
 type exprErrSample struct {
 	expr, err string
 }
 
-func TestParseTreeExpr (t *testing.T) {
+func TestParseTreeExpr(t *testing.T) {
 	grammarSrc := "!aside $space; $space=/\\s+/; $any=/\\S+/; g={foo|bar|baz};foo='foo';bar='bar';baz='baz';"
 	src := "baz foo"
 	samples := []exprErrSample{

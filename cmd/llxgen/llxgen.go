@@ -1,6 +1,7 @@
 /*
 llxgen is a console utility translating grammar description to Go or JSON file.
 Usage is
+
 	llxgen ([-j] | [-p <name>] [-v <name>]) [-o <name>] <file>
 
 -j flag instructs llxgen to output JSON file instead of Go source;
@@ -12,7 +13,7 @@ Usage is
 -v <name> defines generated Go variable name of type *grammar.Grammar, default is the name of root node;
 
 <file> defines grammar definition file parsable by langdef.Parse().
- */
+*/
 package main
 
 import (
@@ -29,12 +30,12 @@ import (
 )
 
 var (
-	generateJson bool
+	generateJson                                  bool
 	inFileName, outFileName, packageName, varName string
 )
 
-func main () {
-	flag.Usage = func () {
+func main() {
+	flag.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "Usage is  llxgen ([-j] | [-p <name>] [-v <name>]) [-o <name>] <file>")
 		flag.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output(), "  <file>")
@@ -54,7 +55,7 @@ func main () {
 
 	if outFileName == "" {
 		ext := filepath.Ext(inFileName)
-		outFileName = inFileName[: len(inFileName) - len(ext)]
+		outFileName = inFileName[:len(inFileName)-len(ext)]
 		if generateJson {
 			outFileName += ".json"
 		} else {
@@ -85,11 +86,11 @@ func main () {
 	}
 }
 
-func makeJson (gr *grammar.Grammar) ([]byte, error) {
+func makeJson(gr *grammar.Grammar) ([]byte, error) {
 	return json.MarshalIndent(gr, "", "  ")
 }
 
-func makeGo (gr *grammar.Grammar) ([]byte, error) {
+func makeGo(gr *grammar.Grammar) ([]byte, error) {
 	if packageName == "" {
 		dir, e := filepath.Abs(outFileName)
 		if e != nil {
@@ -97,7 +98,7 @@ func makeGo (gr *grammar.Grammar) ([]byte, error) {
 		}
 
 		dir, _ = filepath.Split(dir)
-		_, packageName = filepath.Split(dir[: len(dir) - 1])
+		_, packageName = filepath.Split(dir[:len(dir)-1])
 	}
 	if varName == "" {
 		varName = gr.Nodes[0].Name

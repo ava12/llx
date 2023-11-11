@@ -11,23 +11,23 @@ import (
 	"github.com/ava12/llx/parser"
 )
 
-func writeError (text string) {
+func writeError(text string) {
 	fmt.Println(" !", text)
 }
 
-func writeNumber (x float64) {
+func writeNumber(x float64) {
 	fmt.Printf(" : %.12g\n", x)
 }
 
 var reader = bufio.NewReader(os.Stdin)
 
-func scan () (res string, e error) {
+func scan() (res string, e error) {
 	res, e = reader.ReadString('\n')
 	res = strings.TrimRight(res, "\r\n")
 	return
 }
 
-func showHelp () {
+func showHelp() {
 	fmt.Print(`
 You can:
   - compute an expression and show its result: <expression> (without brackets)
@@ -51,7 +51,7 @@ variable X and function X.
 `)
 }
 
-func main () {
+func main() {
 	fmt.Println("A simple line calculator. help for quick help, empty line to exit.")
 	fmt.Println()
 	prevInput := ""

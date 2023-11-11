@@ -7,7 +7,7 @@ import (
 	"github.com/ava12/llx/tree"
 )
 
-func ExampleWalk () {
+func ExampleWalk() {
 	input := "foo=bar"
 	grammar := `$name = /\w+/; $op = /=/; g = var, "=", value; var = $name; value = $name;`
 	g, e := langdef.ParseString("grammar", grammar)

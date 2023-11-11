@@ -7,57 +7,57 @@ import (
 	. "github.com/ava12/llx/internal/test"
 )
 
-func TestComputeSize (t *testing.T) {
+func TestComputeSize(t *testing.T) {
 	for i := 0; i <= 33; i++ {
 		name := fmt.Sprintf("%d elements", i)
-		t.Run(name, func (t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			size := computeSize(i)
 			Assert(t, size >= minSize, "expecting at least %d, got %d", minSize, size)
-			Assert(t, size & (size + 1) == 0, "expecting 2^n - 1, got %b", size)
+			Assert(t, size&(size+1) == 0, "expecting 2^n - 1, got %b", size)
 			Assert(t, size >= i, "expecting size >= %d, got %d", i, size)
 			if size > minSize {
-				Assert(t, (size >> 1) < i, "expecting size/2 < %d, got size %d", i, size)
+				Assert(t, (size>>1) < i, "expecting size/2 < %d, got size %d", i, size)
 			}
 		})
 	}
 }
 
-func TestEmpty (t *testing.T) {
+func TestEmpty(t *testing.T) {
 	q := New[int]()
-	ExpectInt(t, minSize + 1, len(q.items))
+	ExpectInt(t, minSize+1, len(q.items))
 	ExpectInt(t, 0, q.head)
 	ExpectInt(t, 0, q.tail)
 	ExpectInt(t, minSize, q.size)
 }
 
-func TestPrefilled (t *testing.T) {
-	items := make([]int, minSize + 1)
+func TestPrefilled(t *testing.T) {
+	items := make([]int, minSize+1)
 	for i := range items {
 		items[i] = i
 	}
 
-	q := New[int](items[: minSize]...)
+	q := New[int](items[:minSize]...)
 	ExpectInt(t, 0, q.head)
 	ExpectInt(t, minSize, q.tail)
 	ExpectInt(t, minSize, q.size)
-	ExpectInt(t, minSize + 1, len(q.items))
-	for i := range items[: minSize] {
+	ExpectInt(t, minSize+1, len(q.items))
+	for i := range items[:minSize] {
 		ExpectInt(t, i, q.items[i])
 	}
 
 	q = New[int](items...)
 	ExpectInt(t, 0, q.head)
-	ExpectInt(t, minSize + 1, q.tail)
-	ExpectInt(t, (minSize << 1) + 1, q.size)
-	ExpectInt(t, (minSize << 1) + 2, len(q.items))
+	ExpectInt(t, minSize+1, q.tail)
+	ExpectInt(t, (minSize<<1)+1, q.size)
+	ExpectInt(t, (minSize<<1)+2, len(q.items))
 	for i := range items {
 		ExpectInt(t, i, q.items[i])
 	}
 }
 
-func TestGrow (t *testing.T) {
+func TestGrow(t *testing.T) {
 	items := make([]int, minSize)
-	q := New[int](items ...)
+	q := New[int](items...)
 	ExpectInt(t, minSize, q.size)
 	q.Append(1)
 	newSize := (minSize << 1) + 1
@@ -67,14 +67,14 @@ func TestGrow (t *testing.T) {
 		ExpectInt(t, newSize, q.size)
 	}
 	q.Append(1)
-	ExpectInt(t, (newSize << 1) + 1, q.size)
+	ExpectInt(t, (newSize<<1)+1, q.size)
 }
 
-func TestShrink (t *testing.T) {
+func TestShrink(t *testing.T) {
 	halfSize := (minSize << 1) + 1
 	fullSize := (halfSize << 1) + 1
 	items := make([]int, fullSize)
-	q := New[int](items ...)
+	q := New[int](items...)
 	ExpectInt(t, fullSize, q.size)
 
 	q.tail = minSize + 1
@@ -95,7 +95,7 @@ func TestShrink (t *testing.T) {
 	ExpectInt(t, minSize, q.size)
 }
 
-func TestIsEmpty (t *testing.T) {
+func TestIsEmpty(t *testing.T) {
 	q := New[int]()
 	ExpectBool(t, true, q.IsEmpty())
 	q.Append(1)
@@ -106,7 +106,7 @@ func TestIsEmpty (t *testing.T) {
 	ExpectBool(t, false, q.IsEmpty())
 }
 
-func TestLen (t *testing.T) {
+func TestLen(t *testing.T) {
 	l := (minSize << 1) + 2
 	samples := []struct {
 		head, tail, l int
@@ -116,11 +116,11 @@ func TestLen (t *testing.T) {
 		{l - 2, 1, 3},
 	}
 
-	items := make([]int, l - 1)
-	q := New[int](items ...)
+	items := make([]int, l-1)
+	q := New[int](items...)
 	for i, s := range samples {
 		name := fmt.Sprintf("sample #%d", i)
-		t.Run(name, func (t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			q.head = s.head
 			q.tail = s.tail
 			ExpectInt(t, s.l, q.Len())
@@ -128,7 +128,7 @@ func TestLen (t *testing.T) {
 	}
 }
 
-func TestItems (t *testing.T) {
+func TestItems(t *testing.T) {
 	l := (minSize << 1) + 2
 	samples := []struct {
 		head, tail, l int
@@ -149,7 +149,7 @@ func TestItems (t *testing.T) {
 
 	for i, s := range samples {
 		name := fmt.Sprintf("sample #%d", i)
-		t.Run(name, func (t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			q.head = s.head
 			q.tail = s.tail
 			items := q.Items()
@@ -163,7 +163,7 @@ func TestItems (t *testing.T) {
 	}
 }
 
-func TestAppend (t *testing.T) {
+func TestAppend(t *testing.T) {
 	q := New[int]()
 
 	q.Append(11)
@@ -186,14 +186,14 @@ func TestAppend (t *testing.T) {
 	q.head = 1
 	q.tail = 0
 	q.Append(14)
-	ExpectInt(t, (minSize << 1) + 1, q.size)
+	ExpectInt(t, (minSize<<1)+1, q.size)
 	ExpectInt(t, 0, q.head)
-	ExpectInt(t, minSize + 1, q.tail)
+	ExpectInt(t, minSize+1, q.tail)
 	ExpectInt(t, 12, q.items[0])
 	ExpectInt(t, 14, q.items[minSize])
 }
 
-func TestPrepend (t *testing.T) {
+func TestPrepend(t *testing.T) {
 	q := New[int]()
 
 	q.Prepend(11)
@@ -202,20 +202,20 @@ func TestPrepend (t *testing.T) {
 	ExpectInt(t, 11, q.items[minSize])
 
 	q.Prepend(12)
-	ExpectInt(t, minSize - 1, q.head)
+	ExpectInt(t, minSize-1, q.head)
 	ExpectInt(t, 0, q.tail)
 	ExpectInt(t, 12, q.items[q.head])
 
 	q.head = 1
 	q.tail = 0
 	q.Prepend(13)
-	ExpectInt(t, (minSize << 1) + 1, q.size)
+	ExpectInt(t, (minSize<<1)+1, q.size)
 	ExpectInt(t, 0, q.head)
-	ExpectInt(t, minSize + 1, q.tail)
+	ExpectInt(t, minSize+1, q.tail)
 	ExpectInt(t, 13, q.items[q.head])
 }
 
-func TestFirst (t *testing.T) {
+func TestFirst(t *testing.T) {
 	q := New[int]()
 	for i := range q.items {
 		q.items[i] = i + 10
@@ -241,14 +241,14 @@ func TestFirst (t *testing.T) {
 	q.head = minSize
 	q.tail = 1
 	i, f = q.First()
-	ExpectInt(t, 10 + minSize, i)
+	ExpectInt(t, 10+minSize, i)
 	ExpectBool(t, true, f)
 	ExpectInt(t, 0, q.head)
 	ExpectInt(t, 1, q.tail)
 	ExpectInt(t, 0, q.items[minSize])
 }
 
-func TestLast (t *testing.T) {
+func TestLast(t *testing.T) {
 	q := New[int]()
 	for i := range q.items {
 		q.items[i] = i + 10
@@ -281,17 +281,17 @@ func TestLast (t *testing.T) {
 	ExpectInt(t, 0, q.items[0])
 }
 
-func TestClear (t *testing.T) {
-	items := make([]int, minSize + 1)
-	q := New[int](items ...)
-	ExpectInt(t, (minSize << 1) + 1, q.size)
+func TestClear(t *testing.T) {
+	items := make([]int, minSize+1)
+	q := New[int](items...)
+	ExpectInt(t, (minSize<<1)+1, q.size)
 	q.Clear()
 	ExpectInt(t, minSize, q.size)
 	ExpectInt(t, 0, q.head)
 	ExpectInt(t, 0, q.tail)
 }
 
-func TestFill (t *testing.T) {
+func TestFill(t *testing.T) {
 	samples := [][]int{
 		{},
 		{1},
@@ -299,7 +299,7 @@ func TestFill (t *testing.T) {
 	}
 	for i, sample := range samples {
 		name := fmt.Sprintf("sample #%d", i)
-		t.Run(name, func (t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			q := New[int](1, 2, 3)
 			q.First()
 			q.Fill(sample)

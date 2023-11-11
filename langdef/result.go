@@ -19,18 +19,18 @@ type parseResult struct {
 	NIndex nodeIndex
 }
 
-func newParseResult () *parseResult {
+func newParseResult() *parseResult {
 	return &parseResult{make([]grammar.Token, 0), make([]grammar.Node, 0), make([]*stateEntry, 0), make(nodeIndex)}
 }
 
-func (pr *parseResult) AddState () (stateIndex int, st *stateEntry) {
+func (pr *parseResult) AddState() (stateIndex int, st *stateEntry) {
 	stateIndex = len(pr.States)
 	st = &stateEntry{noGroup, map[int][]grammar.Rule{}}
 	pr.States = append(pr.States, st)
 	return
 }
 
-func (pr *parseResult) BuildGrammar () *grammar.Grammar {
+func (pr *parseResult) BuildGrammar() *grammar.Grammar {
 	pr.dropUnusedStates()
 	g := &grammar.Grammar{Tokens: pr.Tokens, Nodes: pr.Nodes, States: make([]grammar.State, len(pr.States))}
 	for si, se := range pr.States {
@@ -39,7 +39,7 @@ func (pr *parseResult) BuildGrammar () *grammar.Grammar {
 	return g
 }
 
-func (pr *parseResult) dropUnusedStates () {
+func (pr *parseResult) dropUnusedStates() {
 	usedStates := ints.NewSet()
 
 	for _, nt := range pr.Nodes {
@@ -67,7 +67,7 @@ func (pr *parseResult) dropUnusedStates () {
 		newIndexes[i] = currentIndex
 		currentIndex++
 	}
-	pr.States = pr.States[: currentIndex]
+	pr.States = pr.States[:currentIndex]
 
 	for i, nt := range pr.Nodes {
 		pr.Nodes[i].FirstState = newIndexes[nt.FirstState]
@@ -83,8 +83,7 @@ func (pr *parseResult) dropUnusedStates () {
 	}
 }
 
-
-func (se *stateEntry) AddRule (state, nt int, tokens ... int) {
+func (se *stateEntry) AddRule(state, nt int, tokens ...int) {
 	rule := grammar.Rule{0, state, nt}
 	for _, k := range tokens {
 		rule.Token = k
@@ -96,21 +95,21 @@ func (se *stateEntry) AddRule (state, nt int, tokens ... int) {
 	}
 }
 
-func (se *stateEntry) BypassRule (nextState int) {
+func (se *stateEntry) BypassRule(nextState int) {
 	se.AddRule(nextState, grammar.SameNode, grammar.AnyToken)
 }
 
-func (se * stateEntry) CopyRules (from *stateEntry) {
+func (se *stateEntry) CopyRules(from *stateEntry) {
 	for k, rs := range from.Rules {
 		if k >= 0 {
-			se.Rules[k] = append(se.Rules[k], rs ...)
+			se.Rules[k] = append(se.Rules[k], rs...)
 		} else {
 			se.Rules[k] = rs
 		}
 	}
 }
 
-func (se *stateEntry) BuildGrammarState (g *grammar.Grammar, si int) {
+func (se *stateEntry) BuildGrammarState(g *grammar.Grammar, si int) {
 	rkeys, mkeys := se.rmKeys()
 	erlen := len(rkeys)
 	emlen := len(mkeys)
@@ -125,13 +124,13 @@ func (se *stateEntry) BuildGrammarState (g *grammar.Grammar, si int) {
 	for _, k := range mkeys {
 		rs := se.Rules[k]
 		mrlen := len(rs)
-		g.Rules = append(g.Rules, rs ...)
+		g.Rules = append(g.Rules, rs...)
 		g.MultiRules = append(g.MultiRules, grammar.MultiRule{k, rstart, rstart + mrlen})
 		rstart += mrlen
 	}
 }
 
-func (se *stateEntry) rmKeys () (rkeys, mkeys []int) {
+func (se *stateEntry) rmKeys() (rkeys, mkeys []int) {
 	ermlen := len(se.Rules)
 	rkeys = make([]int, 0, ermlen)
 	mkeys = make([]int, 0, ermlen)
@@ -147,7 +146,7 @@ func (se *stateEntry) rmKeys () (rkeys, mkeys []int) {
 	return
 }
 
-func (se *stateEntry) writeGrammarState (g *grammar.Grammar, si int, erlen, emlen int) {
+func (se *stateEntry) writeGrammarState(g *grammar.Grammar, si int, erlen, emlen int) {
 	rstart := 0
 	mstart := 0
 	if erlen > 0 {

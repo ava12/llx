@@ -25,7 +25,7 @@ var cmdHandlers = [4]func(c *Conf, cmd string){
 	},
 }
 
-func diff (a, b string) int {
+func diff(a, b string) int {
 	l := len(a)
 	if len(b) < l {
 		l = len(b)
@@ -41,7 +41,7 @@ type sample struct {
 	src, cmd, expected string
 }
 
-func checkSamples (t *testing.T, samples []sample) {
+func checkSamples(t *testing.T, samples []sample) {
 	for i, s := range samples {
 		src := []byte(s.src)
 		conf, e := Parse("", &src)
@@ -72,12 +72,12 @@ func checkSamples (t *testing.T, samples []sample) {
 		got := w.String()
 		dp := diff(s.expected, got)
 		if dp < len(s.expected) || dp < len(got) {
-			t.Errorf("sample #%d: pos %d: expecting %.20q, got %.20q", i, dp, s.expected[dp :], got[dp :])
+			t.Errorf("sample #%d: pos %d: expecting %.20q, got %.20q", i, dp, s.expected[dp:], got[dp:])
 		}
 	}
 }
 
-func TestEmptySource (t *testing.T) {
+func TestEmptySource(t *testing.T) {
 	samples := []sample{
 		{"", "|||foo=bar", "foo=bar\n"},
 		{"", "|||a.b=c,name=value,foo.bar=baz,a.b=d,foo.bar=qux", "name=value\n\n[a]\nb=d\n\n[foo]\nbar=qux\n"},
@@ -85,7 +85,7 @@ func TestEmptySource (t *testing.T) {
 	checkSamples(t, samples)
 }
 
-func TestEmptyValue (t *testing.T) {
+func TestEmptyValue(t *testing.T) {
 	samples := []sample{
 		{"", "|||foo,bar=baz", "foo=\nbar=baz\n"},
 		{"foo=\n", "|||foo", "foo=\n"},
@@ -95,7 +95,7 @@ func TestEmptyValue (t *testing.T) {
 	checkSamples(t, samples)
 }
 
-func TestDataPreserved (t *testing.T) {
+func TestDataPreserved(t *testing.T) {
 	samples := []sample{
 		{"\n", "|||foo=bar", "foo=bar\n\n"},
 		{"\n#comment\n", "|||foo=bar,user.name=root", "foo=bar\n\n#comment\n[user]\nname=root\n"},
@@ -110,7 +110,7 @@ func TestDataPreserved (t *testing.T) {
 	checkSamples(t, samples)
 }
 
-func TestDataModified (t *testing.T) {
+func TestDataModified(t *testing.T) {
 	samples := []sample{
 		{"foo=bar\nbar=baz\n\n", "||foo", "bar=baz\n\n"},
 		{

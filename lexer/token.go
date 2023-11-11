@@ -15,50 +15,50 @@ type Token struct {
 }
 
 // Type returns token type.
-func (t *Token) Type () int {
+func (t *Token) Type() int {
 	return t.tokenType
 }
 
 // TypeName returns token type name.
-func (t *Token) TypeName () string {
+func (t *Token) TypeName() string {
 	return t.typeName
 }
 
 // Text returns lexeme body. May be empty string for "external" tokens.
-func (t *Token) Text () string {
+func (t *Token) Text() string {
 	return t.text
 }
 
 // Pos returns captured source position.
-func (t *Token) Pos () source.Pos {
+func (t *Token) Pos() source.Pos {
 	return t.pos
 }
 
 // Source returns captured source. Returns nil if source is not known.
-func (t *Token) Source () *source.Source {
+func (t *Token) Source() *source.Source {
 	return t.pos.Source()
 }
 
 // SourceName returns source file name. Returns empty string if source is not known.
-func (t *Token) SourceName () string {
+func (t *Token) SourceName() string {
 	return t.pos.SourceName()
 }
 
 // Line returns 1-based line number of the first byte of the token.
 // Returns 0 if source is not known.
-func (t *Token) Line () int {
+func (t *Token) Line() int {
 	return t.pos.Line()
 }
 
 // Col returns 1-based column number of the first byte of the token.
 // Returns 0 if source is not known.
-func (t *Token) Col () int {
+func (t *Token) Col() int {
 	return t.pos.Col()
 }
 
 // NewToken creates a token.
 // Expects zero value for sp if token source is not known.
-func NewToken (tokenType int, typeName, text string, sp source.Pos) *Token {
+func NewToken(tokenType int, typeName, text string, sp source.Pos) *Token {
 	return &Token{tokenType, typeName, text, sp}
 }
 
@@ -81,11 +81,11 @@ const (
 
 // EofToken creates a token of EofTokenType.
 // s may be nil.
-func EofToken (s *source.Source) *Token {
+func EofToken(s *source.Source) *Token {
 	return &Token{tokenType: EofTokenType, typeName: EofTokenName, pos: source.NewPos(s, s.Len())}
 }
 
 // EoiToken creates a token of EoiTokenType.
-func EoiToken () *Token {
+func EoiToken() *Token {
 	return &Token{tokenType: EoiTokenType, typeName: EoiTokenName}
 }

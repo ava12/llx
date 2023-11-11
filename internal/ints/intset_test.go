@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func assert (t *testing.T, cond bool) {
+func assert(t *testing.T, cond bool) {
 	if !cond {
 		t.FailNow()
 	}
 }
 
-func checkItems (t *testing.T, s *Set, first, last int, items []int) {
+func checkItems(t *testing.T, s *Set, first, last int, items []int) {
 	index := make(map[int]bool, len(items))
 	for _, i := range items {
 		index[i] = true
@@ -21,7 +21,7 @@ func checkItems (t *testing.T, s *Set, first, last int, items []int) {
 	}
 }
 
-func assertItemSuite (t *testing.T, s *Set, items []int, index int) {
+func assertItemSuite(t *testing.T, s *Set, items []int, index int) {
 	sort.Ints(items)
 	slice := s.ToSlice()
 	flag := (len(slice) == len(items))
@@ -38,11 +38,11 @@ func assertItemSuite (t *testing.T, s *Set, items []int, index int) {
 	}
 }
 
-func assertItems (t *testing.T, s *Set, items []int) {
+func assertItems(t *testing.T, s *Set, items []int) {
 	assertItemSuite(t, s, items, 0)
 }
 
-func TestIntSize (t *testing.T) {
+func TestIntSize(t *testing.T) {
 	var realShift uint
 	if ^uint(0) == 0xffffffff {
 		realShift = 5
@@ -52,7 +52,7 @@ func TestIntSize (t *testing.T) {
 	assert(t, realShift == IntSizeShift)
 }
 
-func TestEmpty (t *testing.T) {
+func TestEmpty(t *testing.T) {
 	s := NewSet()
 	assert(t, s.IsEmpty())
 	s.Add(1)
@@ -65,7 +65,7 @@ func TestEmpty (t *testing.T) {
 	assert(t, s.IsEmpty())
 }
 
-func TestEqual (t *testing.T) {
+func TestEqual(t *testing.T) {
 	s := FromSlice([]int{-10, 0, 10})
 	s2 := s.Copy()
 	assert(t, s.IsEqual(s2))
@@ -78,13 +78,13 @@ func TestEqual (t *testing.T) {
 	assert(t, s2.IsEqual(s))
 }
 
-func TestFromSlice (t *testing.T) {
+func TestFromSlice(t *testing.T) {
 	items := []int{-65, 1, 66}
 	s := FromSlice(items)
 	checkItems(t, s, -129, 128, items)
 }
 
-func TestToSlice (t *testing.T) {
+func TestToSlice(t *testing.T) {
 	suite := [][]int{
 		{},
 		{1},
@@ -96,7 +96,7 @@ func TestToSlice (t *testing.T) {
 	}
 }
 
-func TestAddRemove (t *testing.T) {
+func TestAddRemove(t *testing.T) {
 	s := NewSet()
 	s.Add(0)
 	s.Add(1)
@@ -109,19 +109,19 @@ func TestAddRemove (t *testing.T) {
 	assertItems(t, s, []int{-1, 1})
 }
 
-func TestAddAll (t *testing.T) {
+func TestAddAll(t *testing.T) {
 	s := NewSet(-100, -3, 100, 2)
 	s.Add(-1, 0, 1, 2, 100, -200)
 	assertItems(t, s, []int{-200, -100, -3, -1, 0, 1, 2, 100})
 }
 
-func TestRemoveAll (t *testing.T) {
+func TestRemoveAll(t *testing.T) {
 	s := NewSet(-100, -10, -1, 0, 1, 10, 100)
 	s.Remove(-100, -1, 0, 10)
 	assertItems(t, s, []int{-10, 1, 100})
 }
 
-func TestCopy (t *testing.T) {
+func TestCopy(t *testing.T) {
 	items := []int{-100, -10, -1, 0, 1, 10, 100}
 	s := FromSlice(items)
 	s2 := s.Copy()
@@ -135,74 +135,74 @@ func TestCopy (t *testing.T) {
 }
 
 var (
-	logicBase = []int{-64, -33, -1, 0, 1, 33, 63, 64, 65}
+	logicBase  = []int{-64, -33, -1, 0, 1, 33, 63, 64, 65}
 	logicExtra = [][]int{
-		{}, // -
-		{-129}, // <l <l
-		{-129, -65}, // <l =l
+		{},                          // -
+		{-129},                      // <l <l
+		{-129, -65},                 // <l =l
 		{-129, -65, -33, -32, 1, 2}, // <l >l
-		{-129, -65, -33, -32, 1, 2, 62, 63, 65, 66}, // <l =h
+		{-129, -65, -33, -32, 1, 2, 62, 63, 65, 66},      // <l =h
 		{-129, -65, -33, -32, 1, 2, 62, 63, 65, 66, 128}, // <l >h
-		{-33, -32, 1, 2}, // =l >l
-		{-33, -32, 1, 2, 62, 63, 65, 66}, // =l =h
+		{-33, -32, 1, 2},                      // =l >l
+		{-33, -32, 1, 2, 62, 63, 65, 66},      // =l =h
 		{-33, -32, 1, 2, 62, 63, 65, 66, 128}, // =l >h
-		{1, 2, 62, 63}, // >l >l
-		{1, 2, 62, 63, 65, 66}, // >l =h
-		{1, 2, 62, 63, 65, 66, 128}, // >l >h
-		{65, 66, 128}, // =h >h
-		{128}, // >h >h
+		{1, 2, 62, 63},                        // >l >l
+		{1, 2, 62, 63, 65, 66},                // >l =h
+		{1, 2, 62, 63, 65, 66, 128},           // >l >h
+		{65, 66, 128},                         // =h >h
+		{128},                                 // >h >h
 	}
 	logicUnion = [][]int{
-		{-64, -33, -1, 0, 1, 33, 63, 64, 65}, // -
-		{-129, -64, -33, -1, 0, 1, 33, 63, 64, 65}, // <l <l
-		{-129, -65, -64, -33, -1, 0, 1, 33, 63, 64, 65}, // <l =l
-		{-129, -65, -64, -33, -32, -1, 0, 1, 2, 33, 63, 64, 65}, // <l >l
-		{-129, -65, -64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66}, // <l =h
+		{-64, -33, -1, 0, 1, 33, 63, 64, 65},                                 // -
+		{-129, -64, -33, -1, 0, 1, 33, 63, 64, 65},                           // <l <l
+		{-129, -65, -64, -33, -1, 0, 1, 33, 63, 64, 65},                      // <l =l
+		{-129, -65, -64, -33, -32, -1, 0, 1, 2, 33, 63, 64, 65},              // <l >l
+		{-129, -65, -64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66},      // <l =h
 		{-129, -65, -64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66, 128}, // <l >h
-		{-64, -33, -32, -1, 0, 1, 2, 33, 63, 64, 65}, // =l >l
-		{-64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66}, // =l =h
-		{-64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66, 128}, // =l >h
-		{-64, -33, -1, 0, 1, 2, 33, 62, 63, 64, 65}, // >l >l
-		{-64, -33, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66}, // >l =h
-		{-64, -33, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66, 128}, // >l >h
-		{-64, -33, -1, 0, 1, 33, 63, 64, 65, 66, 128}, // =h >h
-		{-64, -33, -1, 0, 1, 33, 63, 64, 65, 128}, // >h >h
+		{-64, -33, -32, -1, 0, 1, 2, 33, 63, 64, 65},                         // =l >l
+		{-64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66},                 // =l =h
+		{-64, -33, -32, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66, 128},            // =l >h
+		{-64, -33, -1, 0, 1, 2, 33, 62, 63, 64, 65},                          // >l >l
+		{-64, -33, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66},                      // >l =h
+		{-64, -33, -1, 0, 1, 2, 33, 62, 63, 64, 65, 66, 128},                 // >l >h
+		{-64, -33, -1, 0, 1, 33, 63, 64, 65, 66, 128},                        // =h >h
+		{-64, -33, -1, 0, 1, 33, 63, 64, 65, 128},                            // >h >h
 	}
 	logicIntersect = [][]int{
-		{}, // -
-		{}, // <l <l
-		{}, // <l =l
-		{-33, 1}, // <l >l
+		{},               // -
+		{},               // <l <l
+		{},               // <l =l
+		{-33, 1},         // <l >l
 		{-33, 1, 63, 65}, // <l =h
 		{-33, 1, 63, 65}, // <l >h
-		{-33, 1}, // =l >l
+		{-33, 1},         // =l >l
 		{-33, 1, 63, 65}, // =l =h
-		{-33, 1,  63, 65}, // =l >h
-		{1, 63}, // >l >l
-		{1, 63, 65}, // >l =h
-		{1, 63, 65}, // >l >h
-		{65}, // =h >h
-		{}, // >h >h
+		{-33, 1, 63, 65}, // =l >h
+		{1, 63},          // >l >l
+		{1, 63, 65},      // >l =h
+		{1, 63, 65},      // >l >h
+		{65},             // =h >h
+		{},               // >h >h
 	}
 	logicSubtract = [][]int{
 		{-64, -33, -1, 0, 1, 33, 63, 64, 65}, // -
 		{-64, -33, -1, 0, 1, 33, 63, 64, 65}, // <l <l
 		{-64, -33, -1, 0, 1, 33, 63, 64, 65}, // <l =l
-		{-64, -1, 0, 33, 63, 64, 65}, // <l >l
-		{-64, -1, 0, 33, 64}, // <l =h
-		{-64, -1, 0, 33, 64}, // <l >h
-		{-64, -1, 0, 33, 63, 64, 65}, // =l >l
-		{-64, -1, 0, 33, 64}, // =l =h
-		{-64, -1, 0, 33, 64}, // =l >h
-		{-64, -33, -1, 0, 33, 64, 65}, // >l >l
-		{-64, -33, -1, 0, 33, 64}, // >l =h
-		{-64, -33, -1, 0, 33, 64}, // >l >h
-		{-64, -33, -1, 0, 1, 33, 63, 64}, // =h >h
+		{-64, -1, 0, 33, 63, 64, 65},         // <l >l
+		{-64, -1, 0, 33, 64},                 // <l =h
+		{-64, -1, 0, 33, 64},                 // <l >h
+		{-64, -1, 0, 33, 63, 64, 65},         // =l >l
+		{-64, -1, 0, 33, 64},                 // =l =h
+		{-64, -1, 0, 33, 64},                 // =l >h
+		{-64, -33, -1, 0, 33, 64, 65},        // >l >l
+		{-64, -33, -1, 0, 33, 64},            // >l =h
+		{-64, -33, -1, 0, 33, 64},            // >l >h
+		{-64, -33, -1, 0, 1, 33, 63, 64},     // =h >h
 		{-64, -33, -1, 0, 1, 33, 63, 64, 65}, // >h >h
 	}
 )
 
-func checkLogic (t *testing.T, expected [][]int, f func (base, extra *Set) *Set) {
+func checkLogic(t *testing.T, expected [][]int, f func(base, extra *Set) *Set) {
 	base := FromSlice(logicBase)
 	for index, items := range logicExtra {
 		extra := FromSlice(items)
@@ -211,39 +211,39 @@ func checkLogic (t *testing.T, expected [][]int, f func (base, extra *Set) *Set)
 	}
 }
 
-func TestUnion (t *testing.T) {
-	checkLogic(t, logicUnion, func (s, t *Set) *Set {
+func TestUnion(t *testing.T) {
+	checkLogic(t, logicUnion, func(s, t *Set) *Set {
 		return Union(s, t)
 	})
 }
 
-func TestUnionReverse (t *testing.T) {
-	checkLogic(t, logicUnion, func (s, t *Set) *Set {
+func TestUnionReverse(t *testing.T) {
+	checkLogic(t, logicUnion, func(s, t *Set) *Set {
 		return Union(t, s)
 	})
 }
 
-func TestIntersect (t *testing.T) {
-	checkLogic(t, logicIntersect, func (s, t *Set) *Set {
+func TestIntersect(t *testing.T) {
+	checkLogic(t, logicIntersect, func(s, t *Set) *Set {
 		return Intersect(s, t)
 	})
 }
 
-func TestIntersectReverse (t *testing.T) {
-	checkLogic(t, logicIntersect, func (s, t *Set) *Set {
+func TestIntersectReverse(t *testing.T) {
+	checkLogic(t, logicIntersect, func(s, t *Set) *Set {
 		return Intersect(t, s)
 	})
 }
 
-func TestSubtract (t *testing.T) {
-	checkLogic(t, logicSubtract, func (s, t *Set) *Set {
+func TestSubtract(t *testing.T) {
+	checkLogic(t, logicSubtract, func(s, t *Set) *Set {
 		return Subtract(s, t)
 	})
 }
 
-type logicFunc = func (s, t *Set) *Set
+type logicFunc = func(s, t *Set) *Set
 
-func TestLogicFunctionsHaveNoSideEffects (t *testing.T) {
+func TestLogicFunctionsHaveNoSideEffects(t *testing.T) {
 	s1 := NewSet(1, 2, 3)
 	s2 := NewSet(3, 4, 5)
 	funcs := []logicFunc{Union, Intersect, Subtract}
@@ -254,14 +254,14 @@ func TestLogicFunctionsHaveNoSideEffects (t *testing.T) {
 	}
 }
 
-func TestLogicMethodsHaveSideEffects (t *testing.T) {
-	unionFunc := func (s, t *Set) *Set {
+func TestLogicMethodsHaveSideEffects(t *testing.T) {
+	unionFunc := func(s, t *Set) *Set {
 		return s.Union(t)
 	}
-	intersectFunc := func (s, t *Set) *Set {
+	intersectFunc := func(s, t *Set) *Set {
 		return s.Intersect(t)
 	}
-	subtractFunc := func (s, t *Set) *Set {
+	subtractFunc := func(s, t *Set) *Set {
 		return s.Subtract(t)
 	}
 

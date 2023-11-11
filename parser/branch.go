@@ -15,14 +15,14 @@ type branch struct {
 	inited  bool
 }
 
-func createBranches (pc *ParseContext, nt *nodeRec, ars []grammar.Rule) *branch {
+func createBranches(pc *ParseContext, nt *nodeRec, ars []grammar.Rule) *branch {
 	ntCopy := &nodeRec{nil, nil, nil, nt.group, nt.index, nt.state}
 	result := &branch{nil, 1, pc, []grammar.Rule{ars[0]}, nil, ntCopy, false}
 	result.split(ars)
 	return result
 }
 
-func (b *branch) split (ars []grammar.Rule) {
+func (b *branch) split(ars []grammar.Rule) {
 	prev := b
 	nt := b.node
 	b.index *= 100
@@ -33,7 +33,7 @@ func (b *branch) split (ars []grammar.Rule) {
 		if b.inited {
 			nars = append(nars, ars[i])
 		} else {
-			nars[ruleCnt - 1] = ars[i]
+			nars[ruleCnt-1] = ars[i]
 		}
 		ntCopy := &nodeRec{nt.prev, nil, nil, nt.group, nt.index, nt.state}
 		current := &branch{prev.next, b.index + i, b.pc, nars, b.ntTree, ntCopy, false}
@@ -42,7 +42,7 @@ func (b *branch) split (ars []grammar.Rule) {
 	}
 }
 
-func (b *branch) applyToken (tok *lexer.Token) (success bool) {
+func (b *branch) applyToken(tok *lexer.Token) (success bool) {
 	if b.node == nil {
 		return false
 	}
@@ -58,7 +58,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 		if b.inited {
 			ars = b.pc.findRules(tok, gr.States[b.node.state])
 		} else {
-			ars = b.applied[len(b.applied) - 1 :]
+			ars = b.applied[len(b.applied)-1:]
 		}
 		cnt := len(ars)
 
@@ -117,7 +117,7 @@ func (b *branch) applyToken (tok *lexer.Token) (success bool) {
 	return true
 }
 
-func (b *branch) nextGroup () int {
+func (b *branch) nextGroup() int {
 	if b.node != nil {
 		return b.node.group
 	}

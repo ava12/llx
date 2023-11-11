@@ -55,8 +55,7 @@ var cDataGrammar = &grammar.Grammar{
 		{0, 0, 0, 33, 35},
 		{0, 0, 0, 35, 38},
 	},
-	MultiRules: []grammar.MultiRule{
-	},
+	MultiRules: []grammar.MultiRule{},
 	Rules: []grammar.Rule{
 		{4, 1, 1},
 		{8, 1, 2},

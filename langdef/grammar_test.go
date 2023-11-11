@@ -19,7 +19,7 @@ type (
 	nodes []node
 )
 
-func checkGrammar (g *grammar.Grammar, nti nodes) error {
+func checkGrammar(g *grammar.Grammar, nti nodes) error {
 	ntcnt := len(g.Nodes)
 	if ntcnt > len(nti) {
 		ntcnt = len(nti)
@@ -33,13 +33,13 @@ func checkGrammar (g *grammar.Grammar, nti nodes) error {
 
 	if len(g.Nodes) != len(nti) {
 		if len(nti) > ntcnt {
-			missing := make([]string, 0, len(nti) - ntcnt)
+			missing := make([]string, 0, len(nti)-ntcnt)
 			for i := ntcnt; i < len(nti); i++ {
 				missing = append(missing, nti[i].name)
 			}
 			return errors.New("missing nodes: " + strings.Join(missing, ", "))
 		} else {
-			missing := make([]string, 0, len(g.Nodes) - ntcnt)
+			missing := make([]string, 0, len(g.Nodes)-ntcnt)
 			for i := ntcnt; i < len(g.Nodes); i++ {
 				missing = append(missing, g.Nodes[i].Name)
 			}
@@ -57,15 +57,15 @@ func checkGrammar (g *grammar.Grammar, nti nodes) error {
 	return nil
 }
 
-func checkNode (g *grammar.Grammar, nti int, ent node) error {
+func checkNode(g *grammar.Grammar, nti int, ent node) error {
 	firstState := g.Nodes[nti].FirstState
 	var lastState int
-	if nti >= len(g.Nodes) - 1 {
+	if nti >= len(g.Nodes)-1 {
 		lastState = len(g.States)
 	} else {
-		lastState = g.Nodes[nti + 1].FirstState
+		lastState = g.Nodes[nti+1].FirstState
 	}
-	states := g.States[firstState : lastState]
+	states := g.States[firstState:lastState]
 
 	if len(states) != len(ent.states) {
 		return errors.New(fmt.Sprintf("state lengths differ: %d (expecting %d)", len(states), len(ent.states)))
@@ -81,16 +81,16 @@ func checkNode (g *grammar.Grammar, nti int, ent node) error {
 	return nil
 }
 
-func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) error {
+func checkState(g *grammar.Grammar, s grammar.State, firstState int, es state) error {
 	l := s.HighRule - s.LowRule + s.HighMultiRule - s.LowMultiRule
 	el := len(es)
-	rules := make(map[int]grammar.Rule, s.HighRule - s.LowRule)
-	for _, r := range g.Rules[s.LowRule : s.HighRule] {
+	rules := make(map[int]grammar.Rule, s.HighRule-s.LowRule)
+	for _, r := range g.Rules[s.LowRule:s.HighRule] {
 		rules[r.Token] = r
 	}
 	multiRules := make(map[int][]grammar.Rule)
-	for _, mr := range g.MultiRules[s.LowMultiRule : s.HighMultiRule] {
-		multiRules[mr.Token] = g.Rules[mr.LowRule : mr.HighRule]
+	for _, mr := range g.MultiRules[s.LowMultiRule:s.HighMultiRule] {
+		multiRules[mr.Token] = g.Rules[mr.LowRule:mr.HighRule]
 	}
 
 	if el > l {
@@ -163,7 +163,6 @@ func checkState (g *grammar.Grammar, s grammar.State, firstState int, es state) 
 	return nil
 }
 
-
 type sample struct {
 	src, ntsrc string
 }
@@ -176,7 +175,7 @@ rules: tokenIndex=rule|rule
 rule: stateIndex,nodeIndex
 */
 
-func (s sample) nts () nodes {
+func (s sample) nts() nodes {
 	ntsrc := strings.ReplaceAll(s.ntsrc, "\n", "")
 	ntsrc = strings.ReplaceAll(ntsrc, "\r", "")
 	ntsrc = strings.ReplaceAll(ntsrc, "\t", "")
@@ -208,7 +207,7 @@ func (s sample) nts () nodes {
 	return result
 }
 
-func atoi (a string) int {
+func atoi(a string) int {
 	result, e := strconv.Atoi(a)
 	if e != nil {
 		panic("wrong integer format: " + a)
@@ -216,7 +215,7 @@ func atoi (a string) int {
 	return result
 }
 
-func TestGrammar (t *testing.T) {
+func TestGrammar(t *testing.T) {
 	tokens := "$tok = /\\S+/; "
 	dl := "$d = /[0-9]/; $l = /[a-z]/; "
 	samples := []sample{
