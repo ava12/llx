@@ -518,8 +518,12 @@ var (
 )
 
 func init() {
+	var e error
 	rootContext = newContext(nil)
-	calcParser = parser.New(calcGrammar)
+	calcParser, e = parser.New(calcGrammar)
+	if e != nil {
+		panic(e)
+	}
 }
 
 func Compute(text string) (float64, error) {

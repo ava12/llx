@@ -169,7 +169,7 @@ func (tv *treeValidator) validate() error {
 
 func parseAsTestNode(g *grammar.Grammar, src string, ths, lhs TokenHooks) (*treeNode, error) {
 	hs := &Hooks{ths, lhs, testNodeHooks}
-	parser := New(g)
+	parser, _ := New(g)
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
 	r, e := parser.Parse(q, hs)
 	if e == nil {

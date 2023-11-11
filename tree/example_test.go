@@ -16,7 +16,7 @@ func ExampleWalk() {
 		return
 	}
 
-	p := parser.New(g)
+	p, _ := parser.New(g)
 	h := parser.Hooks{Nodes: parser.NodeHooks{
 		parser.AnyNode: tree.NodeHook,
 	}}

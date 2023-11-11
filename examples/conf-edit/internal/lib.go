@@ -294,7 +294,11 @@ func Parse(name string, src *[]byte) (*Conf, error) {
 	}
 
 	queue := source.NewQueue().Append(source.New(name, *src))
-	p := parser.New(confGrammar)
+	p, e := parser.New(confGrammar)
+	if e != nil {
+		return nil, e
+	}
+
 	hs := parser.Hooks{
 		Tokens: parser.TokenHooks{
 			parser.AnyToken: func(*lexer.Token, *parser.ParseContext) (bool, error) {

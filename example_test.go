@@ -34,7 +34,11 @@ value = $name, '=', [$value], $nl;
 		return
 	}
 
-	configParser := parser.New(configGrammar)
+	configParser, e := parser.New(configGrammar)
+	if e != nil {
+		panic(e)
+	}
+
 	result := make(map[string]string)
 	prefix, name, value := "", "", ""
 	hooks := parser.Hooks{Tokens: parser.TokenHooks{

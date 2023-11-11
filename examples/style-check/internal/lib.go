@@ -31,7 +31,7 @@ const (
 	//	simpleTypeNt = "simple-type"
 	structTypeNt = "struct-type"
 
-// sizeDefNt = "size-def"
+	// sizeDefNt = "size-def"
 )
 
 const (
@@ -137,7 +137,10 @@ func CheckFile(name string) ([]ReportLine, error) {
 
 func parseSource(s *source.Source) (tree.Element, error) {
 	q := source.NewQueue().Append(s)
-	p := parser.New(cDataGrammar)
+	p, e := parser.New(cDataGrammar)
+	if e != nil {
+		return nil, e
+	}
 	hs := &parser.Hooks{
 		Tokens: parser.TokenHooks{parser.AnyToken: handleToken},
 		Nodes:  parser.NodeHooks{parser.AnyNode: tree.NodeHook},

@@ -62,7 +62,7 @@ func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []src
 		return
 	}
 
-	parser := New(g)
+	parser, _ := New(g)
 
 	for i, sample := range samples {
 		q := source.NewQueue().Append(source.New("sample", []byte(sample.src)))
@@ -110,7 +110,7 @@ func TestHandlerKeyErrors(t *testing.T) {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	parser := New(g)
+	parser, _ := New(g)
 
 	samples := []struct {
 		hooks Hooks
@@ -398,7 +398,7 @@ func TestBypass(t *testing.T) {
 			t.Fatalf("sample #%d: unexpected grammar error: %s", i, e)
 		}
 
-		p := New(g)
+		p, _ := New(g)
 		for j, src := range s.correct {
 			q := source.NewQueue().Append(source.New("", []byte(src)))
 			_, e = p.Parse(q, nil)
@@ -464,7 +464,7 @@ func TestNodeHooks(t *testing.T) {
 	src := "a + b * c"
 	expected := "s^pa p:a p. s$pp s:+ s^pb p:b p:* p:c p. s$pp s."
 
-	p := New(g)
+	p, _ := New(g)
 	_, e = p.ParseString("", src, &hs)
 	if e != nil {
 		t.Fatal("unexpected error: " + e.Error())

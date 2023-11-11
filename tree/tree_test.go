@@ -70,7 +70,7 @@ func init() {
 	if e != nil {
 		fmt.Println("error in tree description grammar:", e.Error())
 	}
-	treeParser = parser.New(g)
+	treeParser, _ = parser.New(g)
 }
 
 func serialize(root NodeElement) string {
@@ -124,7 +124,7 @@ func checkParsing(t *testing.T, gsrc string, samples []parsingSample) {
 		return
 	}
 
-	p := parser.New(g)
+	p, _ := parser.New(g)
 
 	for i, s := range samples {
 		checkParsingSample(t, p, i, s)

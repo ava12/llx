@@ -105,7 +105,7 @@ type Parser struct {
 
 // New constructs new parser for specific grammar.
 // Grammar must not be changed after this function is called.
-func New(g *grammar.Grammar) *Parser {
+func New(g *grammar.Grammar) (*Parser, error) {
 	maxGroup := 0
 	for _, t := range g.Tokens {
 		mg := bits.Len(uint(t.Groups)) - 1
@@ -153,7 +153,11 @@ func New(g *grammar.Grammar) *Parser {
 
 	ls := make([]*lexer.Lexer, len(lrs))
 	for i := range ls {
-		re := regexp.MustCompile("^(?s:" + strings.Join(lrs[i].patterns, "|") + ")")
+		re, e := regexp.Compile("^(?s:" + strings.Join(lrs[i].patterns, "|") + ")")
+		if e != nil {
+			return nil, e
+		}
+
 		ls[i] = lexer.New(re, lrs[i].types)
 	}
 
@@ -161,7 +165,7 @@ func New(g *grammar.Grammar) *Parser {
 		names[ntKey(nt.Name)] = i
 	}
 
-	return &Parser{g, names, ls}
+	return &Parser{g, names, ls}, nil
 }
 
 func tokenKey(name string) string {
