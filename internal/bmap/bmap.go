@@ -9,6 +9,8 @@ import (
 
 var seed = maphash.MakeSeed()
 
+const minSize = 6
+
 type entry[T any] struct {
 	keyOffset, keyLen int
 	nextIndex         int
@@ -33,6 +35,9 @@ type BMap[T any] struct {
 
 // New create bytes map. size defines maximum number of stored keys (not counting empty key).
 func New[T any](size int) *BMap[T] {
+	if size < minSize {
+		size = minSize
+	}
 	l := bits.Len(uint(size)*8/3 - 1)
 	return &BMap[T]{
 		values:  make([]entry[T], 1, size+1),
@@ -47,7 +52,7 @@ func (m *BMap[T]) find(key []byte, hash uint64) (*entry[T], bool) {
 
 	i := m.index[int(hash&m.mask)]
 	for i != 0 {
-		en := &m.values[i]
+		en = &m.values[i]
 		found := bytes.Compare(key, m.keys[en.keyOffset:en.keyOffset+en.keyLen]) == 0
 		if found {
 			return en, true
