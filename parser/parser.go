@@ -283,7 +283,7 @@ func newParseContext(p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, erro
 		result.nodeHooks[i+nodeHooksOffset] = nth
 	}
 
-	e := result.pushNode(grammar.RootNode, lexer.NewToken(grammar.AnyToken, "", "", q.SourcePos()))
+	e := result.pushNode(grammar.RootNode, lexer.NewToken(grammar.AnyToken, "", nil, q.SourcePos()))
 	return result, e
 }
 

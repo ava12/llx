@@ -264,7 +264,7 @@ func TestTokenHooks(t *testing.T) {
 			return f, nil
 		},
 		AnyToken: func(t *lexer.Token, pc *ParseContext) (bool, error) {
-			return false, pc.EmitToken(lexer.NewToken(0, "space", "_", source.Pos{})) // " " -> _
+			return false, pc.EmitToken(lexer.NewToken(0, "space", []byte{'_'}, source.Pos{})) // " " -> _
 		},
 	}
 	lhs := TokenHooks{
@@ -273,10 +273,10 @@ func TestTokenHooks(t *testing.T) {
 				return true, nil
 			}
 
-			return false, pc.EmitToken(lexer.NewToken(1, "char", "ee", source.Pos{})) // e -> ee
+			return false, pc.EmitToken(lexer.NewToken(1, "char", []byte{'e', 'e'}, source.Pos{})) // e -> ee
 		},
 		"c": func(t *lexer.Token, pc *ParseContext) (bool, error) {
-			return true, pc.EmitToken(lexer.NewToken(1, "char", "a", source.Pos{})) // c -> a c
+			return true, pc.EmitToken(lexer.NewToken(1, "char", []byte{'a'}, source.Pos{})) // c -> a c
 		},
 	}
 
@@ -309,11 +309,11 @@ func TestEofHooks(t *testing.T) {
 			}
 			var e error
 			for indent > prevIndent {
-				e = pc.EmitToken(lexer.NewToken(3, "begin", "{", source.Pos{}))
+				e = pc.EmitToken(lexer.NewToken(3, "begin", []byte{'{'}, source.Pos{}))
 				prevIndent++
 			}
 			for indent < prevIndent {
-				e = pc.EmitToken(lexer.NewToken(4, "end", "}", source.Pos{}))
+				e = pc.EmitToken(lexer.NewToken(4, "end", []byte{'}'}, source.Pos{}))
 				prevIndent--
 			}
 			return false, e
@@ -321,7 +321,7 @@ func TestEofHooks(t *testing.T) {
 		EofToken: func(t *lexer.Token, pc *ParseContext) (bool, error) {
 			var e error
 			for prevIndent > 0 {
-				e = pc.EmitToken(lexer.NewToken(4, "end", "}", source.Pos{}))
+				e = pc.EmitToken(lexer.NewToken(4, "end", []byte{'}'}, source.Pos{}))
 				prevIndent--
 			}
 			return false, e

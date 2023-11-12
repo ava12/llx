@@ -10,6 +10,7 @@ import (
 type Token struct {
 	tokenType int
 	typeName  string
+	content   []byte
 	text      string
 	pos       source.Pos
 }
@@ -24,8 +25,17 @@ func (t *Token) TypeName() string {
 	return t.typeName
 }
 
-// Text returns lexeme body. May be empty string for "external" tokens.
+// Content returns token content.
+func (t *Token) Content() []byte {
+	return t.content
+}
+
+// Text returns lexeme body converted to string.
+// Conversion occurs on first call, resulting string is stored and reused to minimize number of allocations.
 func (t *Token) Text() string {
+	if t.text == "" && len(t.content) > 0 {
+		t.text = string(t.content)
+	}
 	return t.text
 }
 
@@ -58,8 +68,13 @@ func (t *Token) Col() int {
 
 // NewToken creates a token.
 // Expects zero value for sp if token source is not known.
-func NewToken(tokenType int, typeName, text string, sp source.Pos) *Token {
-	return &Token{tokenType, typeName, text, sp}
+func NewToken(tokenType int, typeName string, content []byte, sp source.Pos) *Token {
+	return &Token{
+		tokenType: tokenType,
+		typeName:  typeName,
+		content:   content,
+		pos:       sp,
+	}
 }
 
 const (

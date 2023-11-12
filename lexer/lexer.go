@@ -85,12 +85,7 @@ func (l *Lexer) matchToken(src *source.Source, content []byte, pos int) (*Token,
 				tokenType = l.types[(i>>1)-1].Type
 				typeName = l.types[(i>>1)-1].TypeName
 			}
-			token := &Token{
-				tokenType,
-				typeName,
-				string(content[match[i]:match[i+1]]),
-				sp,
-			}
+			token := NewToken(tokenType, typeName, content[match[i]:match[i+1]], sp)
 			if tokenType == ErrorTokenType {
 				return nil, 0, wrongTokenError(token)
 			}
@@ -137,7 +132,7 @@ func (l *Lexer) Next(q *source.Queue) (*Token, error) {
 // Makes no changes and returns nil if given token has no captured source and position information,
 // was fetched from source other than current, or a lexical error occurs.
 func (l *Lexer) Shrink(q *source.Queue, tok *Token) *Token {
-	if tok == nil || len(tok.text) <= 1 {
+	if tok == nil || len(tok.content) <= 1 {
 		return nil
 	}
 

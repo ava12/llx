@@ -66,11 +66,11 @@ func init() {
 }
 
 func tokenNode(typ, text string) tree.Element {
-	return tree.NewTokenElement(lexer.NewToken(0, typ, text, source.Pos{}))
+	return tree.NewTokenElement(lexer.NewToken(0, typ, []byte(text), source.Pos{}))
 }
 
 func nlNode() tree.Element {
-	return tree.NewTokenElement(lexer.NewToken(0, nlToken, "\n", source.Pos{}))
+	return tree.NewTokenElement(lexer.NewToken(0, nlToken, []byte{'\n'}, source.Pos{}))
 }
 
 func sepNode() tree.NodeElement {

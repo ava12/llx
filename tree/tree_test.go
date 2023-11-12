@@ -301,7 +301,7 @@ func TestWalkStop(t *testing.T) {
 
 func TestUnique(t *testing.T) {
 	ntn := &nodeElement{typeName: "foo"}
-	tn := &tokenElement{token: lexer.NewToken(0, "bar", "BAR", source.Pos{})}
+	tn := &tokenElement{token: lexer.NewToken(0, "bar", []byte("BAR"), source.Pos{})}
 	nodes := []Element{nil, ntn, nil, tn, nil, ntn, nil}
 
 	got := NewSelector().Apply(nodes...)
@@ -428,8 +428,8 @@ func TestIsAll(t *testing.T) {
 
 func TestIsA(t *testing.T) {
 	ff := IsA("foo", "qux")
-	tn0 := tokenElement{token: lexer.NewToken(1, "bar", "foo", source.Pos{})}
-	tn1 := tokenElement{token: lexer.NewToken(2, "foo", "", source.Pos{})}
+	tn0 := tokenElement{token: lexer.NewToken(1, "bar", []byte("foo"), source.Pos{})}
+	tn1 := tokenElement{token: lexer.NewToken(2, "foo", nil, source.Pos{})}
 	nt0 := nodeElement{typeName: "baz"}
 	nt1 := nodeElement{typeName: "qux"}
 	assert(t, ff(&tn1))
@@ -440,10 +440,10 @@ func TestIsA(t *testing.T) {
 
 func TestIsALiteral(t *testing.T) {
 	ff := IsALiteral("foo", "qux")
-	tn0 := tokenElement{token: lexer.NewToken(1, "foo", "bar", source.Pos{})}
-	tn1 := tokenElement{token: lexer.NewToken(2, "bar", "foo", source.Pos{})}
-	tn2 := tokenElement{token: lexer.NewToken(3, "baz", "qux", source.Pos{})}
-	nt := nodeElement{typeName: "foo", token: lexer.NewToken(4, "foo", "foo", source.Pos{})}
+	tn0 := tokenElement{token: lexer.NewToken(1, "foo", []byte("bar"), source.Pos{})}
+	tn1 := tokenElement{token: lexer.NewToken(2, "bar", []byte("foo"), source.Pos{})}
+	tn2 := tokenElement{token: lexer.NewToken(3, "baz", []byte("qux"), source.Pos{})}
+	nt := nodeElement{typeName: "foo", token: lexer.NewToken(4, "foo", []byte("foo"), source.Pos{})}
 	assert(t, !ff(&tn0))
 	assert(t, ff(&tn1))
 	assert(t, ff(&tn2))
