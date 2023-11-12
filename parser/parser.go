@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"bytes"
+	"github.com/ava12/llx/internal/bmap"
 	"math/bits"
 	"regexp"
 	"sort"
@@ -98,19 +100,24 @@ type Hooks struct {
 // Parser holds prepared data for some grammar.
 // Parser is immutable and reusable.
 type Parser struct {
-	grammar *grammar.Grammar
-	names   map[string]int
-	lexers  []*lexer.Lexer
+	grammar  *grammar.Grammar
+	names    map[string]int
+	literals *bmap.BMap[int]
+	lexers   []*lexer.Lexer
 }
 
 // New constructs new parser for specific grammar.
 // Grammar must not be changed after this function is called.
 func New(g *grammar.Grammar) (*Parser, error) {
 	maxGroup := 0
+	literalsCnt := 0
 	for _, t := range g.Tokens {
 		mg := bits.Len(uint(t.Groups)) - 1
 		if mg > maxGroup {
 			maxGroup = mg
+		}
+		if t.Flags&grammar.LiteralToken != 0 {
+			literalsCnt++
 		}
 	}
 
@@ -121,15 +128,17 @@ func New(g *grammar.Grammar) (*Parser, error) {
 	lrs := make([]lexerRec, maxGroup+1)
 
 	names := make(map[string]int)
+	literals := bmap.New[int](literalsCnt)
+
 	names[tokenKey(AnyToken)] = grammar.AnyToken
-	names[literalKey(AnyToken)] = grammar.AnyToken
-	names[ntKey(AnyNode)] = -1
+	literals.Set(nil, grammar.AnyToken)
+	names[nodeKey(AnyNode)] = -1
 	names[tokenKey(EofToken)] = lexer.EofTokenType
 	names[tokenKey(EoiToken)] = lexer.EoiTokenType
 
 	for i, t := range g.Tokens {
 		if (t.Flags & grammar.LiteralToken) != 0 {
-			names[literalKey(t.Name)] = i
+			literals.Set([]byte(t.Name), i)
 		} else if (t.Flags & grammar.ErrorToken) == 0 {
 			names[tokenKey(t.Name)] = i
 		}
@@ -162,21 +171,17 @@ func New(g *grammar.Grammar) (*Parser, error) {
 	}
 
 	for i, nt := range g.Nodes {
-		names[ntKey(nt.Name)] = i
+		names[nodeKey(nt.Name)] = i
 	}
 
-	return &Parser{g, names, ls}, nil
+	return &Parser{g, names, literals, ls}, nil
 }
 
 func tokenKey(name string) string {
 	return "$" + name
 }
 
-func literalKey(text string) string {
-	return "=" + text
-}
-
-func ntKey(text string) string {
+func nodeKey(text string) string {
 	return ":" + text
 }
 
@@ -187,14 +192,14 @@ func (p *Parser) TokenType(typeName string) (typ int, valid bool) {
 }
 
 // LiteralType returns defined literal type by its content.
-func (p *Parser) LiteralType(text string) (typ int, valid bool) {
-	typ, valid = p.names[literalKey(text)]
+func (p *Parser) LiteralType(content []byte) (typ int, valid bool) {
+	typ, valid = p.literals.Get(content)
 	return
 }
 
 // NodeIndex returns index of defined node by its name.
 func (p *Parser) NodeIndex(name string) (index int, valid bool) {
-	index, valid = p.names[ntKey(name)]
+	index, valid = p.names[nodeKey(name)]
 	return
 }
 
@@ -266,7 +271,7 @@ func newParseContext(p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, erro
 	}
 
 	for k, th := range hs.Literals {
-		i, f := p.names[literalKey(k)]
+		i, f := p.literals.Get([]byte(k))
 		if !f {
 			return nil, unknownTokenLiteralError(k)
 		}
@@ -275,7 +280,7 @@ func newParseContext(p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, erro
 	}
 
 	for k, nth := range hs.Nodes {
-		i, f := p.names[ntKey(k)]
+		i, f := p.names[nodeKey(k)]
 		if !f {
 			return nil, unknownNodeError(k)
 		}
@@ -587,11 +592,11 @@ func (pc *ParseContext) possibleRuleKeys(t *Token) []int {
 	literalFound := false
 	literalIndex := 0
 	if (tf & grammar.NoLiteralsToken) == 0 {
-		literal := t.Text()
+		literal := t.Content()
 		if tf&grammar.CaselessToken != 0 {
-			literal = strings.ToUpper(literal)
+			literal = bytes.ToUpper(literal)
 		}
-		literalIndex, literalFound = pc.parser.names[literalKey(literal)]
+		literalIndex, literalFound = pc.parser.literals.Get(literal)
 		literalFound = literalFound && (literalIndex >= 0)
 		if literalFound {
 			keys = append(keys, literalIndex)
@@ -669,7 +674,7 @@ func (pc *ParseContext) handleToken(tok *Token) error {
 	if tt < 0 {
 		tts = append(tts, tt)
 	} else {
-		i, f := pc.parser.names[literalKey(tok.Text())]
+		i, f := pc.parser.literals.Get(tok.Content())
 		if f {
 			tts = append(tts, i)
 		}
