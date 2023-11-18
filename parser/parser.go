@@ -1,3 +1,4 @@
+// Package parser defines generic LL(*) parser.
 package parser
 
 import (
@@ -131,7 +132,6 @@ func New(g *grammar.Grammar) (*Parser, error) {
 	literals := bmap.New[int](literalsCnt)
 
 	names[tokenKey(AnyToken)] = grammar.AnyToken
-	literals.Set(nil, grammar.AnyToken)
 	names[nodeKey(AnyNode)] = -1
 	names[tokenKey(EofToken)] = lexer.EofTokenType
 	names[tokenKey(EoiToken)] = lexer.EoiTokenType
@@ -183,24 +183,6 @@ func tokenKey(name string) string {
 
 func nodeKey(text string) string {
 	return ":" + text
-}
-
-// TokenType returns defined token type by its type name.
-func (p *Parser) TokenType(typeName string) (typ int, valid bool) {
-	typ, valid = p.names[tokenKey(typeName)]
-	return
-}
-
-// LiteralType returns defined literal type by its content.
-func (p *Parser) LiteralType(content []byte) (typ int, valid bool) {
-	typ, valid = p.literals.Get(content)
-	return
-}
-
-// NodeIndex returns index of defined node by its name.
-func (p *Parser) NodeIndex(name string) (index int, valid bool) {
-	index, valid = p.names[nodeKey(name)]
-	return
 }
 
 // Parse launches new parsing process with new ParseContext.
@@ -674,11 +656,13 @@ func (pc *ParseContext) handleToken(tok *Token) error {
 	if tt < 0 {
 		tts = append(tts, tt)
 	} else {
-		i, f := pc.parser.literals.Get(tok.Content())
-		if f {
-			tts = append(tts, i)
+		if pc.parser.grammar.Tokens[tt].Flags&grammar.NoLiteralsToken == 0 {
+			i, f := pc.parser.literals.Get(tok.Content())
+			if f {
+				tts = append(tts, i)
+			}
 		}
-		tts = append(tts, tok.Type(), anyOffset)
+		tts = append(tts, tt, anyOffset)
 	}
 
 	var h TokenHook
