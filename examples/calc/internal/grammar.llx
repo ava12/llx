@@ -1,9 +1,12 @@
 !aside $space;
+!group $space $number $name $vop;
+!group $space $op;
 
 $space = /\s+/;
 $number = /-?\d+(?:\.\d+)?(?:[Ee]-?\d+)?/;
 $name = /[A-Za-z][A-Za-z0-9_]*/;
 $op = /[(),=*\/^+-]/;
+$vop = /[()-]/;
 
 calcGrammar = expr | assign | func;
 func = $name, "(", [$name, {",", $name}], ")", "=", expr;

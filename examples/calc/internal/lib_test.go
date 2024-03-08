@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/ava12/llx/lexer"
 	"math"
 	"testing"
 
@@ -44,7 +45,7 @@ func testSamples(t *testing.T, samples []sample) {
 
 	report := func(msg string, params ...interface{}) {
 		prefix := fmt.Sprintf("sample #%d (%q): ", i, s.input)
-		t.Fatalf(prefix+msg, params...)
+		t.Errorf(prefix+msg, params...)
 	}
 
 	for i, s = range samples {
@@ -76,6 +77,7 @@ func TestSyntaxErrors(t *testing.T) {
 		{"2 + ", 0, parser.UnexpectedEoiError},
 		{"(3 * 4", 0, parser.UnexpectedEoiError},
 		{"2 * -x", 0, parser.UnexpectedTokenError},
+		{"2 + 3 4", 0, lexer.WrongCharError},
 	}
 
 	testSamples(t, samples)
@@ -83,6 +85,7 @@ func TestSyntaxErrors(t *testing.T) {
 
 func TestCalc(t *testing.T) {
 	samples := []sample{
+		{"2-4", -2, 0},
 		{"2", 2, 0},
 		{"2 + 2 ^ 3 * 2", 18, 0},
 		{"2 / 6", 1.0 / 3, 0},
@@ -108,7 +111,6 @@ func TestCalc(t *testing.T) {
 		{"y()", 0, UnknownFuncError},
 		{"y (x, y) = x + y", 0, 0},
 		{"y(11, 22)", 33, 0},
-		{"2 + 3 4", 0, UnexpectedInputError},
 	}
 
 	rootContext = newContext(nil)
