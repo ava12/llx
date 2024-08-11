@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	tokenRe = regexp.MustCompile("(?s:[\\s]+|(\\d+)|([a-z_][a-z0-9_]*)|('.*?')|('.{0,10}))")
+	tokenRe = regexp.MustCompile("(?s:[\\s]+|(-?\\d+)|([a-z_][a-z0-9_]*)|('.*?')|('.{0,10}))")
 	tokenTypes = []TokenType{{1, "number"}, {2, "name"}, {3, "string"}}
 	tokenSamples = []byte("123 foo 'bar'")
 }
@@ -108,10 +108,10 @@ func TestSourceBoundary(t *testing.T) {
 }
 
 func TestTokenTypes(t *testing.T) {
-	re := regexp.MustCompile("(\\d+)|\\s+|(\\w+)|#.*\\n|([+-])")
+	re := regexp.MustCompile("(-?\\d+)|\\s+|(\\w+)|#.*\\n|([+-])")
 	types := []TokenType{{0, "num"}, {2, "name"}, {4, "op"}}
-	src := "1 + foo"
-	expected := []int{0, 2, 1}
+	src := "1 + foo -2"
+	expected := []int{0, 2, 1, 0}
 
 	q := source.NewQueue().Append(source.New("", []byte(src)))
 	lexer := New(re, types)
@@ -130,54 +130,6 @@ func TestTokenTypes(t *testing.T) {
 				tok.Type(),
 			)
 		}
-	}
-}
-
-func TestShrinkToken(t *testing.T) {
-	re := regexp.MustCompile("(\\s+)|(#[a-z]+=*)")
-	types := []TokenType{{0, "space"}, {1, "name"}}
-	queue := source.NewQueue()
-	lexer := New(re, types)
-	queue.Append(source.New("", []byte("  #foo="))).Append(source.New("", []byte("#bar=")))
-
-	tok := lexer.Shrink(queue, nil)
-	if tok != nil {
-		t.Fatalf("expecting nil token, got: %v", tok)
-	}
-
-	tok, e := lexer.Next(queue)
-	if e == nil {
-		tok, e = lexer.Next(queue)
-	}
-	if e != nil {
-		t.Fatalf("unexpected error: %s", e.Error())
-	}
-
-	for i := 4; i > 1; i-- {
-		tok = lexer.Shrink(queue, tok)
-		if tok == nil {
-			t.Fatalf("step %d: nil token", i)
-		}
-		if tok.Type() != 1 || tok.TypeName() != "name" || tok.Text() != "#foo="[:i] {
-			t.Fatalf("step %d: wrong token: %v", i, tok)
-		}
-	}
-
-	savedPos := queue.Pos()
-	tok = lexer.Shrink(queue, tok)
-	if tok != nil {
-		t.Fatalf("nil token expected after token shrinked, got: %v", tok)
-	}
-
-	pos := queue.Pos()
-	if pos != savedPos {
-		t.Fatalf("expecting source pos %d, got %d", savedPos, pos)
-	}
-
-	tok = NewToken(1, "name", []byte{'#'}, source.NewPos(queue.Source(), 0))
-	tok = lexer.Shrink(queue, tok)
-	if tok != nil {
-		t.Fatalf("expecting nil for single char token, got: %v", tok)
 	}
 }
 
@@ -221,5 +173,67 @@ func TestErrorPos(t *testing.T) {
 		if ee.Code != s.err || !strings.HasSuffix(ee.Message, tail) {
 			t.Errorf("sample %d: expecting err %d at line %d col %d, got: %s", i, s.err, s.line, s.col, ee.Message)
 		}
+	}
+}
+
+func TestNextOf(t *testing.T) {
+	re := regexp.MustCompile(`([a-z]+)|(-?\d+)|(".*?")|([+-])|(".{0,10})`)
+	types := []TokenType{
+		{1, "name"},
+		{2, "number"},
+		{3, "string"},
+		{4, "op"},
+		{ErrorTokenType, "string"},
+	}
+	samples := []struct {
+		src            string
+		types          TokenTypeSet
+		err, tokenType int
+		rescan         bool
+	}{
+		{"foo", 0b110, 0, 1, false},
+		{"bar", 0b1100, 0, 1, true},
+		{"?", AllTokenTypes, WrongCharError, 0, false},
+		{`"broken`, AllTokenTypes, BadTokenError, 0, false},
+		{"-123", 0b11010, 0, 0, false},
+		{"-123", AllTokenTypes, 0, 2, false},
+	}
+
+	l := New(re, types)
+	for i, s := range samples {
+		name := fmt.Sprintf("s #%d", i)
+		t.Run(name, func(t *testing.T) {
+			q := source.NewQueue().Append(source.New("test", []byte(s.src)))
+			tok, e := l.NextOf(q, s.types)
+
+			if tok == nil && s.err == 0 && s.rescan {
+				tok, e = l.Next(q)
+			}
+
+			if (e == nil) != (s.err == 0) {
+				if e == nil {
+					t.Errorf("expecting error code %d, got success", s.err)
+				} else {
+					t.Errorf("unexpected error %s", e.Error())
+				}
+				return
+			}
+
+			if e != nil {
+				ee, valid := e.(*llx.Error)
+				if !valid || ee.Code != s.err {
+					t.Errorf("expecting error code %d, got %s", s.err, e.Error())
+				}
+				return
+			}
+
+			if tok == nil {
+				if s.tokenType != 0 {
+					t.Errorf("expecting token type %d, got nothing", s.tokenType)
+				}
+			} else if tok.Type() != s.tokenType {
+				t.Errorf("expecting token type %d, got type %d", s.tokenType, tok.Type())
+			}
+		})
 	}
 }

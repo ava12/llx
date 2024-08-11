@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"github.com/ava12/llx/lexer"
 	"math"
 	"testing"
 
@@ -77,7 +76,7 @@ func TestSyntaxErrors(t *testing.T) {
 		{"2 + ", 0, parser.UnexpectedEoiError},
 		{"(3 * 4", 0, parser.UnexpectedEoiError},
 		{"2 * -x", 0, parser.UnexpectedTokenError},
-		{"2 + 3 4", 0, lexer.WrongCharError},
+		{"2 + 3 4", 0, UnexpectedInputError},
 	}
 
 	testSamples(t, samples)

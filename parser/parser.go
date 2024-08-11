@@ -4,7 +4,6 @@ package parser
 import (
 	"bytes"
 	"github.com/ava12/llx/internal/bmap"
-	"math/bits"
 	"regexp"
 	"sort"
 	"strings"
@@ -113,12 +112,10 @@ func New(g *grammar.Grammar) (*Parser, error) {
 	maxGroup := 0
 	literalsCnt := 0
 	for _, t := range g.Tokens {
-		mg := bits.Len(uint(t.Groups)) - 1
-		if mg > maxGroup {
-			maxGroup = mg
-		}
 		if t.Flags&grammar.LiteralToken != 0 {
 			literalsCnt++
+		} else if t.Group > maxGroup {
+			maxGroup = t.Group
 		}
 	}
 
@@ -146,18 +143,10 @@ func New(g *grammar.Grammar) (*Parser, error) {
 			continue
 		}
 
-		group := -1
-		gs := t.Groups
+		lr := &lrs[t.Group]
 		pattern := "(" + t.Re + ")"
-		for ; gs != 0; gs >>= 1 {
-			group++
-			if (gs & 1) == 0 {
-				continue
-			}
-
-			lrs[group].types = append(lrs[group].types, lexer.TokenType{i, t.Name})
-			lrs[group].patterns = append(lrs[group].patterns, pattern)
-		}
+		lr.types = append(lr.types, lexer.TokenType{i, t.Name})
+		lr.patterns = append(lr.patterns, pattern)
 	}
 
 	ls := make([]*lexer.Lexer, len(lrs))
@@ -210,7 +199,7 @@ type nodeRec struct {
 	prev   *nodeRec
 	hook   NodeHookInstance
 	asides []*Token
-	group  int
+	types  grammar.BitSet
 	index  int
 	state  int
 }
@@ -311,7 +300,7 @@ func (pc *ParseContext) pushNode(index int, tok *Token) error {
 		return e
 	}
 
-	pc.node = &nodeRec{pc.node, hook, nil, gr.States[nt.FirstState].Group, index, nt.FirstState}
+	pc.node = &nodeRec{pc.node, hook, nil, gr.States[nt.FirstState].TokenTypes, index, nt.FirstState}
 	return nil
 }
 
@@ -366,7 +355,7 @@ func (pc *ParseContext) parse() (any, error) {
 	gr := pc.parser.grammar
 
 	for pc.node != nil {
-		tok, e = pc.nextToken(pc.node.group)
+		tok, e = pc.nextToken(pc.node.types)
 		tokenConsumed = false
 		if e != nil {
 			return nil, e
@@ -376,13 +365,11 @@ func (pc *ParseContext) parse() (any, error) {
 			nt := pc.node
 			rule, found := pc.nextRule(tok, gr.States[nt.state])
 			if !found {
-				shrunk, e := pc.shrinkToken(tok, nt.group)
-				if e != nil {
-					return nil, e
-				}
-
-				if shrunk {
-					break
+				if tok == nil {
+					tok, e = pc.nextToken(lexer.AllTokenTypes)
+					if e != nil {
+						return nil, e
+					}
 				}
 
 				expected := pc.getExpectedToken(gr.States[nt.state])
@@ -395,11 +382,11 @@ func (pc *ParseContext) parse() (any, error) {
 			}
 
 			sameNode := (rule.Node == grammar.SameNode)
-			tokenConsumed = (sameNode && rule.Token != grammar.AnyToken)
+			tokenConsumed = ((sameNode && rule.Token != grammar.AnyToken) || tok == nil)
 			if rule.State != repeatState {
 				pc.node.state = rule.State
 				if rule.State != grammar.FinalState {
-					pc.node.group = gr.States[rule.State].Group
+					pc.node.types = gr.States[rule.State].TokenTypes
 				}
 			}
 
@@ -432,23 +419,6 @@ func (pc *ParseContext) parse() (any, error) {
 	return pc.lastResult, nil
 }
 
-func (pc *ParseContext) shrinkToken(tok *Token, group int) (bool, error) {
-	if tok.Type() < 0 || pc.parser.grammar.Tokens[tok.Type()].Flags&grammar.ShrinkableToken == 0 {
-		return false, nil
-	}
-
-	if !pc.tokens.IsEmpty() {
-		return false, nil
-	}
-
-	res := pc.parser.lexers[group].Shrink(pc.sources, tok)
-	var e error
-	if res != nil {
-		e = pc.handleToken(res)
-	}
-	return (res != nil), e
-}
-
 func (pc *ParseContext) resolve(tok *Token, ars []grammar.Rule) ([]*Token, []grammar.Rule) {
 	liveBranch := createBranches(pc, pc.node, ars)
 	tokens := make([]*Token, 0)
@@ -459,7 +429,7 @@ func (pc *ParseContext) resolve(tok *Token, ars []grammar.Rule) ([]*Token, []gra
 		deadBranch = nil
 		lastDead = nil
 		survivors := 0
-		tok, e := pc.nextToken(liveBranch.nextGroup())
+		tok, e := pc.nextToken(liveBranch.nextTokenTypes())
 		if e != nil || tok == nil {
 			return tokens, liveBranch.applied
 		}
@@ -561,6 +531,10 @@ func (pc *ParseContext) findRules(t *Token, s grammar.State) []grammar.Rule {
 }
 
 func (pc *ParseContext) possibleRuleKeys(t *Token) []int {
+	if t == nil {
+		return []int{grammar.AnyToken}
+	}
+
 	keys := make([]int, 0, 3)
 	tt := t.Type()
 	var tf grammar.TokenFlags
@@ -609,14 +583,14 @@ func (pc *ParseContext) getNodeHook(ntIndex int, tok *Token) (res NodeHookInstan
 	return
 }
 
-func (pc *ParseContext) nextToken(group int) (result *Token, e error) {
+func (pc *ParseContext) nextToken(types grammar.BitSet) (result *Token, e error) {
 	var fetched bool
 	result, fetched = pc.tokens.First()
 	if !fetched {
 		if pc.tokenError != nil {
 			e = pc.tokenError
 		} else {
-			result, e = pc.fetchToken(group)
+			result, e = pc.fetchToken(types)
 		}
 	}
 
@@ -650,6 +624,11 @@ func (pc *ParseContext) nextRule(t *Token, s grammar.State) (r grammar.Rule, fou
 }
 
 func (pc *ParseContext) handleToken(tok *Token) error {
+	if tok == nil {
+		pc.tokens.Append(tok)
+		return nil
+	}
+
 	tts := make([]int, 0, 3)
 	tt := tok.Type()
 
@@ -700,23 +679,41 @@ func (pc *ParseContext) handleToken(tok *Token) error {
 	return nil
 }
 
-func (pc *ParseContext) fetchToken(group int) (*Token, error) {
+func (pc *ParseContext) fetchToken(types grammar.BitSet) (*Token, error) {
+	var firstError error
+	var result *Token
+	var e error
+
 	for pc.tokens.IsEmpty() {
-		result, e := pc.parser.lexers[group].Next(pc.sources)
-		if e == nil {
-			e = pc.handleToken(result)
+		for i, l := range pc.parser.lexers {
+			result, e = l.NextOf(pc.sources, types)
+			if e == nil && result != nil {
+				firstError = nil
+				break
+			}
+
+			if e != nil && i == 0 {
+				firstError = e
+			}
+		}
+		if firstError == nil {
+			firstError = pc.handleToken(result)
 		}
 
-		if e != nil {
-			return nil, e
+		if firstError != nil {
+			return nil, firstError
 		}
 	}
 
-	result, _ := pc.tokens.First()
+	result, _ = pc.tokens.First()
 	return result, nil
 }
 
 func (pc *ParseContext) isAsideToken(t *Token) bool {
+	if t == nil {
+		return false
+	}
+
 	tokens := pc.parser.grammar.Tokens
 	i := t.Type()
 	return (i >= 0 && i < len(tokens) && tokens[i].Flags&grammar.AsideToken != 0)
@@ -741,6 +738,10 @@ func (pc *ParseContext) ntHandleAsides() (res error) {
 }
 
 func (pc *ParseContext) ntHandleToken(tok *Token) (res error) {
+	if tok == nil {
+		return nil
+	}
+
 	ntr := pc.node
 	if pc.isAsideToken(tok) {
 		ntr.asides = append(ntr.asides, tok)

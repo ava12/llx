@@ -121,7 +121,7 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 
 	buffer.WriteString("\tTokens: []grammar.Token{\n")
 	for _, t := range gr.Tokens {
-		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, Re: %q, Groups: %d, Flags: %d},\n", t.Name, t.Re, t.Groups, t.Flags))
+		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, Re: %q, Group: %d, Flags: %d},\n", t.Name, t.Re, t.Group, t.Flags))
 	}
 	buffer.WriteString("\t},\n")
 
@@ -133,7 +133,7 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 
 	buffer.WriteString("\tStates: []grammar.State{\n")
 	for _, st := range gr.States {
-		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d, %d, %d},\n", st.Group, st.LowMultiRule, st.HighMultiRule, st.LowRule, st.HighRule))
+		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d, %d, %d},\n", st.TokenTypes, st.LowMultiRule, st.HighMultiRule, st.LowRule, st.HighRule))
 	}
 	buffer.WriteString("\t},\n")
 

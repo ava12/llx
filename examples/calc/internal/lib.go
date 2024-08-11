@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	UnknownVarError = iota + 301
+	UnknownVarError = iota + 401
 	UnknownFuncError
 	WrongArgNumberError
 	ArgDefinedError
@@ -425,28 +425,28 @@ func (fc *funcCall) EndNode() (result interface{}, e error) {
 	return fc, nil
 }
 
-type rootNT struct {
+type rootNode struct {
 	body expr
 }
 
-func newRootNT() *rootNT {
-	return &rootNT{}
+func newRootNode() *rootNode {
+	return &rootNode{}
 }
 
-func (r *rootNT) NewNode(node string, token *parser.Token) error {
+func (r *rootNode) NewNode(node string, token *parser.Token) error {
 	return nil
 }
 
-func (r *rootNT) HandleNode(node string, result interface{}) error {
+func (r *rootNode) HandleNode(node string, result interface{}) error {
 	r.body = result.(expr)
 	return nil
 }
 
-func (r *rootNT) HandleToken(token *parser.Token) error {
+func (r *rootNode) HandleToken(token *parser.Token) error {
 	return nil
 }
 
-func (r *rootNT) EndNode() (result interface{}, e error) {
+func (r *rootNode) EndNode() (result interface{}, e error) {
 	return r.body, nil
 }
 
@@ -491,7 +491,7 @@ var hooks = &parser.Hooks{
 		parser.AnyNode: func(node string, t *parser.Token, pc *parser.ParseContext) (res parser.NodeHookInstance, e error) {
 			switch node {
 			case "calcGrammar":
-				res = newRootNT()
+				res = newRootNode()
 			case "func":
 				res = newFuncDef()
 			case "assign":

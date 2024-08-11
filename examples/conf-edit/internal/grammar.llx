@@ -1,8 +1,7 @@
 !aside $space $comment;
 !literal $op;
-!group $sec-name $op;
-!group $value $nl $comment $space;
-!group $nl $name $op $comment $space;
+!group $value;
+!group $sec-name;
 
 $space = /[ \t]+/;
 $comment = /#.*?(?:\n|$)/;

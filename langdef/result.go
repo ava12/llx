@@ -8,7 +8,7 @@ import (
 )
 
 type stateEntry struct {
-	Group int
+	Types grammar.BitSet
 	Rules map[int][]grammar.Rule
 }
 
@@ -17,15 +17,22 @@ type parseResult struct {
 	Nodes  []grammar.Node
 	States []*stateEntry
 	NIndex nodeIndex
+	TTypes []grammar.BitSet
 }
 
 func newParseResult() *parseResult {
-	return &parseResult{make([]grammar.Token, 0), make([]grammar.Node, 0), make([]*stateEntry, 0), make(nodeIndex)}
+	return &parseResult{
+		make([]grammar.Token, 0),
+		make([]grammar.Node, 0),
+		make([]*stateEntry, 0),
+		make(nodeIndex),
+		nil,
+	}
 }
 
 func (pr *parseResult) AddState() (stateIndex int, st *stateEntry) {
 	stateIndex = len(pr.States)
-	st = &stateEntry{noGroup, map[int][]grammar.Rule{}}
+	st = &stateEntry{0, map[int][]grammar.Rule{}}
 	pr.States = append(pr.States, st)
 	return
 }
@@ -155,5 +162,5 @@ func (se *stateEntry) writeGrammarState(g *grammar.Grammar, si int, erlen, emlen
 	if emlen > 0 {
 		mstart = len(g.MultiRules)
 	}
-	g.States[si] = grammar.State{se.Group, mstart, mstart + emlen, rstart, rstart + erlen}
+	g.States[si] = grammar.State{se.Types, mstart, mstart + emlen, rstart, rstart + erlen}
 }

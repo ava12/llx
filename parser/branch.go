@@ -16,7 +16,7 @@ type branch struct {
 }
 
 func createBranches(pc *ParseContext, nt *nodeRec, ars []grammar.Rule) *branch {
-	ntCopy := &nodeRec{nil, nil, nil, nt.group, nt.index, nt.state}
+	ntCopy := &nodeRec{nil, nil, nil, nt.types, nt.index, nt.state}
 	result := &branch{nil, 1, pc, []grammar.Rule{ars[0]}, nil, ntCopy, false}
 	result.split(ars)
 	return result
@@ -35,7 +35,7 @@ func (b *branch) split(ars []grammar.Rule) {
 		} else {
 			nars[ruleCnt-1] = ars[i]
 		}
-		ntCopy := &nodeRec{nt.prev, nil, nil, nt.group, nt.index, nt.state}
+		ntCopy := &nodeRec{nt.prev, nil, nil, nt.types, nt.index, nt.state}
 		current := &branch{prev.next, b.index + i, b.pc, nars, b.ntTree, ntCopy, false}
 		prev.next = current
 		prev = current
@@ -80,10 +80,11 @@ func (b *branch) applyToken(tok *lexer.Token) (success bool) {
 		isWildcard := (ar.Token == grammar.AnyToken)
 		isFinal := (ar.State == grammar.FinalState)
 		isSame := (ar.Node == grammar.SameNode)
+		isWildcardToken := (tok == nil)
 
 		b.node.state = ar.State
 		if ar.State != grammar.FinalState {
-			b.node.group = gr.States[ar.State].Group
+			b.node.types = gr.States[ar.State].TokenTypes
 		}
 
 		if isFinal && isSame {
@@ -92,8 +93,11 @@ func (b *branch) applyToken(tok *lexer.Token) (success bool) {
 				if ntr == nil {
 					b.node = nil
 				} else {
-					b.node = &nodeRec{ntr.prev, nil, nil, ntr.group, ntr.index, ntr.state}
+					b.node = &nodeRec{ntr.prev, nil, nil, ntr.types, ntr.index, ntr.state}
 					b.ntTree = ntr.prev
+				}
+				if isWildcardToken {
+					break
 				}
 			}
 		}
@@ -110,21 +114,19 @@ func (b *branch) applyToken(tok *lexer.Token) (success bool) {
 			gr := b.pc.parser.grammar
 			nt := gr.Nodes[ar.Node]
 			b.ntTree = b.node
-			b.node = &nodeRec{b.node, nil, nil, gr.States[nt.FirstState].Group, ar.Node, nt.FirstState}
+			b.node = &nodeRec{b.node, nil, nil, gr.States[nt.FirstState].TokenTypes, ar.Node, nt.FirstState}
 		}
 	}
 
 	return true
 }
 
-func (b *branch) nextGroup() int {
+func (b *branch) nextTokenTypes() (result grammar.BitSet) {
 	if b.node != nil {
-		return b.node.group
+		result |= b.node.types
 	}
-
 	if b.next != nil {
-		return b.next.nextGroup()
-	} else {
-		return 0
+		result |= b.next.nextTokenTypes()
 	}
+	return
 }

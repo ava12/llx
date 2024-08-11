@@ -3,6 +3,7 @@
 @if "%1" == "test" goto test
 
 @echo valid targets are  cmd, generate, test
+@goto end
 
 :cmd
 go build -o bin/llxgen.exe ./cmd/llxgen/llxgen.go

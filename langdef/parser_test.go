@@ -142,14 +142,13 @@ func TestRecursions(t *testing.T) {
 	checkErrorCode(t, samples, RecursionError)
 }
 
-func TestGroupNumberError(t *testing.T) {
+func TestTokenTypeNumberError(t *testing.T) {
 	var sample strings.Builder
-	r := 'A'
-	for i := 0; i < 16; i++ {
-		fmt.Fprintf(&sample, "!group $%c; !group $%[1]c%[1]c;\n", r)
-		r++
+	for i := 0; i <= gr.MaxTokenType+1; i++ {
+		fmt.Fprintf(&sample, "$t%d = /./;\n", i)
 	}
-	checkErrorCode(t, []string{sample.String()}, GroupNumberError)
+	sample.WriteString("foo = 'bar';")
+	checkErrorCode(t, []string{sample.String()}, TokenTypeNumberError)
 }
 
 func TestUnresolvedGroupsError(t *testing.T) {
@@ -158,28 +157,14 @@ func TestUnresolvedGroupsError(t *testing.T) {
 		"!caseless $key; $key = /\\w+/; g = 'x', $key;",
 		"!literal $num; $num = /\\d+/; $name = /\\w+/; g = 'foo' | $name | $num;",
 	}
-	checkErrorCode(t, samples, UnresolvedGroupsError)
-}
-
-func TestDisjointGroupsError(t *testing.T) {
-	samples := []string{
-		"!group $c; !group $d; $c = /\\w+/; $d = /\\d+/; g = $c | $d;",
-	}
-	checkErrorCode(t, samples, DisjointGroupsError)
+	checkErrorCode(t, samples, UnresolvedTokenTypesError)
 }
 
 func TestUndefinedTokenError(t *testing.T) {
 	samples := []string{
-		"!group $foo; g = $foo;",
+		"!caseless $foo; g = $foo;",
 	}
 	checkErrorCode(t, samples, UndefinedTokenError)
-}
-
-func TestUnassignedError(t *testing.T) {
-	samples := []string{
-		"!aside $sp; !group $sp; $sp = /\\s/; $name = /\\w+/; g = {$name};",
-	}
-	checkErrorCode(t, samples, NoGroupAssignedError)
 }
 
 func TestUnknownLiteralError(t *testing.T) {
@@ -189,11 +174,18 @@ func TestUnknownLiteralError(t *testing.T) {
 	checkErrorCode(t, samples, UnknownLiteralError)
 }
 
+func TestReassignedGroupError(t *testing.T) {
+	samples := []string{
+		" $num = /\\d+/; $name = /\\w+/; !group $name; !group $name $num;",
+	}
+	checkErrorCode(t, samples, ReassignedGroupError)
+}
+
 func TestNoError(t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		toks + "!aside; !extern; !error; !shrink; !literal; !caseless; !reserved; foo = 'foo';",
-		"!aside $space; !group $name $space; $space = /\\s/; $name = /\\w/; g = {$name};",
+		toks + "!aside; !extern; !error; !literal; !caseless; !reserved; foo = 'foo';",
+		"!aside $space; !group $space; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 		"!literal $name 'a' 'b'; $name = /\\w+/; g = $name | 'a' | 'b';",
 		"!extern $ex; $name = /\\s+/; g = $name, $ex;",
@@ -258,7 +250,6 @@ func TestTokenFlags(t *testing.T) {
 		{nd + "!extern $foo;" + gd, "foo", gr.ExternalToken},
 		{nd + "!literal 'foo';" + gd, "foo", gr.LiteralToken},
 		{nd + "!reserved 'foo';" + gd, "foo", gr.LiteralToken | gr.ReservedToken},
-		{nd + "!shrink $name;" + gd, "name", gr.ShrinkableToken},
 	}
 
 sampleLoop:
@@ -279,35 +270,5 @@ sampleLoop:
 		}
 
 		t.Errorf("sample #%d: %q token not found", i, s.name)
-	}
-}
-
-func TestTokenGroups(t *testing.T) {
-	samples := []struct {
-		src    string
-		groups []int
-	}{
-		{"!extern $ex; !group $name; !group $num $ex; $name = /\\w+/; $num = /\\d+/; g = $name, $ex, $num, 'foo';",
-			[]int{1, 2, 2, 1}},
-		{"!aside $sp; !group $name $sp; !group $num $sp; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
-			[]int{3, 1, 2}},
-		{"!aside $sp; !group $name $sp; !group $num $sp; $sp = /\\s+/; $name = /\\w+/; $num = /\\d+/; g = $name, $num;",
-			[]int{3, 1, 2}},
-		{"!aside $sp; !literal $op; !group $name $sp; !group $op $sp; $sp = /\\s+/; $name = /\\w+/; $op = /=/; g = $name, '=', $name;",
-			[]int{3, 1, 2}},
-	}
-
-	for i, s := range samples {
-		g, e := ParseString("", s.src)
-		if e != nil {
-			t.Errorf("sample #%d: unexpected error: %s", i, e.Error())
-			continue
-		}
-
-		for j, gs := range s.groups {
-			if g.Tokens[j].Groups != gs {
-				t.Errorf("sample #%d: token #%d: expecting groups=%d, got %d", i, j, gs, g.Tokens[j].Groups)
-			}
-		}
 	}
 }

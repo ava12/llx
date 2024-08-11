@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -164,7 +165,7 @@ func TestAside(t *testing.T) {
 
 func TestAri(t *testing.T) {
 	name := "ari"
-	grammar := spaceDef + "$num=/\\d+/; $op=/[()^*\\/+-]/; ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num|('(',sum,')');"
+	grammar := spaceDef + "$num=/-?\\d+/; $op=/[()^*\\/+-]/; $minus=/-/; !group $minus; ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num;"
 	samples := []srcExprSample{
 		{
 			"2 + 2",
@@ -174,7 +175,13 @@ func TestAri(t *testing.T) {
 			"2 + 3^4*5",
 			"(sum (pro (pow (val 2))) + (pro (pow (val 3) ^ (val 4)) * (pow (val 5))))",
 		},
+		{
+			"-2-3*-1",
+			"(sum (pro (pow (val -2))) - (pro (pow (val 3)) * (pow (val -1))))",
+		},
 	}
+	g, _ := langdef.ParseString("ari", grammar)
+	fmt.Printf("%v\r\n%v\r\n%v\r\n", g.States, g.Rules, g.Nodes)
 	testGrammarSamples(t, name, grammar, samples, false)
 }
 
@@ -198,51 +205,6 @@ func TestMultiRuleAri(t *testing.T) {
 		{
 			"2 + 3^4*5",
 			"(sum (val 2) + (pro (pow (val 3) ^ (val 4)) * (val 5)))",
-		},
-	}
-	testGrammarSamples(t, name, grammar, samples, false)
-}
-
-func TestGroups(t *testing.T) {
-	name := "groups"
-	grammar := "!aside $space; !group $eol $name $space; !group $str $any $space;" +
-		"$space = /[ \\t]+/; $eol = /\\n/; $name = /\\w+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
-		"g = {$name, val, $eol}; val = $str | $any;"
-	samples := []srcExprSample{
-		{
-			"foo bar\nbar <bar baz>\nbaz baz qux\n",
-			"foo (val bar) eol bar (val '<bar baz>') eol baz (val 'baz qux') eol",
-		},
-	}
-	testGrammarSamples(t, name, grammar, samples, false)
-}
-
-func TestMultiGroups(t *testing.T) {
-	name := "multi-groups"
-	grammar := spaceDef + "!group $name $space; !group $str $any $space; $name = /[a-z]+/; $str = /<.*?>/; $any = /[^\\n]+/;" +
-		"g = {s | a}; s = $name, $str; a = $name, $any;"
-	samples := []srcExprSample{
-		{
-			"foo <foo> bar bar baz",
-			"(s foo '<foo>') (a bar 'bar baz')",
-		},
-	}
-	testGrammarSamples(t, name, grammar, samples, false)
-}
-
-func TestTokenShrinking(t *testing.T) {
-	name := "shrinking"
-	grammar := spaceDef + "!shrink $op; $name = /\\w+/; $op = /[()]|<<?|>>?/;" +
-		"g = val, {val};" +
-		"val = $name | pair | group; pair = '(', $name, '<<' | '>>', val, ')'; group = '<', val, {val}, '>';"
-	samples := []srcExprSample{
-		{
-			"<<foo> bar>",
-			"(val (group < (val (group < (val foo) >)) (val bar) >))",
-		},
-		{
-			"<foo <bar>>",
-			"(val (group < (val foo) (val (group < (val bar) > )) > ))",
 		},
 	}
 	testGrammarSamples(t, name, grammar, samples, false)

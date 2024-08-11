@@ -32,7 +32,10 @@ const (
 )
 
 // BitSet is a general bit set, where i-th bit represents item with index i.
-type BitSet = int
+type BitSet = uint64
+
+// MaxTokenType is a maximum allowed token type, not counting literals.
+const MaxTokenType = 63
 
 // TokenFlags contain information about token type.
 type TokenFlags int
@@ -46,10 +49,9 @@ type Token struct {
 	// Empty string for literal and external tokens.
 	Re string
 
-	// Groups is a bit set of all groups this token belongs to.
-	// First defined group has index 0, "default" group is the last one.
-	// For literals this is a union of all Groups of all suitable token types.
-	Groups BitSet
+	// Group is the 0-based token group number, where 0 is the default one.
+	// Each group effectively defines a separate lexer.
+	Group int
 
 	// Flags contain information about token type.
 	Flags TokenFlags
@@ -71,9 +73,6 @@ const (
 	// ErrorToken is a token type that represents some lexical error, e.g. unmatched opening quote.
 	// This token automatically generates an error message containing captured text.
 	ErrorToken
-
-	// ShrinkableToken is a token that can be split into smaller parts if there is no suitable rule.
-	ShrinkableToken
 
 	// CaselessToken text consists of case-insensitive symbols.
 	// Parser converts its text to uppercase before comparing it with a literal.
@@ -133,9 +132,8 @@ type MultiRule struct {
 
 // State represents a parsing state.
 type State struct {
-	// Group is 0-based index of token group shared by all tokens
-	// that are acceptable at this point.
-	Group int `json:",omitempty"`
+	// TokenTypes is the set of all token types acceptable at this point.
+	TokenTypes BitSet `json:",omitempty"`
 
 	// LowMultiRule is the low index of the multi-rule sub-slice for this state.
 	// 0 if not used.

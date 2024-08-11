@@ -31,18 +31,16 @@ const (
 	UnresolvedError
 	// left-recursive node definition found
 	RecursionError
-	// too many token groups (more than 30)
-	GroupNumberError
+	// too many token types
+	TokenTypeNumberError
 	// cannot associate string literal with any token type
-	UnresolvedGroupsError
-	// tokens expected at certain parsing state do not belong to the same token group
-	DisjointGroupsError
+	UnresolvedTokenTypesError
 	// token type listed in directive is not defined
 	UndefinedTokenError
-	// there are token types that are not assigned to any group
-	NoGroupAssignedError
 	// node definition uses string literal that is not whitelisted
 	UnknownLiteralError
+	// trying to move token to new group more than once
+	ReassignedGroupError
 )
 
 func eofError(token *lexer.Token) *llx.Error {
@@ -89,16 +87,12 @@ func recursionError(names []string) *llx.Error {
 	return llx.FormatError(RecursionError, "found left-recursive nodes: "+strings.Join(names, ", "))
 }
 
-func groupNumberError(token *lexer.Token) *llx.Error {
-	return llx.FormatErrorPos(token, GroupNumberError, "too many token groups")
+func tokenTypeNumberError(token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, TokenTypeNumberError, "too many token types")
 }
 
-func unresolvedGroupsError(text string) *llx.Error {
-	return llx.FormatError(UnresolvedGroupsError, "cannot detect token groups for %q literal", text)
-}
-
-func disjointGroupsError(node string, state int, token string) *llx.Error {
-	return llx.FormatError(DisjointGroupsError, "disjoint token groups for %q node, state %d, token %q", node, state, token)
+func unresolvedTokenTypesError(text string) *llx.Error {
+	return llx.FormatError(UnresolvedTokenTypesError, "cannot detect token groups for %q literal", text)
 }
 
 func undefinedTokenError(name string) *llx.Error {
@@ -109,6 +103,6 @@ func unknownLiteralError(text string) *llx.Error {
 	return llx.FormatError(UnknownLiteralError, "cannot use %q literal: it is not whitelisted", text)
 }
 
-func noGroupAssignedError(types []string) *llx.Error {
-	return llx.FormatError(NoGroupAssignedError, "tokens types (%s) are not assigned to any group", strings.Join(types, ", "))
+func reassignedGroupError(name string) *llx.Error {
+	return llx.FormatError(ReassignedGroupError, "cannot move %q token to another group again", name)
 }

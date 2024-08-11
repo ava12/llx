@@ -6,7 +6,7 @@ Grammar is described using language that resembles EBNF. Self-definition of this
 //  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*/;
 //  $string = /(?:".*?")|(?:'.*?')/;
 //  $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
-//  $type-dir = /!(?:aside|caseless|error|extern|group|shrink)\b/;
+//  $type-dir = /!(?:aside|caseless|error|extern|group)\b/;
 //  $literal-dir = /!reserved\b/;
 //  $mixed-dir = /!literal\b/;
 //  $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
@@ -34,7 +34,7 @@ Grammar is described using language that resembles EBNF. Self-definition of this
 /*
 Description must be a valid UTF-8 text (no BOM!). Valid space symbols are whitespace (U+0020),
 horizontal tabulation (U+0009), line feed (U+000A), form feed (U+000C), and carriage return (U+000D).
-Line breaks are insignificant, text may be a one-liner.
+Line breaks and indents are insignificant.
 
 Description may contain line comments starting with # and ending with line feed.
 
@@ -67,7 +67,7 @@ By default, token regular expressions use s flag (let . match \n), to override u
 with flags (e.g. /"(?U-s:.*)"/).
 
 Token definition order is important, lexer returns the first defined token type it can match.
-E.g. lexer for grammar definition language will return $error token type only if it sees a quote or exclamation sign,
+E.g. lexer for grammar definition language will match $error token type only if it sees a quote or exclamation sign,
 but cannot match neither string literal, nor correct directive name.
 Each token type mentioned in grammar description must be defined exactly once or listed in !extern directive.
 
@@ -93,7 +93,7 @@ Directive may contain token types that are defined later. Directive may contain 
 or both depending on directive type. Language description may contain several directives of the same type.
 
 !aside directive lists token types that do not affect syntax (but may be important for, say, formatters).
-Aside tokens must not be used in node definitions, must not be grouped (they belong to all groups).
+Aside tokens must not be used in node definitions.
 
 !caseless directive lists token types holding case-insensitive strings. String literals matching
 case-insensitive token types must be uppercase, e.g.
@@ -102,35 +102,34 @@ case-insensitive token types must be uppercase, e.g.
    block-start = 'Begin'; # same error
    block-start = 'BEGIN'; # correct
 
-!error directive lists error token types. Lexer raises error containing token text when it fetches error token.
+!error directive lists error token types. Lexer returns error containing token text when it matches error token.
 
 !extern directive lists token types that are not defined in grammar description, but may be emitted by hooks.
 E.g. $indent and $dedent tokens emitted by hooks when source text indentation level changes.
 
-!group directive lists token types forming a separate group, which effectively defines a separate lexer.
-All tokens acceptable at some parsing state must belong to the same group
-(or more than one group, in this case langdef parser chooses one).
-Grouping allows to distinguish tokens that belong to different types but may have same content,
-e.g. HTML parser can use two token groups: one to separate tags from raw text and another one to parse tag contents.
-There may be no more than 30 groups. By default, all defined token types form a single group.
-When !group directive is used each defined type must be assigned to at least one group.
+!group directive lists token types that must be placed in a separate group. Each token type may be separated
+no more than once. Each group effectively defines a separate lexer.
+When parser needs to fetch a token it tries all suitable lexers (based on expected token types)
+in order until a token is fetched.
+Grouping is useful for fetching a token that can be a prefix of some other (unwanted) token type.
+E.g. "-123" depending on context may be parsed as single negative number or as "-" operator and positive number.
+In this case "shorter" token type ("-" operator) must be placed in a separate group
+leaving "longer" type (number) in default group.
+Another case is a "general" type (e.g. raw text) that can be mistaken for less general type (e.g. name).
+"General" token type must be placed in its own group.
 
 !literal directive lists allowed token types for literals and/or string literals allowed in node definitions.
 By default, all defined token types and any literals are allowed, i.e. langdef parser accepts any literal
 and tries to associate it with all token types that have suitable regular expressions.
 If any token type/literal is listed in !literal directive all types/literals that are not listed are forbidden.
-This can be used to help langdef parser decide which token group should be used at some point.
-E.g. "=" literal by default may be associated both with $operator and $raw-text token types that belong
-to different groups, and langdef parser may choose the $raw-text group, which leads to parsing errors.
+This can be used to help parser decide which token type should be matched at some point.
+E.g. "=" literal by default may be associated both with $operator and $raw-text token types,
+and lexer may return long $raw-text token instead of short $op, which may lead to parsing errors.
 Using directive !literal $op; solves this problem.
 
 !reserved directive lists string literals that are treated as reserved words.
 If token text is a reserved word it can be matched as literal, but not as token type,
-e.g. if parser expects $name token type and lexer fetches a "for" reserved word, a syntax error is raised.
-
-!shrink directive lists shrinkable token types.
-When a token of shrinkable type causes a syntax error lexer steps back and tries to re-fetch a shorter token.
-E.g. ">>" token may be split into two ">" tokens.
+e.g. if parser expects $name token type and lexer fetches a "for" reserved word, it is a syntax error.
 
 */
 package langdef
