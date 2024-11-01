@@ -4,7 +4,7 @@ Package langdef converts textual grammar description to grammar.Grammar structur
 Grammar is described using language that resembles EBNF. Self-definition of this language is:
 */
 //  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*/;
-//  $string = /(?:".*?")|(?:'.*?')/;
+//  $string = /(?:"(?:[^\\]|\\.)*")|(?:'.*?')/;
 //  $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
 //  $type-dir = /!(?:aside|caseless|error|extern|group)\b/;
 //  $literal-dir = /!reserved\b/;
@@ -17,7 +17,7 @@ Grammar is described using language that resembles EBNF. Self-definition of this
 //  !aside $space $comment; !error $error;
 //
 //  # first node is the root one
-//  # no further token definitions or directives allowed after this point
+//  # no further token definitions nor directives allowed after the first node
 //  langdef = {directive | token-definition}, node-definition, {node-definition};
 //  directive = type-directive | literal-directive | mixed-directive;
 //  type-directive = $type-dir, {$token-name}, ';';
@@ -38,13 +38,23 @@ Line breaks and indents are insignificant.
 
 Description may contain line comments starting with # and ending with line feed.
 
-String literal is any sequence of symbols (except for delimiter)
-delimited with either single (') or double (") quote signs.
+Single-quoted string literal is any sequence of symbols except for single quote (')
+delimited with single quote signs ('), e.g. 'hello world'.
+
+Double-quoted string literal is any sequence of symbols delimited by double quote signs (").
+May contain any symbols, but double quote (") and backslash (\) must be escaped with leading backslash,
+e.g. "\"Foo\" bar". May also contain special quoted symbols:
+   \n          line feed (U+000A)
+   \r          carriage return (U+000D)
+   \t          horizontal tab (U+0009)
+   \x##        (where # is any hexademical digit) any byte
+   \u####      any rune in range U+0000-U+D7FF, U+E000-U+FFFF
+   \U00######  any rune in range U+0000-U+D7FF, U+E000-U+10FFFF
 
 Name is a sequence of latin letters, digits, underscores, and hyphens, starting with letter or underscore.
 Names are case-sensitive.
 
-Token type name is a name preceded by $. Again, token type names are case-sensitive.
+Token type name is a name preceded by $. Token type names are case-sensitive.
 
 Regular expression literal is a RE2 regular expression delimited with slashes (/). To use slashes inside regexp
 escape them with backslashes (\).

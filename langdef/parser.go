@@ -1,8 +1,11 @@
 package langdef
 
 import (
+	"bytes"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/internal/ints"
@@ -81,6 +84,10 @@ const (
 )
 
 const (
+	stringTokType = 1
+)
+
+const (
 	equTok       = "="
 	commaTok     = ","
 	semicolonTok = ";"
@@ -121,6 +128,21 @@ type parseContext struct {
 	restrictLs   bool
 }
 
+type escapeCharEntry struct {
+	substitute, hexLen byte
+}
+
+var escapeCharMap = map[byte]escapeCharEntry{
+	'\\': {'\\', 0},
+	'"':  {'"', 0},
+	'n':  {'\n', 0},
+	'r':  {'\r', 0},
+	't':  {'\t', 0},
+	'x':  {0, 2},
+	'u':  {0, 4},
+	'U':  {0, 8},
+}
+
 func init() {
 	tokenTypes = []lexer.TokenType{
 		{1, stringTok},
@@ -140,17 +162,17 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 	var e error
 
 	re := regexp.MustCompile(
-		"\\s+|#[^\\n]*|" +
-			"((?:\".*?\")|(?:'.*?'))|" +
-			"([a-zA-Z_][a-zA-Z_0-9-]*)|" +
-			"(!(?:aside|caseless|error|extern)\\b)|" +
-			"(!reserved\\b)|" +
-			"(!literal\\b)|" +
-			"(!group\\b)|" +
-			"(\\$[a-zA-Z_][a-zA-Z_0-9-]*)|" +
-			"(/(?:[^\\\\/]|\\\\.)+/)|" +
-			"([(){}\\[\\]=|,;])|" +
-			"(['\"/!].{0,10})")
+		`\s+|#[^\n]*|` +
+			`((?:"(?:[^\\]|\\.)*")|(?:'.*?'))|` +
+			`([a-zA-Z_][a-zA-Z_0-9-]*)|` +
+			`(!(?:aside|caseless|error|extern)\b)|` +
+			`(!reserved\b)|` +
+			`(!literal\b)|` +
+			`(!group\b)|` +
+			`(\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
+			`(\/(?:[^\\\/]|\\.)+\/)|` +
+			`([(){}\[\]=|,;])|` +
+			`(['"/!].{0,10})`)
 
 	q := source.NewQueue().Append(s)
 	l := lexer.New(re, tokenTypes)
@@ -272,6 +294,12 @@ func fetch(q *source.Queue, l *lexer.Lexer, types []string, strict bool, e error
 			return nil, e
 		}
 
+		if token.TypeName() == stringTok {
+			token, e = processStringToken(token)
+			if e != nil {
+				return nil, e
+			}
+		}
 	} else {
 		savedToken = nil
 	}
@@ -296,6 +324,65 @@ func fetch(q *source.Queue, l *lexer.Lexer, types []string, strict bool, e error
 
 	put(token)
 	return nil, nil
+}
+
+func processStringToken(token *lexer.Token) (*lexer.Token, error) {
+	content := token.Content()
+	if content[0] != '"' || bytes.IndexByte(content, '\\') < 0 {
+		return token, nil
+	}
+
+	var peekRune = func(content []byte, hexLen int) (rune, error) {
+		if len(content) < hexLen+3 {
+			return 0, invalidEscapeError(token, string(content))
+		}
+
+		codepoint, e := strconv.ParseUint(string(content[2:hexLen+2]), 16, 32)
+		if e != nil {
+			return 0, invalidEscapeError(token, string(content))
+		}
+
+		if utf8.ValidRune(rune(codepoint)) {
+			return rune(codepoint), nil
+		} else {
+			return 0, invalidRuneError(token, string(content[2:hexLen+2]))
+		}
+	}
+
+	result := make([]byte, 0, len(content))
+	for {
+		slashPos := bytes.IndexByte(content, '\\')
+		if slashPos < 0 {
+			result = append(result, content...)
+			break
+		}
+
+		if slashPos > 0 {
+			result = append(result, content[:slashPos]...)
+			content = content[slashPos:]
+		}
+
+		letter := content[1]
+		entry, valid := escapeCharMap[letter]
+		if !valid {
+			return nil, invalidEscapeError(token, string(content[:2]))
+		}
+
+		if entry.hexLen == 0 {
+			result = append(result, entry.substitute)
+			content = content[2:]
+		} else {
+			r, e := peekRune(content, int(entry.hexLen))
+			if e != nil {
+				return nil, e
+			}
+
+			result = utf8.AppendRune(result, r)
+			content = content[entry.hexLen+2:]
+		}
+	}
+
+	return lexer.NewToken(stringTokType, stringTok, result, token.Pos()), nil
 }
 
 func fetchOne(q *source.Queue, l *lexer.Lexer, typ string, strict bool, e error) (*lexer.Token, error) {
@@ -458,7 +545,7 @@ func parseLiteralDir(dir string, c *parseContext) error {
 	return nil
 }
 
-func parseMixedDir(dir string, c *parseContext) error {
+func parseMixedDir(_ string, c *parseContext) error {
 	tokens, e := fetchAll(c.q, c.l, []string{stringTok, tokenNameTok}, nil)
 	e = skipOne(c.q, c.l, semicolonTok, e)
 	if e != nil {
@@ -833,7 +920,7 @@ func assignTokenGroups(g *parseResult, e error) error {
 		}
 
 		if (t.Flags & grammar.NoLiteralsToken) == 0 {
-			res[rcnt] = regexp.MustCompile(t.Re)
+			res[rcnt] = regexp.MustCompile(`(?s:` + t.Re + `)`)
 		}
 	}
 	rts := ts[:rcnt]

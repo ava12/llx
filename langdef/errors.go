@@ -41,6 +41,10 @@ const (
 	UnknownLiteralError
 	// trying to move token to new group more than once
 	ReassignedGroupError
+	// invalid backslash escape in string literal
+	InvalidEscapeError
+	// invalid hexademical rune code
+	InvalidRuneError
 )
 
 func eofError(token *lexer.Token) *llx.Error {
@@ -105,4 +109,12 @@ func unknownLiteralError(text string) *llx.Error {
 
 func reassignedGroupError(name string) *llx.Error {
 	return llx.FormatError(ReassignedGroupError, "cannot move %q token to another group again", name)
+}
+
+func invalidEscapeError(token *lexer.Token, text string) *llx.Error {
+	return llx.FormatErrorPos(token, InvalidEscapeError, "invalid backslash escape: %q", text)
+}
+
+func invalidRuneError(token *lexer.Token, text string) *llx.Error {
+	return llx.FormatErrorPos(token, InvalidRuneError, "invalid hexademical rune code: %q", text)
 }

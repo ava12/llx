@@ -2,10 +2,11 @@ package langdef
 
 import (
 	"fmt"
-	gr "github.com/ava12/llx/grammar"
 	"strconv"
 	"strings"
 	"testing"
+
+	gr "github.com/ava12/llx/grammar"
 
 	"github.com/ava12/llx"
 	"github.com/ava12/llx/source"
@@ -270,5 +271,57 @@ sampleLoop:
 		}
 
 		t.Errorf("sample #%d: %q token not found", i, s.name)
+	}
+}
+
+func TestStringEscape(t *testing.T) {
+	samples := []struct {
+		text, expected string
+		code           int
+	}{
+		{`'\'`, `\`, 0},
+		{`"\\"`, `\`, 0},
+		{`"\""`, `"`, 0},
+		{`"\n"`, "\n", 0},
+		{`"\r"`, "\r", 0},
+		{`"\t"`, "\t", 0},
+		{`"\x4A\x4b"`, `JK`, 0},
+		{`"\u0401\u0436"`, `Ёж`, 0},
+		{`"\U001012Cd"`, "\U001012cd", 0},
+		{`"hello\r\nworld"`, "hello\r\nworld", 0},
+		{`"it\'s"`, "", InvalidEscapeError},
+		{`"\'"`, "", InvalidEscapeError},
+		{`"\N"`, "", InvalidEscapeError},
+		{`"\x1"`, "", InvalidEscapeError},
+		{`"\u123"`, "", InvalidEscapeError},
+		{`"\U0010123"`, "", InvalidEscapeError},
+		{`"\ud800\udc01"`, "", InvalidRuneError},
+		{`"\ud9ab"`, "", InvalidRuneError},
+		{`"\udddd"`, "", InvalidRuneError},
+		{`"\U00110001"`, "", InvalidRuneError},
+	}
+
+	grammarTpl := `$space = /\s+/; $word = /\S.*/; g = %s;`
+
+	for _, sample := range samples {
+		t.Run(sample.text, func(t *testing.T) {
+			grammar := fmt.Sprintf(grammarTpl, sample.text)
+			result, e := ParseString("test", grammar)
+
+			if e == nil {
+				if sample.code != 0 {
+					t.Errorf("expecting error code %d, got no error", sample.code)
+				} else if result.Tokens[len(result.Tokens)-1].Name != sample.expected {
+					t.Errorf("expecting %q, got %q", sample.expected, result.Tokens[len(result.Tokens)-1].Name)
+				}
+			} else {
+				le, valid := e.(*llx.Error)
+				if !valid {
+					t.Errorf("expexting llx.Error, got %v", e)
+				} else if le.Code != sample.code {
+					t.Errorf("expecting error code %d, got %d", sample.code, le.Code)
+				}
+			}
+		})
 	}
 }
