@@ -3,27 +3,29 @@ Package langdef converts textual grammar description to grammar.Grammar structur
 
 Grammar is described using language that resembles EBNF. Self-definition of this language is:
 */
-//  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*/;
-//  $string = /(?:"(?:[^\\]|\\.)*")|(?:'.*?')/;
-//  $name = /[a-zA-z_][a-zA-Z_0-9-]*/;
+//  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*(?:\n|$)/;
+//  $string = /(?:"(?:[^\\"]|\\.)*")|(?:'.*?')/;
+//  $name = /[a-zA-Z_][a-zA-Z_0-9-]*/;
 //  $type-dir = /!(?:aside|caseless|error|extern|group)\b/;
 //  $literal-dir = /!reserved\b/;
 //  $mixed-dir = /!literal\b/;
 //  $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
 //  $regexp = /\/(?:[^\\\/]|\\.)+\//;
-//  $op = /[(){}\[\]=|,;]/;
+//  $op = /[(){}\[\]=|,;@]/;
 //  $error = /["'!].{0,10}/;
 //
 //  !aside $space $comment; !error $error;
 //
 //  # first node is the root one
-//  # no further token definitions nor directives allowed after the first node
-//  langdef = {directive | token-definition}, node-definition, {node-definition};
+//  # no token definitions nor directives allowed after the first node
+//  langdef = {directive | token-definition | layer-definition}, node-definition, {node-definition | layer-definition};
 //  directive = type-directive | literal-directive | mixed-directive;
 //  type-directive = $type-dir, {$token-name}, ';';
 //  literal-directive = $literal-dir, {$string}, ';';
 //  mixed-directive = $mixed-dir, {$token-name | $string}, ';';
 //  token-definition = $token-name, '=', $regexp, ';';
+//  layer-definition = '@', $name, {layer-command}, ';';
+//  layer-command = $name, '(', [$name | $string, {',', $name | $string}], ')';
 //  node-definition = $name, '=', sequence, ';';
 //  sequence = item, {',', item};
 //  item = variant, {'|', variant}; # NB!: foo | bar, baz is equal to (foo|bar), baz
@@ -44,12 +46,12 @@ delimited with single quote signs ('), e.g. 'hello world'.
 Double-quoted string literal is any sequence of symbols delimited by double quote signs (").
 May contain any symbols, but double quote (") and backslash (\) must be escaped with leading backslash,
 e.g. "\"Foo\" bar". May also contain special quoted symbols:
-   \n          line feed (U+000A)
-   \r          carriage return (U+000D)
-   \t          horizontal tab (U+0009)
-   \x##        (where # is any hexademical digit) any byte
-   \u####      any rune in range U+0000-U+D7FF, U+E000-U+FFFF
-   \U00######  any rune in range U+0000-U+D7FF, U+E000-U+10FFFF
+  \n          line feed (U+000A)
+  \r          carriage return (U+000D)
+  \t          horizontal tab (U+0009)
+  \x##        (where # is any hexadecimal digit) any byte
+  \u####      any rune in range U+0000-U+D7FF, U+E000-U+FFFF
+  \U00######  any rune in range U+0000-U+D7FF, U+E000-U+10FFFF
 
 Name is a sequence of latin letters, digits, underscores, and hyphens, starting with letter or underscore.
 Names are case-sensitive.
@@ -59,21 +61,24 @@ Token type name is a name preceded by $. Token type names are case-sensitive.
 Regular expression literal is a RE2 regular expression delimited with slashes (/). To use slashes inside regexp
 escape them with backslashes (\).
 
+Directive is an exclamation mark followed by small letters.
+
 Operator is one of symbols:
-   (){}[]=|,;
+  (){}[]=|,;@
 
 All other symbols not contained in comments or string literals are forbidden.
 
-Grammar description contains three types of records: token type definition, node definition, and directive.
+Grammar description contains four types of records: token type definition, node definition, directive,
+and hook layer definition.
 There must be at least one node definition. All token type definitions and directives
 must precede node definitions.
 
 Token type definition has a form:
-   $type-name = /regexp/ ;
+  $type-name = /regexp/ ;
 
-Regular expression should not contain capturing groups (e.g. /(foo|bar)+/ will cause incorrect behaviour
+Regular expression should not contain capturing groups (e.g. /(foo|bar)+/ will cause incorrect behavior
 of lexer), use non-capturing groups instead (e.g. /(?:foo|bar)+/).
-By default, token regular expressions use s flag (let . match \n), to override use non-capturing group
+By default, token regular expressions use s flag (let . match \n), to override it use non-capturing group
 with flags (e.g. /"(?U-s:.*)"/).
 
 Token definition order is important, lexer returns the first defined token type it can match.
@@ -82,7 +87,7 @@ but cannot match neither string literal, nor correct directive name.
 Each token type mentioned in grammar description must be defined exactly once or listed in !extern directive.
 
 Node definition has a form:
-   node-name = list ;
+  node-name = list ;
 
 A list consists of one or more comma-separated items. An item is one or more variants separated by pipe (|) symbol.
 A variant is either a node name, a token type, a string literal, or a nested list enclosed in round, square,
@@ -93,30 +98,47 @@ NB: foo | bar, baz is the same as (foo | bar), baz.
 The first node definition is the root one.
 Order of other nodes does not matter, definitions may contain names of nodes that are defined later.
 Each node must be defined exactly once, e.g.
-   foo = bar, baz; foo = qux; # error: foo already defined
-   foo = (bar, baz) | qux; # correct
+  foo = bar, baz; foo = qux; # error: foo already defined
+  foo = (bar, baz) | qux; # correct
+
+Hook layer definition has a form:
+  @ type {command ( [argument {, argument}] )} ;
+
+Type and command are names, argument is a string literal or a name (the latter is a syntactic sugar).
+There may be many definitions with the same type, definition may contain many commands with the same name.
+
+Layer definitions contain configuration commands for built-in hook layers.
+All tokens are filtered through those layers, from the first to the last one, before they are
+fed to user-provided hooks. Every layer may pass token as is, replace or remove it, or add extra tokens.
 
 Directive has a form:
-   !name {$token-name | 'string' | "string"} ;
+  !name {argument} ;
+
+Argument is either a token type name or a string literal.
 
 Directive may contain token types that are defined later. Directive may contain token types, string literals,
 or both depending on directive type. Language description may contain several directives of the same type.
 
+  !aside
 !aside directive lists token types that do not affect syntax (but may be important for, say, formatters).
 Aside tokens must not be used in node definitions.
 
+  !caseless
 !caseless directive lists token types holding case-insensitive strings. String literals matching
 case-insensitive token types must be uppercase, e.g.
-   $name = /[A-Za-z]+/; !caseless $name;
-   block-start = 'begin'; # error: cannot find suitable token type
-   block-start = 'Begin'; # same error
-   block-start = 'BEGIN'; # correct
+  $name = /[A-Za-z]+/; !caseless $name;
+  block-start = 'begin'; # error: cannot find suitable token type
+  block-start = 'Begin'; # same error
+  block-start = 'BEGIN'; # correct
 
+  !error
 !error directive lists error token types. Lexer returns error containing token text when it matches error token.
 
+  !extern
 !extern directive lists token types that are not defined in grammar description, but may be emitted by hooks.
 E.g. $indent and $dedent tokens emitted by hooks when source text indentation level changes.
 
+  !group
 !group directive lists token types that must be placed in a separate group. Each token type may be separated
 no more than once. Each group effectively defines a separate lexer.
 When parser needs to fetch a token it tries all suitable lexers (based on expected token types)
@@ -128,6 +150,7 @@ leaving "longer" type (number) in default group.
 Another case is a "general" type (e.g. raw text) that can be mistaken for less general type (e.g. name).
 "General" token type must be placed in its own group.
 
+  !literal
 !literal directive lists allowed token types for literals and/or string literals allowed in node definitions.
 By default, all defined token types and any literals are allowed, i.e. langdef parser accepts any literal
 and tries to associate it with all token types that have suitable regular expressions.
@@ -137,6 +160,7 @@ E.g. "=" literal by default may be associated both with $operator and $raw-text 
 and lexer may return long $raw-text token instead of short $op, which may lead to parsing errors.
 Using directive !literal $op; solves this problem.
 
+  !reserved
 !reserved directive lists string literals that are treated as reserved words.
 If token text is a reserved word it can be matched as literal, but not as token type,
 e.g. if parser expects $name token type and lexer fetches a "for" reserved word, it is a syntax error.

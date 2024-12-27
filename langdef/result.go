@@ -18,6 +18,7 @@ type parseResult struct {
 	States []*stateEntry
 	NIndex nodeIndex
 	TTypes []grammar.BitSet
+	Layers []grammar.Layer
 }
 
 func newParseResult() *parseResult {
@@ -26,6 +27,7 @@ func newParseResult() *parseResult {
 		make([]grammar.Node, 0),
 		make([]*stateEntry, 0),
 		make(nodeIndex),
+		nil,
 		nil,
 	}
 }
@@ -39,7 +41,12 @@ func (pr *parseResult) AddState() (stateIndex int, st *stateEntry) {
 
 func (pr *parseResult) BuildGrammar() *grammar.Grammar {
 	pr.dropUnusedStates()
-	g := &grammar.Grammar{Tokens: pr.Tokens, Nodes: pr.Nodes, States: make([]grammar.State, len(pr.States))}
+	g := &grammar.Grammar{
+		Tokens: pr.Tokens,
+		Layers: pr.Layers,
+		Nodes:  pr.Nodes,
+		States: make([]grammar.State, len(pr.States)),
+	}
 	for si, se := range pr.States {
 		se.BuildGrammarState(g, si)
 	}

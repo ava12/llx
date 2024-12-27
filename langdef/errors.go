@@ -116,5 +116,5 @@ func invalidEscapeError(token *lexer.Token, text string) *llx.Error {
 }
 
 func invalidRuneError(token *lexer.Token, text string) *llx.Error {
-	return llx.FormatErrorPos(token, InvalidRuneError, "invalid hexademical rune code: %q", text)
+	return llx.FormatErrorPos(token, InvalidRuneError, "invalid hexadecimal rune code: %q", text)
 }

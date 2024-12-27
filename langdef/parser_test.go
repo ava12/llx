@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ava12/llx/grammar"
 	gr "github.com/ava12/llx/grammar"
 
 	"github.com/ava12/llx"
@@ -62,6 +63,12 @@ func TestUnexpectedToken(t *testing.T) {
 		"!error =",
 		"!error $foo,",
 		"!extern $foo; s $foo;",
+		"$s = /\\s+/; $n = /\\d+/; g = {$n}; !aside",
+		"@foo bar((",
+		"@foo bar(baz,)",
+		"@foo bar(,)",
+		"@foo bar;",
+		"@foo bar(),",
 	}
 	checkErrorCode(t, samples, UnexpectedTokenError)
 }
@@ -185,11 +192,15 @@ func TestReassignedGroupError(t *testing.T) {
 func TestNoError(t *testing.T) {
 	samples := []string{
 		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		toks + "!aside; !extern; !error; !literal; !caseless; !reserved; foo = 'foo';",
+		toks + "!aside; !extern; !error; !literal; !caseless; !reserved; @foo; foo = 'foo';",
 		"!aside $space; !group $space; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 		"!literal $name 'a' 'b'; $name = /\\w+/; g = $name | 'a' | 'b';",
-		"!extern $ex; $name = /\\s+/; g = $name, $ex;",
+		"!extern $ex; $name = /\\S+/; g = $name, $ex;",
+		"$n = /\\S+/; g = $n; @foo;",
+		"$n = /\\S+/; g = $n; @ foo bar() baz();",
+		"$op = /[+-]/; g = \"+\", \"+\" | \"-\";",
+		"$op = /[+-]/; g = '+', '+' | '-';",
 	}
 	checkErrorCode(t, samples, 0)
 }
@@ -323,5 +334,61 @@ func TestStringEscape(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLayer(t *testing.T) {
+	sample := `$n = /\\S+/; g = $n;
+	@foo;
+	@bar void() zig(zag) flip("flap", 'flop');
+	@foo some(thing);
+	`
+	expected := []grammar.Layer{
+		{Type: "foo"},
+		{Type: "bar", Commands: []grammar.LayerCommand{
+			{Command: "void"},
+			{Command: "zig", Arguments: []string{"zag"}},
+			{Command: "flip", Arguments: []string{"flap", "flop"}},
+		}},
+		{Type: "foo", Commands: []grammar.LayerCommand{
+			{Command: "some", Arguments: []string{"thing"}},
+		}},
+	}
+
+	g, e := ParseString("", sample)
+	if e != nil {
+		t.Fatalf("got unexpectedd error %v", e)
+	}
+
+	if len(g.Layers) != len(expected) {
+		t.Fatalf("expecting %d layers, got %d (%v)", len(expected), len(g.Layers), g.Layers)
+	}
+
+	check := func(exp, got grammar.Layer) bool {
+		if got.Type != exp.Type || len(got.Commands) != len(exp.Commands) {
+			return false
+		}
+
+		for i, gotCmd := range got.Commands {
+			expCmd := exp.Commands[i]
+			if gotCmd.Command != expCmd.Command || len(gotCmd.Arguments) != len(expCmd.Arguments) {
+				return false
+			}
+
+			for j, gotArg := range gotCmd.Arguments {
+				expArg := expCmd.Arguments[j]
+				if gotArg != expArg {
+					return false
+				}
+			}
+		}
+
+		return true
+	}
+
+	for i, layer := range g.Layers {
+		if !check(expected[i], layer) {
+			t.Errorf("layer %d: expecting %v, got %v", i, expected[i], layer)
+		}
 	}
 }

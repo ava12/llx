@@ -85,6 +85,23 @@ const (
 	NoLiteralsToken
 )
 
+// LayerCommand is a configuration command for hook layer initializer.
+type LayerCommand struct {
+	// Command is command name.
+	Command string
+	// Arguments is a list of command arguments. May be empty.
+	Arguments []string `json:",omitempty"`
+}
+
+// Layer is a configuration for built-in token and/or node hook layer.
+type Layer struct {
+	// Type is a type name for hook layer.
+	Type string
+	// Commands is a list of configuration commands applied in order by hook layer initializer.
+	// May be empty.
+	Commands []LayerCommand `json:",omitempty"`
+}
+
 // Node contains information about some syntax tree node.
 type Node struct {
 	// Name of node.
@@ -157,6 +174,9 @@ type Grammar struct {
 	// Tokens is a list of tokens defined in grammar.
 	// First go defined token types, then external tokens, and the last are literals.
 	Tokens []Token
+
+	// Layers is a list of hook layers applied to fetched tokens and generated nodes, top layer first.
+	Layers []Layer
 
 	// Nodes is a list of defined nodes.
 	Nodes []Node

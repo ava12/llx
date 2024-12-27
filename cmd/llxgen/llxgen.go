@@ -125,6 +125,30 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 	}
 	buffer.WriteString("\t},\n")
 
+	if len(gr.Layers) != 0 {
+		buffer.WriteString("\tLayers: []grammar.Layer{\n}")
+		for _, layer := range gr.Layers {
+			buffer.WriteString(fmt.Sprintf("\t\t{Type: %q", layer.Type))
+			if len(layer.Commands) == 0 {
+				buffer.WriteString("},\n")
+			} else {
+				buffer.WriteString(", Commands: []grammar.LayerCommand{\n")
+				for _, command := range layer.Commands {
+					buffer.WriteString(fmt.Sprintf("\t\t\t{Command: %q", command.Command))
+					if len(command.Arguments) != 0 {
+						buffer.WriteString(fmt.Sprintf(", Arguments: []string{%q", command.Arguments[0]))
+						for _, arg := range command.Arguments[1:] {
+							buffer.WriteString(fmt.Sprintf(", %q", arg))
+						}
+					}
+					buffer.WriteString("},\n")
+				}
+				buffer.WriteString("\t\t}},\n")
+			}
+		}
+		buffer.WriteString("\t},\n")
+	}
+
 	buffer.WriteString("\tNodes: []grammar.Node{\n")
 	for _, nt := range gr.Nodes {
 		buffer.WriteString(fmt.Sprintf("\t\t{Name: %q, FirstState: %d},\n", nt.Name, nt.FirstState))

@@ -163,7 +163,7 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 
 	re := regexp.MustCompile(
 		`\s+|#[^\n]*|` +
-			`((?:"(?:[^\\]|\\.)*")|(?:'.*?'))|` +
+			`((?:"(?:[^\\"]|\\.)*")|(?:'.*?'))|` +
 			`([a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(!(?:aside|caseless|error|extern)\b)|` +
 			`(!reserved\b)|` +
@@ -171,7 +171,7 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 			`(!group\b)|` +
 			`(\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(\/(?:[^\\\/]|\\.)+\/)|` +
-			`([(){}\[\]=|,;])|` +
+			`([(){}\[\]=|,;@])|` +
 			`(['"/!].{0,10})`)
 
 	q := source.NewQueue().Append(s)
@@ -185,7 +185,7 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 
 	var t *lexer.Token
 	for e == nil {
-		t, e = fetch(q, l, []string{nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, tokenNameTok}, true, nil)
+		t, e = fetch(q, l, []string{nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, opTok, tokenNameTok}, true, nil)
 		if e != nil {
 			return nil, e
 		}
@@ -206,6 +206,9 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 
 		case mixedDirTok:
 			e = parseMixedDir(t.Text(), c)
+
+		case opTok:
+			e = parseLayerDef(t, c)
 
 		case tokenNameTok:
 			name := t.Text()[1:]
@@ -253,14 +256,18 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 
 	nti := g.NIndex
 	for e == nil && t != nil && !isEof(t) {
-		_, has := nti[t.Text()]
-		if has && nti[t.Text()].Chunk != nil {
-			return nil, defNodeError(t)
-		}
+		if t.TypeName() == opTok {
+			e = parseLayerDef(t, c)
+		} else {
+			_, has := nti[t.Text()]
+			if has && nti[t.Text()].Chunk != nil {
+				return nil, defNodeError(t)
+			}
 
-		e = parseNodeDef(t.Text(), c)
+			e = parseNodeDef(t.Text(), c)
+		}
 		if e == nil {
-			t, e = fetch(q, l, []string{nameTok, lexer.EofTokenName, lexer.EoiTokenName}, true, nil)
+			t, e = fetch(q, l, []string{nameTok, opTok, lexer.EofTokenName, lexer.EoiTokenName}, true, nil)
 		}
 	}
 
@@ -562,6 +569,69 @@ func parseMixedDir(_ string, c *parseContext) error {
 			addLiteralToken(text[1:len(text)-1], 0, c)
 		}
 	}
+	return nil
+}
+
+func parseLayerDef(t *lexer.Token, c *parseContext) error {
+	if t.Text() != "@" {
+		return unexpectedTokenError(t)
+	}
+
+	token, e := fetchOne(c.q, c.l, nameTok, true, nil)
+	if e != nil {
+		return e
+	}
+
+	layer := grammar.Layer{Type: token.Text()}
+
+	for {
+		token, e = fetch(c.q, c.l, []string{nameTok, semicolonTok}, true, nil)
+		if e != nil {
+			return e
+		}
+
+		if token.TypeName() == opTok {
+			break
+		}
+
+		command := grammar.LayerCommand{Command: token.Text()}
+		e = skipOne(c.q, c.l, lBraceTok, nil)
+		if e != nil {
+			return e
+		}
+
+		token, _ = fetchOne(c.q, c.l, rBraceTok, false, e)
+		if token != nil {
+			layer.Commands = append(layer.Commands, command)
+			continue
+		}
+
+		for {
+			token, e = fetch(c.q, c.l, []string{stringTok, nameTok}, true, nil)
+			if e != nil {
+				return e
+			}
+
+			arg := token.Text()
+			if token.TypeName() == stringTok {
+				arg = arg[1 : len(arg)-1]
+			}
+			command.Arguments = append(command.Arguments, arg)
+
+			token, e = fetch(c.q, c.l, []string{commaTok, rBraceTok}, true, nil)
+			if e != nil {
+				return e
+			}
+
+			if token.Text() == rBraceTok {
+				break
+			}
+		}
+
+		layer.Commands = append(layer.Commands, command)
+	}
+
+	c.g.Layers = append(c.g.Layers, layer)
 	return nil
 }
 
