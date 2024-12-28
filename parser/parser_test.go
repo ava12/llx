@@ -1,9 +1,12 @@
 package parser
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ava12/llx"
 	"github.com/ava12/llx/langdef"
@@ -21,7 +24,7 @@ type srcErrSample struct {
 }
 
 var testTokenHooks = TokenHooks{
-	AnyToken: func(token *lexer.Token, pc *ParseContext) (emit bool, e error) {
+	AnyToken: func(_ context.Context, token *lexer.Token, pc *ParseContext) (emit bool, e error) {
 		return true, nil
 	},
 }
@@ -56,7 +59,7 @@ func testGrammarSamples(t *testing.T, name, grammar string, samples []srcExprSam
 	testGrammarSamplesWithHooks(t, name, grammar, samples, hs, nil)
 }
 
-func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []srcErrSample, hs *Hooks) {
+func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []srcErrSample, hs Hooks) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
@@ -67,7 +70,7 @@ func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []src
 
 	for i, sample := range samples {
 		q := source.NewQueue().Append(source.New("sample", []byte(sample.src)))
-		_, e := parser.Parse(q, hs)
+		_, e := parser.Parse(context.Background(), q, hs)
 		if e == nil {
 			t.Errorf("grammar %q, sample #%d: expecting error code %d, got success", name, i, sample.err)
 			continue
@@ -87,7 +90,7 @@ func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []src
 }
 
 func testErrorSamples(t *testing.T, name, grammar string, samples []srcErrSample) {
-	testErrorSamplesWithHooks(t, name, grammar, samples, nil)
+	testErrorSamplesWithHooks(t, name, grammar, samples, Hooks{})
 }
 
 const spaceDef = "!aside $space; $space = /\\s+/; "
@@ -123,7 +126,7 @@ func TestHandlerKeyErrors(t *testing.T) {
 	}
 
 	for i, sample := range samples {
-		_, e := parser.Parse(queue, &sample.hooks)
+		_, e := parser.Parse(context.Background(), queue, sample.hooks)
 		var (
 			ee   *llx.Error
 			code int
@@ -220,24 +223,24 @@ func TestTokenHooks(t *testing.T) {
 
 	prevTokenText := ""
 	ths := TokenHooks{
-		"char": func(t *lexer.Token, pc *ParseContext) (bool, error) {
+		"char": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, error) {
 			f := t.Text() != prevTokenText // x x -> x
 			prevTokenText = t.Text()
 			return f, nil
 		},
-		AnyToken: func(t *lexer.Token, pc *ParseContext) (bool, error) {
+		AnyToken: func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, error) {
 			return false, pc.EmitToken(lexer.NewToken(0, "space", []byte{'_'}, source.Pos{})) // " " -> _
 		},
 	}
 	lhs := TokenHooks{
-		"e": func(t *lexer.Token, pc *ParseContext) (bool, error) {
+		"e": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, error) {
 			if prevTokenText != "b" {
 				return true, nil
 			}
 
 			return false, pc.EmitToken(lexer.NewToken(1, "char", []byte{'e', 'e'}, source.Pos{})) // e -> ee
 		},
-		"c": func(t *lexer.Token, pc *ParseContext) (bool, error) {
+		"c": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, error) {
 			return true, pc.EmitToken(lexer.NewToken(1, "char", []byte{'a'}, source.Pos{})) // c -> a c
 		},
 	}
@@ -263,7 +266,7 @@ func TestEofHooks(t *testing.T) {
 
 	prevIndent := 0
 	hooks := TokenHooks{
-		"indent": func(t *lexer.Token, pc *ParseContext) (bool, error) {
+		"indent": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, error) {
 			text := t.Text()
 			indent := len(text)
 			if text[0] == '\n' {
@@ -280,7 +283,7 @@ func TestEofHooks(t *testing.T) {
 			}
 			return false, e
 		},
-		EofToken: func(t *lexer.Token, pc *ParseContext) (bool, error) {
+		EofToken: func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, error) {
 			var e error
 			for prevIndent > 0 {
 				e = pc.EmitToken(lexer.NewToken(4, "end", []byte{'}'}, source.Pos{}))
@@ -363,7 +366,7 @@ func TestBypass(t *testing.T) {
 		p, _ := New(g)
 		for j, src := range s.correct {
 			q := source.NewQueue().Append(source.New("", []byte(src)))
-			_, e = p.Parse(q, nil)
+			_, e = p.Parse(context.Background(), q, Hooks{})
 			if e != nil {
 				t.Errorf("sample #%d, correct example #%d: unexpected error: %s", i, j, e)
 			} else if !q.Eof() {
@@ -372,7 +375,7 @@ func TestBypass(t *testing.T) {
 		}
 		for j, src := range s.wrong {
 			q := source.NewQueue().Append(source.New("", []byte(src)))
-			_, e = p.Parse(q, nil)
+			_, e = p.Parse(context.Background(), q, Hooks{})
 			if e == nil && q.IsEmpty() {
 				t.Errorf("sample #%d, wrong example #%d: expecting error or input left, got success", i, j)
 			}
@@ -409,7 +412,7 @@ func TestNodeHooks(t *testing.T) {
 	result := make([]string, 0)
 	hs := Hooks{
 		Nodes: NodeHooks{
-			AnyNode: func(node string, token *Token, pc *ParseContext) (NodeHookInstance, error) {
+			AnyNode: func(_ context.Context, node string, token *Token, pc *ParseContext) (NodeHookInstance, error) {
 				return &nthi{node, &result}, nil
 			},
 		},
@@ -427,7 +430,7 @@ func TestNodeHooks(t *testing.T) {
 	expected := "s^pa p:a p. s$pp s:+ s^pb p:b p:* p:c p. s$pp s."
 
 	p, _ := New(g)
-	_, e = p.ParseString("", src, &hs)
+	_, e = p.ParseString(context.Background(), "", src, hs)
 	if e != nil {
 		t.Fatal("unexpected error: " + e.Error())
 	}
@@ -435,5 +438,36 @@ func TestNodeHooks(t *testing.T) {
 	got := strings.Join(result, " ")
 	if got != expected {
 		t.Errorf("expecting %q, got %q", expected, got)
+	}
+}
+
+func TestContext(t *testing.T) {
+	grammar := "!aside $s; $s = /\\s+/; $n = /\\S+/; g = {$n};"
+	g, e := langdef.ParseString("", grammar)
+	if e != nil {
+		t.Fatalf("unexpected error: %s", e)
+	}
+
+	p, e := New(g)
+	if e != nil {
+		t.Fatalf("unexpected error: %s", e)
+	}
+
+	src := "foo bar baz"
+	tokenHook := func(_ context.Context, tok *lexer.Token, _ *ParseContext) (bool, error) {
+		time.Sleep(time.Second)
+		return true, nil
+	}
+	hooks := Hooks{
+		Tokens: TokenHooks{
+			AnyToken: tokenHook,
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, e = p.ParseString(ctx, "", src, hooks)
+	if e == nil || !errors.Is(e, context.DeadlineExceeded) {
+		t.Fatalf("expecting DeadlineExceeded, got %v", e)
 	}
 }

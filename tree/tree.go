@@ -3,7 +3,9 @@
 package tree
 
 import (
+	"context"
 	"errors"
+
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
 )
@@ -864,6 +866,6 @@ func (hi *HookInstance) EndNode() (result interface{}, e error) {
 
 // NodeHook implements parser.NodeHook and builds syntax tree.
 // Intended to be used as node hook for parser.AnyNode.
-func NodeHook(node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
+func NodeHook(_ context.Context, node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
 	return NewHookInstance(node, tok), nil
 }

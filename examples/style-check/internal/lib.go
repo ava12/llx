@@ -2,6 +2,7 @@
 package internal
 
 import (
+	"context"
 	"errors"
 	"os"
 	"sort"
@@ -141,11 +142,11 @@ func parseSource(s *source.Source) (tree.Element, error) {
 	if e != nil {
 		return nil, e
 	}
-	hs := &parser.Hooks{
+	hs := parser.Hooks{
 		Tokens: parser.TokenHooks{parser.AnyToken: handleToken},
 		Nodes:  parser.NodeHooks{parser.AnyNode: tree.NodeHook},
 	}
-	res, e := p.Parse(q, hs)
+	res, e := p.Parse(context.Background(), q, hs)
 	if e == nil {
 		return res.(tree.Element), nil
 	} else {
@@ -153,7 +154,7 @@ func parseSource(s *source.Source) (tree.Element, error) {
 	}
 }
 
-func handleToken(token *lexer.Token, pc *parser.ParseContext) (emit bool, e error) {
+func handleToken(_ context.Context, token *lexer.Token, pc *parser.ParseContext) (emit bool, e error) {
 	tn := token.TypeName()
 	if token.Line() == 1 && token.Col() == 1 && tn == spaceType {
 		return false, pc.EmitToken(lexer.NewToken(0, indentType, append([]byte{'\n'}, token.Content()...), token.Pos()))

@@ -43,7 +43,7 @@ const (
 	ReassignedGroupError
 	// invalid backslash escape in string literal
 	InvalidEscapeError
-	// invalid hexademical rune code
+	// invalid hexadecimal rune code
 	InvalidRuneError
 )
 

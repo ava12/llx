@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -45,7 +46,7 @@ func (n *treeNode) EndNode() (result any, e error) {
 	return n, nil
 }
 
-func nodeHook(node string, t *lexer.Token, pc *ParseContext) (NodeHookInstance, error) {
+func nodeHook(ctx context.Context, node string, t *lexer.Token, pc *ParseContext) (NodeHookInstance, error) {
 	return nodeNode(node), nil
 }
 
@@ -168,10 +169,10 @@ func (tv *treeValidator) validate() error {
 }
 
 func parseAsTestNode(g *grammar.Grammar, src string, ths, lhs TokenHooks) (*treeNode, error) {
-	hs := &Hooks{ths, lhs, testNodeHooks}
+	hs := Hooks{ths, lhs, testNodeHooks}
 	parser, _ := New(g)
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
-	r, e := parser.Parse(q, hs)
+	r, e := parser.Parse(context.Background(), q, hs)
 	if e == nil {
 		return r.(*treeNode), nil
 	} else {

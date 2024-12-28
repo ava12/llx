@@ -2,6 +2,7 @@
 package internal
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -301,7 +302,7 @@ func Parse(name string, src *[]byte) (*Conf, error) {
 
 	hs := parser.Hooks{
 		Tokens: parser.TokenHooks{
-			parser.AnyToken: func(*lexer.Token, *parser.ParseContext) (bool, error) {
+			parser.AnyToken: func(context.Context, *lexer.Token, *parser.ParseContext) (bool, error) {
 				return true, nil
 			},
 		},
@@ -309,7 +310,7 @@ func Parse(name string, src *[]byte) (*Conf, error) {
 			parser.AnyNode: tree.NodeHook,
 		},
 	}
-	root, e := p.Parse(queue, &hs)
+	root, e := p.Parse(context.Background(), queue, hs)
 	if e != nil {
 		return nil, e
 	}

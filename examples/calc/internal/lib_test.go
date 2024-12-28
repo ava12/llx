@@ -112,6 +112,6 @@ func TestCalc(t *testing.T) {
 		{"y(11, 22)", 33, 0},
 	}
 
-	rootContext = newContext(nil)
+	rootContext = newRunContext(nil)
 	testSamples(t, samples)
 }

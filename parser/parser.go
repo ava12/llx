@@ -3,10 +3,12 @@ package parser
 
 import (
 	"bytes"
-	"github.com/ava12/llx/internal/bmap"
+	"context"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/ava12/llx/internal/bmap"
 
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/internal/queue"
@@ -20,7 +22,7 @@ type Token = lexer.Token
 // e.g. emit external $indent/$dedent tokens when text indentation changes, fetch complex lexemes (e.g. heredoc strings).
 // emit flag set to true means that incoming token (even aside one) must be put to the beginning of token queue,
 // false means that it must be skipped.
-type TokenHook = func(token *Token, pc *ParseContext) (emit bool, e error)
+type TokenHook = func(ctx context.Context, token *Token, pc *ParseContext) (emit bool, e error)
 
 // NodeHookInstance receives notifications for node being processed by parser.
 type NodeHookInstance interface {
@@ -43,7 +45,7 @@ type NodeHookInstance interface {
 
 // NodeHook allows to perform actions on nodes emitted by parser.
 // Receives node name and initial token.
-type NodeHook = func(node string, token *Token, pc *ParseContext) (NodeHookInstance, error)
+type NodeHook = func(ctx context.Context, node string, token *Token, pc *ParseContext) (NodeHookInstance, error)
 
 type defaultHookInstance struct {
 	result any
@@ -176,23 +178,20 @@ func nodeKey(text string) string {
 
 // Parse launches new parsing process with new ParseContext.
 // result is the value returned by root node hook or nil if no node hooks used.
-func (p *Parser) Parse(q *source.Queue, hs *Hooks) (result any, e error) {
-	if hs == nil {
-		hs = &Hooks{}
-	}
-	pc, e := newParseContext(p, q, hs)
+func (p *Parser) Parse(ctx context.Context, q *source.Queue, hs Hooks) (result any, e error) {
+	pc, e := newParseContext(ctx, p, q, hs)
 	if e != nil {
 		return nil, e
 	}
 
-	return pc.parse()
+	return pc.parse(ctx)
 }
 
 // ParseString is same as Parse, except it creates source queue containing single source having
 // provided content with provided name (name may be empty).
-func (p *Parser) ParseString(name, content string, hs *Hooks) (result any, e error) {
+func (p *Parser) ParseString(ctx context.Context, name, content string, hs Hooks) (result any, e error) {
 	q := source.NewQueue().Append(source.New(name, []byte(content)))
-	return p.Parse(q, hs)
+	return p.Parse(ctx, q, hs)
 }
 
 type nodeRec struct {
@@ -222,7 +221,7 @@ const (
 	nodeHooksOffset  = -grammar.AnyToken
 )
 
-func newParseContext(p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, error) {
+func newParseContext(ctx context.Context, p *Parser, q *source.Queue, hs Hooks) (*ParseContext, error) {
 	result := &ParseContext{
 		parser:       p,
 		sources:      q,
@@ -259,7 +258,7 @@ func newParseContext(p *Parser, q *source.Queue, hs *Hooks) (*ParseContext, erro
 		result.nodeHooks[i+nodeHooksOffset] = nth
 	}
 
-	e := result.pushNode(grammar.RootNode, lexer.NewToken(grammar.AnyToken, "", nil, q.SourcePos()))
+	e := result.pushNode(ctx, grammar.RootNode, lexer.NewToken(grammar.AnyToken, "", nil, q.SourcePos()))
 	return result, e
 }
 
@@ -280,7 +279,7 @@ func (pc *ParseContext) EmitToken(t *Token) error {
 	return nil
 }
 
-func (pc *ParseContext) pushNode(index int, tok *Token) error {
+func (pc *ParseContext) pushNode(ctx context.Context, index int, tok *Token) error {
 	e := pc.ntHandleAsides()
 	if e != nil {
 		return e
@@ -295,7 +294,7 @@ func (pc *ParseContext) pushNode(index int, tok *Token) error {
 		}
 	}
 
-	hook, e := pc.getNodeHook(index, tok)
+	hook, e := pc.getNodeHook(ctx, index, tok)
 	if e != nil {
 		return e
 	}
@@ -346,7 +345,7 @@ func (pc *ParseContext) popNode() error {
 
 const repeatState = -128
 
-func (pc *ParseContext) parse() (any, error) {
+func (pc *ParseContext) parse(ctx context.Context) (any, error) {
 	var (
 		tok           *Token
 		e             error
@@ -355,7 +354,12 @@ func (pc *ParseContext) parse() (any, error) {
 	gr := pc.parser.grammar
 
 	for pc.node != nil {
-		tok, e = pc.nextToken(pc.node.types)
+		e = ctx.Err()
+		if e != nil {
+			return nil, e
+		}
+
+		tok, e = pc.nextToken(ctx, pc.node.types)
 		tokenConsumed = false
 		if e != nil {
 			return nil, e
@@ -363,10 +367,10 @@ func (pc *ParseContext) parse() (any, error) {
 
 		for !tokenConsumed && pc.node != nil {
 			nt := pc.node
-			rule, found := pc.nextRule(tok, gr.States[nt.state])
+			rule, found := pc.nextRule(ctx, tok, gr.States[nt.state])
 			if !found {
 				if tok == nil {
-					tok, e = pc.nextToken(lexer.AllTokenTypes)
+					tok, e = pc.nextToken(ctx, lexer.AllTokenTypes)
 					if e != nil {
 						return nil, e
 					}
@@ -391,7 +395,7 @@ func (pc *ParseContext) parse() (any, error) {
 			}
 
 			if !sameNode {
-				e = pc.pushNode(rule.Node, tok)
+				e = pc.pushNode(ctx, rule.Node, tok)
 			} else if tokenConsumed {
 				e = pc.ntHandleToken(tok)
 			}
@@ -419,7 +423,7 @@ func (pc *ParseContext) parse() (any, error) {
 	return pc.lastResult, nil
 }
 
-func (pc *ParseContext) resolve(tok *Token, ars []grammar.Rule) ([]*Token, []grammar.Rule) {
+func (pc *ParseContext) resolve(ctx context.Context, tok *Token, ars []grammar.Rule) ([]*Token, []grammar.Rule) {
 	liveBranch := createBranches(pc, pc.node, ars)
 	tokens := make([]*Token, 0)
 	pc.tokens.Prepend(tok)
@@ -429,7 +433,7 @@ func (pc *ParseContext) resolve(tok *Token, ars []grammar.Rule) ([]*Token, []gra
 		deadBranch = nil
 		lastDead = nil
 		survivors := 0
-		tok, e := pc.nextToken(liveBranch.nextTokenTypes())
+		tok, e := pc.nextToken(ctx, liveBranch.nextTokenTypes())
 		if e != nil || tok == nil {
 			return tokens, liveBranch.applied
 		}
@@ -567,13 +571,13 @@ func (pc *ParseContext) possibleRuleKeys(t *Token) []int {
 	return keys
 }
 
-func (pc *ParseContext) getNodeHook(ntIndex int, tok *Token) (res NodeHookInstance, e error) {
-	h := pc.nodeHooks[ntIndex+nodeHooksOffset]
-	if h == nil {
-		h = pc.nodeHooks[anyOffset+nodeHooksOffset]
+func (pc *ParseContext) getNodeHook(ctx context.Context, ntIndex int, tok *Token) (res NodeHookInstance, e error) {
+	hook := pc.nodeHooks[ntIndex+nodeHooksOffset]
+	if hook == nil {
+		hook = pc.nodeHooks[anyOffset+nodeHooksOffset]
 	}
-	if h != nil {
-		res, e = h(pc.parser.grammar.Nodes[ntIndex].Name, tok, pc)
+	if hook != nil {
+		res, e = hook(ctx, pc.parser.grammar.Nodes[ntIndex].Name, tok, pc)
 	} else {
 		e = nil
 	}
@@ -583,21 +587,21 @@ func (pc *ParseContext) getNodeHook(ntIndex int, tok *Token) (res NodeHookInstan
 	return
 }
 
-func (pc *ParseContext) nextToken(types grammar.BitSet) (result *Token, e error) {
+func (pc *ParseContext) nextToken(ctx context.Context, types grammar.BitSet) (result *Token, e error) {
 	var fetched bool
 	result, fetched = pc.tokens.First()
 	if !fetched {
 		if pc.tokenError != nil {
 			e = pc.tokenError
 		} else {
-			result, e = pc.fetchToken(types)
+			result, e = pc.fetchToken(ctx, types)
 		}
 	}
 
 	return
 }
 
-func (pc *ParseContext) nextRule(t *Token, s grammar.State) (r grammar.Rule, found bool) {
+func (pc *ParseContext) nextRule(ctx context.Context, t *Token, s grammar.State) (r grammar.Rule, found bool) {
 	r, found = pc.appliedRules.First()
 	if found {
 		return
@@ -612,7 +616,7 @@ func (pc *ParseContext) nextRule(t *Token, s grammar.State) (r grammar.Rule, fou
 	if len(rules) == 1 {
 		r = rules[0]
 	} else {
-		tokens, rules := pc.resolve(t, rules)
+		tokens, rules := pc.resolve(ctx, t, rules)
 		r = rules[0]
 		for i := len(tokens) - 1; i >= 1; i-- {
 			pc.tokens.Prepend(tokens[i])
@@ -623,10 +627,15 @@ func (pc *ParseContext) nextRule(t *Token, s grammar.State) (r grammar.Rule, fou
 	return
 }
 
-func (pc *ParseContext) handleToken(tok *Token) error {
+func (pc *ParseContext) handleToken(ctx context.Context, tok *Token) error {
 	if tok == nil {
 		pc.tokens.Append(tok)
 		return nil
+	}
+
+	e := ctx.Err()
+	if e != nil {
+		return e
 	}
 
 	tts := make([]int, 0, 3)
@@ -644,15 +653,15 @@ func (pc *ParseContext) handleToken(tok *Token) error {
 		tts = append(tts, tt, anyOffset)
 	}
 
-	var h TokenHook
+	var hook TokenHook
 	for _, i := range tts {
-		h = pc.tokenHooks[i+tokenHooksOffset]
-		if h != nil {
+		hook = pc.tokenHooks[i+tokenHooksOffset]
+		if hook != nil {
 			break
 		}
 	}
 
-	if h == nil {
+	if hook == nil {
 		if pc.isAsideToken(tok) || tt == lexer.EofTokenType {
 			return nil
 		}
@@ -661,7 +670,7 @@ func (pc *ParseContext) handleToken(tok *Token) error {
 		return nil
 	}
 
-	emit, e := h(tok, pc)
+	emit, e := hook(ctx, tok, pc)
 	if tt == lexer.EofTokenType {
 		emit = false
 	}
@@ -679,7 +688,7 @@ func (pc *ParseContext) handleToken(tok *Token) error {
 	return nil
 }
 
-func (pc *ParseContext) fetchToken(types grammar.BitSet) (*Token, error) {
+func (pc *ParseContext) fetchToken(ctx context.Context, types grammar.BitSet) (*Token, error) {
 	var firstError error
 	var result *Token
 	var e error
@@ -697,7 +706,7 @@ func (pc *ParseContext) fetchToken(types grammar.BitSet) (*Token, error) {
 			}
 		}
 		if firstError == nil {
-			firstError = pc.handleToken(result)
+			firstError = pc.handleToken(ctx, result)
 		}
 
 		if firstError != nil {

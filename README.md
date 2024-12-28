@@ -33,6 +33,7 @@ The simplest program could look like this:
 package main
 
 import (
+    "context"
     "fmt"
     "github.com/ava12/llx/langdef"
     "github.com/ava12/llx/parser"
@@ -64,7 +65,7 @@ value = $name, '=', [$value], $nl;
     result := make(map[string]string)
     prefix, name, value := "", "", ""
     hooks := parser.Hooks{Tokens: parser.TokenHooks{
-        parser.AnyToken: func (t *parser.Token, pc *parser.ParseContext) (emit bool, e error) {
+        parser.AnyToken: func (_ context.Context, t *parser.Token, pc *parser.ParseContext) (emit bool, e error) {
             switch t.TypeName() {
             case "sec-name":
                 prefix = t.Text() + "."
@@ -81,7 +82,7 @@ value = $name, '=', [$value], $nl;
             return true, nil
         },
     }}
-    _, e = configParser.ParseString("input", input, &hooks)
+    _, e = configParser.ParseString(context.Background(), "input", input, hooks)
     if e == nil {
         fmt.Println(result)
     } else {

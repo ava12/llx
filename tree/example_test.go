@@ -1,7 +1,9 @@
 package tree_test
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/parser"
 	"github.com/ava12/llx/tree"
@@ -17,11 +19,11 @@ func ExampleWalk() {
 	}
 
 	p, _ := parser.New(g)
-	h := parser.Hooks{Nodes: parser.NodeHooks{
+	hooks := parser.Hooks{Nodes: parser.NodeHooks{
 		parser.AnyNode: tree.NodeHook,
 	}}
 
-	root, e := p.ParseString("input", input, &h)
+	root, e := p.ParseString(context.Background(), "input", input, hooks)
 	if e != nil {
 		fmt.Println(e)
 		return

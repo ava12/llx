@@ -2,6 +2,7 @@
 package internal
 
 import (
+	"context"
 	"math"
 	"strconv"
 
@@ -48,30 +49,30 @@ func newFunc(name string, body expr, argNames ...string) *function {
 	return &function{name, argNames, body}
 }
 
-func (f *function) call(c *context, args []float64) (float64, error) {
+func (f *function) call(c *runContext, args []float64) (float64, error) {
 	argc := len(args)
 	if argc != len(f.argNames) {
 		return 0.0, wrongArgNumberError(f.name, len(f.argNames), argc)
 	}
 
-	newc := newContext(c)
+	newc := newRunContext(c)
 	for i, name := range f.argNames {
 		newc.vars[name] = args[i]
 	}
 	return f.body.Compute(newc)
 }
 
-type context struct {
-	parent    *context
+type runContext struct {
+	parent    *runContext
 	vars      map[string]float64
 	functions map[string]*function
 }
 
-func newContext(parent *context) *context {
-	return &context{parent, make(map[string]float64), make(map[string]*function)}
+func newRunContext(parent *runContext) *runContext {
+	return &runContext{parent, make(map[string]float64), make(map[string]*function)}
 }
 
-func (c *context) variable(name string) (res float64, e error) {
+func (c *runContext) variable(name string) (res float64, e error) {
 	var f bool
 	res, f = c.vars[name]
 	if !f {
@@ -84,7 +85,7 @@ func (c *context) variable(name string) (res float64, e error) {
 	return
 }
 
-func (c *context) function(name string) (res *function, e error) {
+func (c *runContext) function(name string) (res *function, e error) {
 	var f bool
 	res, f = c.functions[name]
 	if !f {
@@ -99,7 +100,7 @@ func (c *context) function(name string) (res *function, e error) {
 
 type expr interface {
 	IsNumber() bool
-	Compute(*context) (float64, error)
+	Compute(*runContext) (float64, error)
 }
 
 type number struct {
@@ -114,7 +115,7 @@ func (n number) IsNumber() bool {
 	return true
 }
 
-func (n number) Compute(*context) (float64, error) {
+func (n number) Compute(*runContext) (float64, error) {
 	return n.value, nil
 }
 
@@ -141,7 +142,7 @@ func (ch *chain) IsNumber() bool {
 	return (len(ch.opVals) == 0)
 }
 
-func (ch *chain) Compute(c *context) (res float64, e error) {
+func (ch *chain) Compute(c *runContext) (res float64, e error) {
 	res = ch.value
 	var val float64
 	for _, ov := range ch.opVals {
@@ -209,7 +210,7 @@ func (p *power) IsNumber() bool {
 	return (p.base.IsNumber() && p.exp.IsNumber())
 }
 
-func (p *power) Compute(c *context) (res float64, e error) {
+func (p *power) Compute(c *runContext) (res float64, e error) {
 	var exp float64
 	res, e = p.base.Compute(c)
 	if e == nil {
@@ -264,7 +265,7 @@ func (v *varName) IsNumber() bool {
 	return false
 }
 
-func (v *varName) Compute(c *context) (float64, error) {
+func (v *varName) Compute(c *runContext) (float64, error) {
 	return c.variable(v.name)
 }
 
@@ -281,7 +282,7 @@ func (a *assignment) IsNumber() bool {
 	return false
 }
 
-func (a *assignment) Compute(c *context) (res float64, e error) {
+func (a *assignment) Compute(c *runContext) (res float64, e error) {
 	res, e = a.value.Compute(c)
 	if e == nil {
 		c.vars[a.name] = res
@@ -326,7 +327,7 @@ func (fd *funcDef) IsNumber() bool {
 	return false
 }
 
-func (fd *funcDef) Compute(c *context) (res float64, e error) {
+func (fd *funcDef) Compute(c *runContext) (res float64, e error) {
 	c.functions[fd.name] = newFunc(fd.name, fd.body, fd.argNames...)
 	return 0.0, nil
 }
@@ -383,7 +384,7 @@ func (fc *funcCall) IsNumber() bool {
 	return false
 }
 
-func (fc *funcCall) Compute(c *context) (float64, error) {
+func (fc *funcCall) Compute(c *runContext) (float64, error) {
 	f, e := c.function(fc.name)
 	args := make([]float64, len(fc.args))
 	var res float64
@@ -486,9 +487,9 @@ func (v *value) EndNode() (result interface{}, e error) {
 	return v.body, nil
 }
 
-var hooks = &parser.Hooks{
+var hooks = parser.Hooks{
 	Nodes: parser.NodeHooks{
-		parser.AnyNode: func(node string, t *parser.Token, pc *parser.ParseContext) (res parser.NodeHookInstance, e error) {
+		parser.AnyNode: func(_ context.Context, node string, t *parser.Token, pc *parser.ParseContext) (res parser.NodeHookInstance, e error) {
 			switch node {
 			case "calcGrammar":
 				res = newRootNode()
@@ -513,13 +514,13 @@ var hooks = &parser.Hooks{
 }
 
 var (
-	rootContext *context
+	rootContext *runContext
 	calcParser  *parser.Parser
 )
 
 func init() {
 	var e error
-	rootContext = newContext(nil)
+	rootContext = newRunContext(nil)
 	calcParser, e = parser.New(calcGrammar)
 	if e != nil {
 		panic(e)
@@ -530,7 +531,7 @@ func Compute(text string) (float64, error) {
 	input := []byte(text)
 	source.NormalizeNls(&input)
 	q := source.NewQueue().Append(source.New("input", input))
-	x, e := calcParser.Parse(q, hooks)
+	x, e := calcParser.Parse(context.Background(), q, hooks)
 	if e == nil && !q.IsEmpty() {
 		p := q.SourcePos()
 		e = unexpectedInputError(p, string(p.Source().Content()[p.Pos():]))

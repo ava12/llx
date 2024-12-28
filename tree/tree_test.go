@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
@@ -47,17 +48,17 @@ func (h *treeDefHook) EndNode() (result interface{}, e error) {
 	return h.nt, nil
 }
 
-func newTreeDefHook(node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
+func newTreeDefHook(_ context.Context, node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
 	return &treeDefHook{nt: &nodeElement{token: tok}, gotName: (node == "tree-def")}, nil
 }
 
 var (
-	treeHooks = &parser.Hooks{
+	treeHooks = parser.Hooks{
 		Nodes: parser.NodeHooks{
 			parser.AnyNode: NodeHook,
 		},
 	}
-	treeDefHooks = &parser.Hooks{
+	treeDefHooks = parser.Hooks{
 		Nodes: parser.NodeHooks{
 			parser.AnyNode: newTreeDefHook,
 		},
@@ -105,7 +106,7 @@ type parsingSample struct {
 }
 
 func checkParsingSample(t *testing.T, p *parser.Parser, sampleNo int, s parsingSample) {
-	root, e := p.ParseString("parsingSample", s.src, treeHooks)
+	root, e := p.ParseString(context.Background(), "parsingSample", s.src, treeHooks)
 	if e != nil {
 		t.Errorf("parsingSample #%d: unexpected error: %s", sampleNo, e)
 		return
@@ -155,7 +156,7 @@ func parseTreeDescription(t *testing.T, src string) NodeElement {
 		t.Fatal("cannot parse tree")
 	}
 
-	res, e := treeParser.ParseString("src", src, treeDefHooks)
+	res, e := treeParser.ParseString(context.Background(), "src", src, treeDefHooks)
 	if e != nil {
 		t.Fatal("error: " + e.Error())
 	}
