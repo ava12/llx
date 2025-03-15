@@ -803,6 +803,9 @@ func (pc *ParseContext) pullToken(ctx context.Context, types grammar.BitSet, lay
 		}
 
 		for _, tok := range extra {
+			if !pc.parser.IsValidType(tok.Type()) {
+				return nil, false, emitWrongTokenError(tok)
+			}
 			queue.Append(tok)
 		}
 
