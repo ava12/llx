@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
@@ -168,9 +167,8 @@ func (tv *treeValidator) validate() error {
 	}
 }
 
-func parseAsTestNode(g *grammar.Grammar, src string, ths, lhs TokenHooks) (*treeNode, error) {
+func parseAsTestNode(parser *Parser, src string, ths, lhs TokenHooks) (*treeNode, error) {
 	hs := Hooks{ths, lhs, testNodeHooks}
-	parser, _ := New(g)
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
 	r, e := parser.Parse(context.Background(), q, hs)
 	if e == nil {
@@ -196,7 +194,8 @@ func TestParseTreeExpr(t *testing.T) {
 	g, e := langdef.ParseString("", grammarSrc)
 	var n *treeNode
 	if e == nil {
-		n, e = parseAsTestNode(g, src, nil, nil)
+		p, _ := New(g)
+		n, e = parseAsTestNode(p, src, nil, nil)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())

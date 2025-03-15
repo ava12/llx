@@ -154,13 +154,13 @@ func parseSource(s *source.Source) (tree.Element, error) {
 	}
 }
 
-func handleToken(_ context.Context, token *lexer.Token, pc *parser.ParseContext) (emit bool, e error) {
+func handleToken(_ context.Context, token *lexer.Token, pc *parser.ParseContext) (emit bool, _ []*parser.Token, e error) {
 	tn := token.TypeName()
 	if token.Line() == 1 && token.Col() == 1 && tn == spaceType {
-		return false, pc.EmitToken(lexer.NewToken(0, indentType, append([]byte{'\n'}, token.Content()...), token.Pos()))
+		return false, []*parser.Token{lexer.NewToken(0, indentType, append([]byte{'\n'}, token.Content()...), token.Pos())}, nil
 	}
 
-	return (tn != commentType), nil
+	return (tn != commentType), nil, nil
 }
 
 func inspectCode(st tree.Element) *reports {

@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"errors"
+
 	"github.com/ava12/llx"
 	"github.com/ava12/llx/lexer"
 )
@@ -23,6 +25,13 @@ const (
 	UnknownTokenLiteralError
 	// node hook for unknown node
 	UnknownNodeError
+)
+
+var (
+	// trying to register layer template again
+	ErrLayerRegistered = errors.New("layer already registered")
+	// trying to use unregistered layer template
+	ErrUnknownLayer = errors.New("unknown layer name")
 )
 
 func unexpectedEofError(t *lexer.Token, expected string) *llx.Error {

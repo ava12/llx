@@ -302,8 +302,8 @@ func Parse(name string, src *[]byte) (*Conf, error) {
 
 	hs := parser.Hooks{
 		Tokens: parser.TokenHooks{
-			parser.AnyToken: func(context.Context, *lexer.Token, *parser.ParseContext) (bool, error) {
-				return true, nil
+			parser.AnyToken: func(context.Context, *lexer.Token, *parser.ParseContext) (bool, []*parser.Token, error) {
+				return true, nil, nil
 			},
 		},
 		Nodes: parser.NodeHooks{
