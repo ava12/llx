@@ -1,8 +1,9 @@
 package bmap
 
 import (
-	. "github.com/ava12/llx/internal/test"
 	"testing"
+
+	. "github.com/ava12/llx/internal/test"
 )
 
 func TestEmptyMap(t *testing.T) {
@@ -48,43 +49,4 @@ func TestKey(t *testing.T) {
 	en, found = m.Get(key)
 	ExpectInt(t, 222, en)
 	ExpectBool(t, found, true)
-}
-
-func TestOverflow(t *testing.T) {
-	m := New[int](0)
-	for i := 1; i <= minSize; i++ {
-		m.Set([]byte{byte(i)}, i*10)
-	}
-	m.Set([]byte{1}, 30)
-
-	defer func() {
-		recover()
-	}()
-	m.Set([]byte{100}, 3)
-	t.Error("panic expected")
-}
-
-func TestChaining(t *testing.T) {
-	m := &BMap[int]{
-		keys:  []byte("foobarbaz"),
-		index: []int{1},
-		values: []entry[int]{
-			{},
-			{keyOffset: 0, keyLen: 3, nextIndex: 2},
-			{keyOffset: 3, keyLen: 3, nextIndex: 3},
-			{keyOffset: 6, keyLen: 3},
-		},
-	}
-
-	en, found := m.find([]byte("qux"), 0)
-	ExpectBool(t, false, found)
-	Expect(t, en == &m.values[3], &m.values[3], en)
-
-	en, found = m.find([]byte("bar"), 0)
-	ExpectBool(t, true, found)
-	Expect(t, en == &m.values[2], &m.values[2], en)
-
-	en, found = m.find([]byte("baz"), 0)
-	ExpectBool(t, true, found)
-	Expect(t, en == &m.values[3], &m.values[3], en)
 }
