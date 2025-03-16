@@ -100,10 +100,6 @@ const (
 	rCurlyTok    = "}"
 )
 
-var (
-	tokenTypes []lexer.TokenType
-)
-
 type extraToken struct {
 	name  string
 	group int
@@ -117,7 +113,6 @@ type literalToken struct {
 
 type parseContext struct {
 	q            *source.Queue
-	l            *lexer.Lexer
 	g            *parseResult
 	lts          []literalToken
 	ti, lti      tokenIndex
@@ -143,8 +138,10 @@ var escapeCharMap = map[byte]escapeCharEntry{
 	'U':  {0, 8},
 }
 
+var llxLexer *lexer.Lexer
+
 func init() {
-	tokenTypes = []lexer.TokenType{
+	tokenTypes := []lexer.TokenType{
 		{1, stringTok},
 		{2, nameTok},
 		{3, dirTok},
@@ -156,13 +153,9 @@ func init() {
 		{9, opTok},
 		{lexer.ErrorTokenType, wrongTok},
 	}
-}
-
-func parseLangDef(s *source.Source) (*parseResult, error) {
-	var e error
 
 	re := regexp.MustCompile(
-		`\s+|#[^\n]*|` +
+		`^(?:\s+|#[^\n]*|` +
 			`((?:"(?:[^\\"]|\\.)*")|(?:'.*?'))|` +
 			`([a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(!(?:aside|caseless|error|extern)\b)|` +
@@ -172,20 +165,25 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 			`(\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(\/(?:[^\\\/]|\\.)+\/)|` +
 			`([(){}\[\]=|,;@])|` +
-			`(['"/!].{0,10})`)
+			`(['"/!].{0,10}))`)
+
+	llxLexer = lexer.New(re, tokenTypes)
+}
+
+func parseLangDef(s *source.Source) (*parseResult, error) {
+	var e error
 
 	q := source.NewQueue().Append(s)
-	l := lexer.New(re, tokenTypes)
 	ets := make([]extraToken, 0)
 	eti := make(map[string]int)
 	ti := tokenIndex{}
 	lti := tokenIndex{}
 	g := newParseResult()
-	c := &parseContext{q, l, g, make([]literalToken, 0), ti, lti, ets, eti, 0, false, false}
+	c := &parseContext{q, g, make([]literalToken, 0), ti, lti, ets, eti, 0, false, false}
 
 	var t *lexer.Token
 	for e == nil {
-		t, e = fetch(q, l, []string{nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, opTok, tokenNameTok}, true, nil)
+		t, e = fetch(q, []string{nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, opTok, tokenNameTok}, true, nil)
 		if e != nil {
 			return nil, e
 		}
@@ -267,7 +265,7 @@ func parseLangDef(s *source.Source) (*parseResult, error) {
 			e = parseNodeDef(t.Text(), c)
 		}
 		if e == nil {
-			t, e = fetch(q, l, []string{nameTok, opTok, lexer.EofTokenName, lexer.EoiTokenName}, true, nil)
+			t, e = fetch(q, []string{nameTok, opTok, lexer.EofTokenName, lexer.EoiTokenName}, true, nil)
 		}
 	}
 
@@ -289,14 +287,14 @@ func isEof(t *lexer.Token) bool {
 	return (tt == lexer.EofTokenType || tt == lexer.EoiTokenType)
 }
 
-func fetch(q *source.Queue, l *lexer.Lexer, types []string, strict bool, e error) (*lexer.Token, error) {
+func fetch(q *source.Queue, types []string, strict bool, e error) (*lexer.Token, error) {
 	if e != nil {
 		return nil, e
 	}
 
 	token := savedToken
 	if token == nil {
-		token, e = l.Next(q)
+		token, e = llxLexer.Next(q)
 		if e != nil {
 			return nil, e
 		}
@@ -392,18 +390,18 @@ func processStringToken(token *lexer.Token) (*lexer.Token, error) {
 	return lexer.NewToken(stringTokType, stringTok, result, token.Pos()), nil
 }
 
-func fetchOne(q *source.Queue, l *lexer.Lexer, typ string, strict bool, e error) (*lexer.Token, error) {
-	return fetch(q, l, []string{typ}, strict, e)
+func fetchOne(q *source.Queue, typ string, strict bool, e error) (*lexer.Token, error) {
+	return fetch(q, []string{typ}, strict, e)
 }
 
-func fetchAll(q *source.Queue, l *lexer.Lexer, types []string, e error) ([]*lexer.Token, error) {
+func fetchAll(q *source.Queue, types []string, e error) ([]*lexer.Token, error) {
 	if e != nil {
 		return nil, e
 	}
 
 	result := make([]*lexer.Token, 0)
 	for {
-		t, e := fetch(q, l, types, false, nil)
+		t, e := fetch(q, types, false, nil)
 		if e != nil {
 			return nil, e
 		}
@@ -418,17 +416,17 @@ func fetchAll(q *source.Queue, l *lexer.Lexer, types []string, e error) ([]*lexe
 	return result, nil
 }
 
-func skip(q *source.Queue, l *lexer.Lexer, types []string, e error) error {
+func skip(q *source.Queue, types []string, e error) error {
 	if e != nil {
 		return e
 	}
 
-	_, e = fetch(q, l, types, true, nil)
+	_, e = fetch(q, types, true, nil)
 	return e
 }
 
-func skipOne(q *source.Queue, l *lexer.Lexer, typ string, e error) error {
-	return skip(q, l, []string{typ}, e)
+func skipOne(q *source.Queue, typ string, e error) error {
+	return skip(q, []string{typ}, e)
 }
 
 func addToken(name, re string, flags grammar.TokenFlags, c *parseContext) int {
@@ -485,8 +483,8 @@ func addTokenFlag(name string, flag grammar.TokenFlags, c *parseContext) {
 }
 
 func parseDir(name string, c *parseContext) error {
-	tokens, e := fetchAll(c.q, c.l, []string{tokenNameTok}, nil)
-	e = skipOne(c.q, c.l, semicolonTok, e)
+	tokens, e := fetchAll(c.q, []string{tokenNameTok}, nil)
+	e = skipOne(c.q, semicolonTok, e)
 	if e != nil {
 		return e
 	}
@@ -510,8 +508,8 @@ func parseDir(name string, c *parseContext) error {
 }
 
 func parseGroupDir(c *parseContext) error {
-	tokens, e := fetchAll(c.q, c.l, []string{tokenNameTok}, nil)
-	e = skipOne(c.q, c.l, semicolonTok, e)
+	tokens, e := fetchAll(c.q, []string{tokenNameTok}, nil)
+	e = skipOne(c.q, semicolonTok, e)
 	if e != nil {
 		return e
 	}
@@ -539,8 +537,8 @@ func parseLiteralDir(dir string, c *parseContext) error {
 	if dir == "!reserved" {
 		flags |= grammar.ReservedToken
 	}
-	tokens, e := fetchAll(c.q, c.l, []string{stringTok}, nil)
-	e = skipOne(c.q, c.l, semicolonTok, e)
+	tokens, e := fetchAll(c.q, []string{stringTok}, nil)
+	e = skipOne(c.q, semicolonTok, e)
 	if e != nil {
 		return e
 	}
@@ -553,8 +551,8 @@ func parseLiteralDir(dir string, c *parseContext) error {
 }
 
 func parseMixedDir(_ string, c *parseContext) error {
-	tokens, e := fetchAll(c.q, c.l, []string{stringTok, tokenNameTok}, nil)
-	e = skipOne(c.q, c.l, semicolonTok, e)
+	tokens, e := fetchAll(c.q, []string{stringTok, tokenNameTok}, nil)
+	e = skipOne(c.q, semicolonTok, e)
 	if e != nil {
 		return e
 	}
@@ -577,7 +575,7 @@ func parseLayerDef(t *lexer.Token, c *parseContext) error {
 		return unexpectedTokenError(t)
 	}
 
-	token, e := fetchOne(c.q, c.l, nameTok, true, nil)
+	token, e := fetchOne(c.q, nameTok, true, nil)
 	if e != nil {
 		return e
 	}
@@ -585,7 +583,7 @@ func parseLayerDef(t *lexer.Token, c *parseContext) error {
 	layer := grammar.Layer{Type: token.Text()}
 
 	for {
-		token, e = fetch(c.q, c.l, []string{nameTok, semicolonTok}, true, nil)
+		token, e = fetch(c.q, []string{nameTok, semicolonTok}, true, nil)
 		if e != nil {
 			return e
 		}
@@ -595,19 +593,19 @@ func parseLayerDef(t *lexer.Token, c *parseContext) error {
 		}
 
 		command := grammar.LayerCommand{Command: token.Text()}
-		e = skipOne(c.q, c.l, lBraceTok, nil)
+		e = skipOne(c.q, lBraceTok, nil)
 		if e != nil {
 			return e
 		}
 
-		token, _ = fetchOne(c.q, c.l, rBraceTok, false, e)
+		token, _ = fetchOne(c.q, rBraceTok, false, e)
 		if token != nil {
 			layer.Commands = append(layer.Commands, command)
 			continue
 		}
 
 		for {
-			token, e = fetch(c.q, c.l, []string{stringTok, nameTok}, true, nil)
+			token, e = fetch(c.q, []string{stringTok, nameTok}, true, nil)
 			if e != nil {
 				return e
 			}
@@ -618,7 +616,7 @@ func parseLayerDef(t *lexer.Token, c *parseContext) error {
 			}
 			command.Arguments = append(command.Arguments, arg)
 
-			token, e = fetch(c.q, c.l, []string{commaTok, rBraceTok}, true, nil)
+			token, e = fetch(c.q, []string{commaTok, rBraceTok}, true, nil)
 			if e != nil {
 				return e
 			}
@@ -636,9 +634,9 @@ func parseLayerDef(t *lexer.Token, c *parseContext) error {
 }
 
 func parseTokenDef(name string, c *parseContext) error {
-	e := skipOne(c.q, c.l, equTok, nil)
-	token, e := fetchOne(c.q, c.l, regexpTok, true, e)
-	e = skipOne(c.q, c.l, semicolonTok, e)
+	e := skipOne(c.q, equTok, nil)
+	token, e := fetchOne(c.q, regexpTok, true, e)
+	e = skipOne(c.q, semicolonTok, e)
 	if e != nil {
 		return e
 	}
@@ -675,9 +673,9 @@ func addNode(name string, c *parseContext, define bool) *nodeItem {
 
 func parseNodeDef(name string, c *parseContext) error {
 	nt := addNode(name, c, true)
-	e := skipOne(c.q, c.l, equTok, nil)
+	e := skipOne(c.q, equTok, nil)
 	e = parseGroup(name, nt.Chunk, c, e)
-	e = skipOne(c.q, c.l, semicolonTok, e)
+	e = skipOne(c.q, semicolonTok, e)
 	return e
 }
 
@@ -693,7 +691,7 @@ func parseGroup(name string, group complexChunk, c *parseContext, e error) error
 		}
 
 		group.Append(item)
-		t, e := fetchOne(c.q, c.l, commaTok, false, nil)
+		t, e := fetchOne(c.q, commaTok, false, nil)
 		if t == nil {
 			return e
 		}
@@ -702,7 +700,7 @@ func parseGroup(name string, group complexChunk, c *parseContext, e error) error
 
 func parseVariants(name string, c *parseContext) (chunk, error) {
 	ch, e := parseVariant(name, c)
-	t, e := fetchOne(c.q, c.l, pipeTok, false, e)
+	t, e := fetchOne(c.q, pipeTok, false, e)
 	if e != nil {
 		return nil, e
 	} else if t == nil {
@@ -714,7 +712,7 @@ func parseVariants(name string, c *parseContext) (chunk, error) {
 
 	for {
 		ch, e = parseVariant(name, c)
-		t, e = fetchOne(c.q, c.l, pipeTok, false, e)
+		t, e = fetchOne(c.q, pipeTok, false, e)
 		if e != nil {
 			return nil, e
 		}
@@ -730,7 +728,7 @@ func parseVariants(name string, c *parseContext) (chunk, error) {
 
 func parseVariant(name string, c *parseContext) (chunk, error) {
 	variantHeads := []string{nameTok, tokenNameTok, stringTok, lBraceTok, lSquareTok, lCurlyTok}
-	t, e := fetch(c.q, c.l, variantHeads, true, nil)
+	t, e := fetch(c.q, variantHeads, true, nil)
 	if e != nil {
 		return nil, e
 	}
@@ -783,7 +781,7 @@ func parseVariant(name string, c *parseContext) (chunk, error) {
 
 	result := newGroupChunk(optional, repeated)
 	e = parseGroup(name, result, c, nil)
-	e = skipOne(c.q, c.l, lastToken, e)
+	e = skipOne(c.q, lastToken, e)
 	if e != nil {
 		return nil, e
 	}
