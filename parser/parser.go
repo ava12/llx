@@ -159,7 +159,7 @@ type Parser struct {
 	grammar    *grammar.Grammar
 	tokenNames map[string]int
 	nodeNames  map[string]int
-	literals   *bmap.BMap[int]
+	literals   bmap.BMap[int]
 	lexers     []*lexer.Lexer
 	layers     []HookLayer
 }
@@ -199,7 +199,7 @@ func New(g *grammar.Grammar, opts ...Option) (*Parser, error) {
 
 	for i, t := range g.Tokens {
 		if (t.Flags & grammar.LiteralToken) != 0 {
-			literals.Set([]byte(t.Name), i)
+			literals.SetString(t.Name, i)
 		} else if (t.Flags & grammar.ErrorToken) == 0 {
 			tokenNames[t.Name] = i
 		}
@@ -382,7 +382,7 @@ func newHookLayer(p *Parser, pc *ParseContext, hs Hooks) error {
 		}
 
 		for k, th := range hs.Literals {
-			i, f := p.literals.Get([]byte(k))
+			i, f := p.literals.GetString(k)
 			if !f {
 				return unknownTokenLiteralError(k)
 			}
