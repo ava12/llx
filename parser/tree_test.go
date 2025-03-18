@@ -167,10 +167,10 @@ func (tv *treeValidator) validate() error {
 	}
 }
 
-func parseAsTestNode(parser *Parser, src string, ths, lhs TokenHooks) (*treeNode, error) {
+func parseAsTestNode(ctx context.Context, parser *Parser, src string, ths, lhs TokenHooks) (*treeNode, error) {
 	hs := Hooks{ths, lhs, testNodeHooks}
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
-	r, e := parser.Parse(context.Background(), q, hs)
+	r, e := parser.Parse(ctx, q, hs)
 	if e == nil {
 		return r.(*treeNode), nil
 	} else {
@@ -195,7 +195,7 @@ func TestParseTreeExpr(t *testing.T) {
 	var n *treeNode
 	if e == nil {
 		p, _ := New(g)
-		n, e = parseAsTestNode(p, src, nil, nil)
+		n, e = parseAsTestNode(context.Background(), p, src, nil, nil)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())

@@ -83,13 +83,13 @@ const (
 	EofTokenType = -2
 
 	// EofTokenName is the type name for EofTokenType
-	EofTokenName = "-end-of-file-"
+	EofTokenName = "-eof-"
 
-	// EoiTokenType is a fake token indicating absence of queued sources (i.e. all sources are processed).
+	// EoiTokenType is a fake token indicating there are no queued sources (i.e. all sources are processed).
 	EoiTokenType = -3
 
 	// EoiTokenName is the type name for EoiTokenType
-	EoiTokenName = "-end-of-input-"
+	EoiTokenName = "-eoi-"
 
 	LowestTokenType = -3
 )

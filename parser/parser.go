@@ -913,6 +913,13 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 	}
 
 	emit, extra, e = hook(ctx, tok, pc)
+	if !emit && tt < 0 {
+		if len(extra) == 0 {
+			emit = true
+		} else {
+			extra = append(extra, tok)
+		}
+	}
 	return true, emit, extra, e
 }
 

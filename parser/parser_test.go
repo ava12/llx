@@ -39,7 +39,7 @@ func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []s
 
 	p, _ := New(g)
 	for i, sample := range samples {
-		n, e := parseAsTestNode(p, sample.src, ths, lhs)
+		n, e := parseAsTestNode(context.Background(), p, sample.src, ths, lhs)
 		if e != nil {
 			t.Errorf("grammar %q, sample #%d: got error: %s", name, i, e.Error())
 			continue
@@ -496,46 +496,69 @@ type testReplaceLayerTemplate struct {
 
 func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error) {
 	replaces := make(map[string]testReplaceLayerEntry, len(commands)+len(t.override))
+	var tokenTypes []string
+	var emitTypeName string
+
 	for _, command := range commands {
-		emit := len(command.Arguments) > 1 && command.Arguments[0] == command.Arguments[1]
-		var offset int
-		if emit {
-			offset = 2
-		} else {
-			offset = 1
+		switch command.Command {
+		case "watch":
+			tokenTypes = append(tokenTypes, command.Arguments...)
+		case "emit":
+			emitTypeName = command.Arguments[0]
+		default:
+			emit := len(command.Arguments) > 1 && command.Arguments[0] == command.Arguments[1]
+			var offset int
+			if emit {
+				offset = 2
+			} else {
+				offset = 1
+			}
+			replaces[command.Arguments[0]] = testReplaceLayerEntry{command.Arguments[offset:], emit}
 		}
-		replaces[command.Arguments[0]] = testReplaceLayerEntry{command.Arguments[offset:], emit}
 	}
 	for key, entry := range t.override {
 		replaces[key] = entry
 	}
 
-	return testLayer{
-		Tokens: TokenHooks{
-			AnyToken: func(_ context.Context, tok *Token, _ *ParseContext) (emit bool, extra []*Token, e error) {
-				entry, found := replaces[tok.Text()]
-				if !found {
-					entry, found = replaces[""]
-				}
-				if !found {
-					return true, nil, nil
-				}
+	handler := func(_ context.Context, tok *Token, _ *ParseContext) (emit bool, extra []*Token, e error) {
+		entry, found := replaces[tok.Text()]
+		if !found {
+			entry, found = replaces[""]
+		}
+		if !found {
+			return true, nil, nil
+		}
 
-				emit = entry.emit
-				extra = make([]*Token, 0, len(entry.extra))
-				var newTok *Token
-				for _, text := range entry.extra {
-					newTok, e = p.MakeToken(tok.TypeName(), []byte(text))
-					if e != nil {
-						return
-					}
-
-					extra = append(extra, newTok)
-				}
+		emit = entry.emit
+		extra = make([]*Token, 0, len(entry.extra))
+		var newTok *Token
+		typeName := emitTypeName
+		if typeName == "" {
+			typeName = tok.TypeName()
+		}
+		for _, text := range entry.extra {
+			newTok, e = p.MakeToken(typeName, []byte(text))
+			if e != nil {
 				return
-			},
-		},
-	}, nil
+			}
+
+			extra = append(extra, newTok)
+		}
+		return
+	}
+
+	result := testLayer{
+		Tokens: TokenHooks{},
+	}
+
+	if len(tokenTypes) == 0 {
+		tokenTypes = append(tokenTypes, AnyToken)
+	}
+	for _, tokenType := range tokenTypes {
+		result.Tokens[tokenType] = handler
+	}
+
+	return result, nil
 }
 
 func TestLayerRegister(t *testing.T) {
@@ -584,7 +607,7 @@ func TestLayerRegister(t *testing.T) {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	node, e := parseAsTestNode(p, src, nil, nil)
+	node, e := parseAsTestNode(context.Background(), p, src, nil, nil)
 	if e == nil {
 		e = newTreeValidator(node, expected).validate()
 	}
@@ -612,7 +635,7 @@ func TestLayerTokenHooks(t *testing.T) {
 		p, e = New(g, WithLayerTemplates(templates))
 	}
 	if e == nil {
-		n, e = parseAsTestNode(p, src, nil, nil)
+		n, e = parseAsTestNode(context.Background(), p, src, nil, nil)
 	}
 	if e == nil {
 		e = newTreeValidator(n, expected).validate()
@@ -659,7 +682,7 @@ func TestLayerNodeHooks(t *testing.T) {
 		p, e = New(g, WithLayerTemplates(templates))
 	}
 	if e == nil {
-		n, e = parseAsTestNode(p, src, nil, nil)
+		n, e = parseAsTestNode(context.Background(), p, src, nil, nil)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
@@ -686,4 +709,36 @@ func TestUserLiterals(t *testing.T) {
 		{"foo", "b o o"},
 	}
 	testGrammarSamplesWithHooks(t, "", grammar, samples, nil, hooks)
+}
+
+func TestEofEoiHandling(t *testing.T) {
+	grammar := `$char = /\w/; g= {$char};
+		@replace watch('-eof-') emit(char) replace('', eof);
+		@replace watch('-eoi-') emit(char) replace('', eoi);
+		@replace watch('-eof-', '-eoi-') emit(char) replace('', end);`
+	src := "abc"
+	expected := "a b c eof end eoi end"
+	templates := map[string]HookLayerTemplate{
+		"replace": testReplaceLayerTemplate{},
+	}
+
+	var (
+		p *Parser
+		n *treeNode
+	)
+	g, e := langdef.ParseString("", grammar)
+	if e == nil {
+		p, e = New(g, WithLayerTemplates(templates))
+	}
+	if e == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		n, e = parseAsTestNode(ctx, p, src, nil, nil)
+	}
+	if e == nil {
+		e = newTreeValidator(n, expected).validate()
+	}
+	if e != nil {
+		t.Fatalf("got unexpected error: %s", e.Error())
+	}
 }
