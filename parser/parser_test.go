@@ -123,7 +123,6 @@ func TestHandlerKeyErrors(t *testing.T) {
 		err   int
 	}{
 		{Hooks{TokenHooks{"space": nil}, nil, nil}, UnknownTokenTypeError},
-		{Hooks{nil, TokenHooks{"y": nil}, nil}, UnknownTokenLiteralError},
 		{Hooks{nil, nil, NodeHooks{"foo": nil}}, UnknownNodeError},
 	}
 
@@ -471,7 +470,7 @@ func TestContext(t *testing.T) {
 			AnyToken: tokenHook,
 		},
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	_, e = p.ParseString(ctx, "", src, hooks)
@@ -673,4 +672,18 @@ func TestLayerNodeHooks(t *testing.T) {
 			t.Fatalf("result #%d: error: %s", i, e)
 		}
 	}
+}
+
+func TestUserLiterals(t *testing.T) {
+	grammar := `$char = /\w/; g = {$char};`
+	hooks := TokenHooks{
+		"f": func(_ context.Context, _ *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+			newToken, _ := pc.Parser().MakeToken("char", []byte("b"))
+			return false, []*Token{newToken}, nil
+		},
+	}
+	samples := []srcExprSample{
+		{"foo", "b o o"},
+	}
+	testGrammarSamplesWithHooks(t, "", grammar, samples, nil, hooks)
 }

@@ -21,8 +21,6 @@ const (
 	EmitWrongTokenError = llx.ParserErrors + iota
 	// token hook for unknown token type name
 	UnknownTokenTypeError
-	// literal hook for unknown literal
-	UnknownTokenLiteralError
 	// node hook for unknown node
 	UnknownNodeError
 )
@@ -52,10 +50,6 @@ func emitWrongTokenError(t *lexer.Token) *llx.Error {
 
 func unknownTokenTypeError(typeName string) *llx.Error {
 	return llx.FormatError(UnknownTokenTypeError, "unknown token type key: %q", typeName)
-}
-
-func unknownTokenLiteralError(text string) *llx.Error {
-	return llx.FormatError(UnknownTokenLiteralError, "unknown literal key: %q", text)
 }
 
 func unknownNodeError(name string) *llx.Error {

@@ -317,6 +317,7 @@ type tokenHookRec struct {
 type ParseContext struct {
 	parser       *Parser
 	sources      *source.Queue
+	literals     bmap.BMap[int]
 	tokens       *queue.Queue[*Token]
 	tokenHooks   []tokenHookRec
 	nodeHooks    [][]NodeHook
@@ -336,12 +337,17 @@ func newParseContext(ctx context.Context, p *Parser, q *source.Queue, hs Hooks) 
 	result := &ParseContext{
 		parser:       p,
 		sources:      q,
+		literals:     bmap.New[int](len(p.literals)),
 		tokens:       queue.New[*Token](),
 		tokenHooks:   make([]tokenHookRec, 0, len(p.layers)+1),
 		nodeHooks:    make([][]NodeHook, 0, len(p.layers)+1),
 		appliedRules: queue.New[grammar.Rule](),
 		watchAsides:  len(hs.Tokens)+len(hs.Literals) != 0,
 		watchNodes:   len(hs.Nodes) != 0,
+	}
+
+	for k, i := range p.literals {
+		result.literals[k] = i
 	}
 
 	e := newHookLayer(p, result, hs)
@@ -368,25 +374,44 @@ func newParseContext(ctx context.Context, p *Parser, q *source.Queue, hs Hooks) 
 
 func newHookLayer(p *Parser, pc *ParseContext, hs Hooks) error {
 	if len(hs.Tokens)+len(hs.Literals) > 0 {
-		tokenLayer := tokenHookRec{
-			hooks:  make([]TokenHook, len(p.grammar.Tokens)+tokenHooksOffset),
-			tokens: queue.New[*Token](),
-		}
-		for k, th := range hs.Tokens {
+		maxTokenType := 0
+
+		for k := range hs.Tokens {
 			i, f := p.tokenNames[k]
 			if !f {
 				return unknownTokenTypeError(k)
 			}
 
-			tokenLayer.hooks[i+tokenHooksOffset] = th
+			if i > maxTokenType {
+				maxTokenType = i
+			}
+		}
+
+		for k := range hs.Literals {
+			i, f := pc.literals.GetString(k)
+			if !f {
+				i = len(p.grammar.Tokens) + len(pc.literals) - len(p.literals)
+				pc.literals.SetString(k, i)
+			}
+			if i > maxTokenType {
+				maxTokenType = i
+			}
+		}
+
+		tokenLayer := tokenHookRec{
+			hooks:  make([]TokenHook, maxTokenType+tokenHooksOffset+1),
+			tokens: queue.New[*Token](),
+		}
+
+		for k, th := range hs.Tokens {
+			tokenLayer.hooks[p.tokenNames[k]+tokenHooksOffset] = th
 		}
 
 		for k, th := range hs.Literals {
 			i, f := p.literals.GetString(k)
 			if !f {
-				return unknownTokenLiteralError(k)
+				i, f = pc.literals.GetString(k)
 			}
-
 			tokenLayer.hooks[i+tokenHooksOffset] = th
 		}
 		pc.tokenHooks = append(pc.tokenHooks, tokenLayer)
@@ -856,6 +881,7 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 		return false, false, nil, e
 	}
 
+	maxTokenType := len(hooks) - tokenHooksOffset - 1
 	tts := make([]int, 0, 3)
 	tt := tok.Type()
 
@@ -863,12 +889,15 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 		tts = append(tts, tt)
 	} else {
 		if pc.parser.grammar.Tokens[tt].Flags&grammar.NoLiteralsToken == 0 {
-			i, f := pc.parser.literals.Get(tok.Content())
-			if f {
+			i, f := pc.literals.Get(tok.Content())
+			if f && i <= maxTokenType {
 				tts = append(tts, i)
 			}
 		}
-		tts = append(tts, tt, anyOffset)
+		if tt <= maxTokenType {
+			tts = append(tts, tt)
+		}
+		tts = append(tts, anyOffset)
 	}
 
 	var hook TokenHook
