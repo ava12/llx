@@ -10,6 +10,7 @@ import (
 
 	"github.com/ava12/llx"
 	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/internal/test"
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/source"
@@ -579,9 +580,7 @@ func TestLayerRegister(t *testing.T) {
 	}
 
 	_, e = New(g)
-	if e == nil || !errors.Is(e, ErrUnknownLayer) {
-		t.Fatalf("expecting ErrUnknownLayer, got %s", e)
-	}
+	test.ExpectErrorCode(t, UnknownLayerError, e)
 
 	_, e = New(g, WithLayerTemplates(templates))
 	if e != nil {
@@ -593,9 +592,7 @@ func TestLayerRegister(t *testing.T) {
 		t.Fatalf("unexpected error: %s", e)
 	}
 	e = RegisterHookLayer("test-setup", testReplaceLayerTemplate{})
-	if e == nil || !errors.Is(e, ErrLayerRegistered) {
-		t.Fatalf("expecting ErrLayerRegistered, got: %s", e)
-	}
+	test.ExpectErrorCode(t, LayerRegisteredError, e)
 
 	_, e = New(g)
 	if e != nil {

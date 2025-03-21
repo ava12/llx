@@ -4,7 +4,6 @@ package parser
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -116,7 +115,7 @@ type HookLayer interface {
 // HookLayerTemplate is used to create hook layers for different grammars.
 type HookLayerTemplate interface {
 	// Setup is called for every hook layer used by specific grammar.
-	Setup(commands []grammar.LayerCommand, parser *Parser) (HookLayer, error)
+	Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error)
 }
 
 var (
@@ -132,7 +131,7 @@ func RegisterHookLayer(name string, tpl HookLayerTemplate) error {
 
 	_, has := knownHookLayers[name]
 	if has {
-		return fmt.Errorf("%s: %w", name, ErrLayerRegistered)
+		return layerRegisteredError(name)
 	}
 
 	knownHookLayers[name] = tpl
@@ -240,7 +239,7 @@ func New(g *grammar.Grammar, opts ...Option) (*Parser, error) {
 				tpl, has = knownHookLayers[layerDef.Type]
 			}
 			if !has {
-				return nil, fmt.Errorf("%s: %w", layerDef.Type, ErrUnknownLayer)
+				return nil, unknownLayerError(layerDef.Type)
 			}
 
 			config, e := tpl.Setup(layerDef.Commands, result)
@@ -286,6 +285,13 @@ func (p *Parser) IsSpecialType(tt int) bool {
 // IsValidType returns true if given argument is a valid token type that can be used by parser.
 func (p *Parser) IsValidType(tt int) bool {
 	return tt >= lexer.LowestTokenType && tt < len(p.grammar.Tokens) && tt != grammar.AnyToken
+}
+
+// TokenType returns token type for given type name and true if given argument is a valid token type name.
+// Returns false if type name is unknown to parser.
+func (p *Parser) TokenType(typeName string) (tokenType int, valid bool) {
+	tokenType, valid = p.tokenNames[typeName]
+	return
 }
 
 // MakeToken generates artificial token.

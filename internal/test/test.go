@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
+
+	"github.com/ava12/llx"
 )
 
 func fatalf(t *testing.T, message string, params ...any) {
@@ -37,4 +39,15 @@ func ExpectBool(t *testing.T, expected, got bool) {
 
 func ExpectInt(t *testing.T, expected, got int) {
 	Expect(t, expected == got, expected, got)
+}
+
+func ExpectErrorCode(t *testing.T, expected int, e error) {
+	if e != nil {
+		ee, valid := e.(*llx.Error)
+		if valid && ee.Code == expected {
+			return
+		}
+	}
+
+	fatalf(t, "expecting error code %d, got %v", expected, e)
 }
