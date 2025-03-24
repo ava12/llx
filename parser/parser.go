@@ -109,7 +109,7 @@ type Hooks struct {
 // HookLayer is a token/node hook layer configured for specific grammar.
 type HookLayer interface {
 	// Init is called for each layer when parsing context is created but before parsing is started.
-	Init(ctx context.Context, pc *ParseContext) (Hooks, error)
+	Init(ctx context.Context, pc *ParseContext) Hooks
 }
 
 // HookLayerTemplate is used to create hook layers for different grammars.
@@ -366,11 +366,7 @@ func newParseContext(ctx context.Context, p *Parser, q *source.Queue, hs Hooks) 
 	}
 
 	for i := len(p.layers) - 1; i >= 0; i-- {
-		hooks, e := p.layers[i].Init(ctx, result)
-		if e != nil {
-			return nil, e
-		}
-
+		hooks := p.layers[i].Init(ctx, result)
 		newHookLayer(p, result, hooks)
 	}
 

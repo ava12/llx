@@ -482,8 +482,8 @@ func TestContext(t *testing.T) {
 
 type testLayer Hooks
 
-func (l testLayer) Init(context.Context, *ParseContext) (Hooks, error) {
-	return Hooks(l), nil
+func (l testLayer) Init(context.Context, *ParseContext) Hooks {
+	return Hooks(l)
 }
 
 type testReplaceLayerEntry struct {
