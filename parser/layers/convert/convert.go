@@ -1,0 +1,160 @@
+/*
+Package convert contains layer template to convert specific tokens to other tokens
+with different type and/or content.
+
+Contains no exported definitions. Registers hook layer template named "convert",
+panics if template with this name already registered.
+
+Layer definition looks like:
+
+	@convert input-type(digraph) output-type(op) save-position() convert('(.', '[', '.)', ']');
+
+Layer definition must contain at least one "convert" command:
+
+	convert(<from>, <to>, <from>, <to>, ...)
+
+Command expects non-zero number of argument pairs, first argument in pair defines input token text
+and the second one defines output token text.
+
+Definition may also contain optional commands:
+
+	input-type(<token_type>)
+
+Command takes single argument defining hooked token type name.
+By default all token types are hooked.
+
+	output-type(<token_type>)
+
+Command takes single argument defining output token type name.
+By default output token has the same type as input one.
+
+	save-position()
+
+Takes no arguments, instructs layer to copy position information from input token to output.
+By default output token has no position information.
+*/
+package convert
+
+import (
+	"context"
+
+	"github.com/ava12/llx/grammar"
+	"github.com/ava12/llx/internal/bmap"
+	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/parser"
+	"github.com/ava12/llx/parser/layers/common"
+	"github.com/ava12/llx/source"
+)
+
+func init() {
+	e := parser.RegisterHookLayer("convert", template{})
+	if e != nil {
+		panic(e)
+	}
+}
+
+type layer parser.Hooks
+
+func (l layer) Init(context.Context, *parser.ParseContext) parser.Hooks {
+	return parser.Hooks(l)
+}
+
+type template struct{}
+
+func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (parser.HookLayer, error) {
+	inputTypeName := parser.AnyToken
+	outputTypeName := ""
+	var outputType int
+	replaces := bmap.New[[]byte](len(commands))
+	savePosition := false
+	gotReplaces := false
+	var dynamicType bool
+
+	for _, command := range commands {
+		switch command.Command {
+
+		case "input-type", "output-type":
+			if len(command.Arguments) != 1 {
+				return nil, common.MakeNumberOfArgumentsError("convert", command.Command, 1, len(command.Arguments))
+			}
+
+			_, valid := p.TokenType(command.Arguments[0])
+			if !valid {
+				return nil, common.MakeUnknownTokenTypeError("convert", command.Command, command.Arguments[0])
+			}
+
+			if command.Command == "input-type" {
+				if inputTypeName != "" {
+					return nil, common.MakeCommandAlreadyUsedError("convert", command.Command)
+				}
+
+				inputTypeName = command.Arguments[0]
+			} else {
+				if outputTypeName != "" {
+					return nil, common.MakeCommandAlreadyUsedError("convert", command.Command)
+				}
+
+				outputTypeName = command.Arguments[0]
+			}
+
+		case "convert":
+			gotReplaces = true
+			l := len(command.Arguments)
+			if l == 0 || l&1 != 0 {
+				return nil, common.MakeNumberOfArgumentsError("convert", command.Command, (l+2)&^1, l)
+			}
+
+			for i := 0; i < l; i += 2 {
+				from := command.Arguments[i]
+				_, has := replaces.GetString(from)
+				if has {
+					return nil, common.MakeInvalidArgumentError("convert", "convert", from, "this conversion already defined")
+				}
+
+				replaces.SetString(from, []byte(command.Arguments[i+1]))
+			}
+
+		case "save-position":
+			savePosition = true
+
+		default:
+			return nil, common.MakeUnknownCommandError("convert", command.Command)
+		}
+	}
+
+	if !gotReplaces {
+		return nil, common.MakeMissingCommandError("convert", "convert")
+	}
+
+	if outputTypeName == "" && inputTypeName != "" {
+		outputTypeName = inputTypeName
+	}
+	dynamicType = outputTypeName == ""
+	if !dynamicType {
+		outputType, _ = p.TokenType(outputTypeName)
+	}
+
+	return layer{
+		Tokens: parser.TokenHooks{
+			inputTypeName: func(_ context.Context, token *parser.Token, _ *parser.ParseContext) (emit bool, extra []*parser.Token, e error) {
+				replace, has := replaces.Get(token.Content())
+				if !has {
+					return true, nil, nil
+				}
+
+				var pos source.Pos
+				if savePosition {
+					pos = token.Pos()
+				}
+				var newToken *parser.Token
+				if dynamicType {
+					newToken = lexer.NewToken(token.Type(), token.TypeName(), replace, pos)
+				} else {
+					newToken = lexer.NewToken(outputType, outputTypeName, replace, pos)
+				}
+
+				return false, []*parser.Token{newToken}, nil
+			},
+		},
+	}, nil
+}

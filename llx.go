@@ -34,6 +34,7 @@ const (
 	LexicalErrors = 101 // used by lexer
 	SyntaxErrors  = 201 // used by parser
 	ParserErrors  = 301 // used by parser
+	LayerErrors   = 401 // used by standard hook layers
 )
 
 // Error is the error type used by llx subpackages.
