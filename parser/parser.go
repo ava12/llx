@@ -77,8 +77,11 @@ func defaultNodeHook(context.Context, string, *Token, *ParseContext) (NodeHookIn
 
 // Special token type names used by token hooks.
 const (
-	AnyToken = ""                 // any token type
-	EofToken = lexer.EofTokenName // end-of-file token
+	// AnyToken means any token type defined in grammar, not counting EoF nor EoI special tokens.
+	AnyToken = ""
+	// EofToken means special end-of-file token emitted after the end of source file.
+	EofToken = lexer.EofTokenName
+	// EoiToken means special end-of-input token emitted right after the EoF token of the last source file.
 	EoiToken = lexer.EoiTokenName // end-of-input token
 )
 
