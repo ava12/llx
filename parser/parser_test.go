@@ -25,13 +25,8 @@ type srcErrSample struct {
 	err int
 }
 
-var testTokenHooks = TokenHooks{
-	AnyToken: func(_ context.Context, token *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
-		return true, nil, nil
-	},
-}
-
-func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []srcExprSample, ths, lhs TokenHooks) {
+func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []srcExprSample,
+	ths, lhs TokenHooks, opts ...ParseOption) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
@@ -40,7 +35,7 @@ func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []s
 
 	p, _ := New(g)
 	for i, sample := range samples {
-		n, e := parseAsTestNode(context.Background(), p, sample.src, ths, lhs)
+		n, e := parseAsTestNode(context.Background(), p, sample.src, ths, lhs, opts...)
 		if e != nil {
 			t.Errorf("grammar %q, sample #%d: got error: %s", name, i, e.Error())
 			continue
@@ -53,13 +48,10 @@ func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []s
 	}
 }
 
-func testGrammarSamples(t *testing.T, name, grammar string, samples []srcExprSample, captureAside bool) {
+func testGrammarSamples(t *testing.T, name, grammar string, samples []srcExprSample, opts ...ParseOption) {
 	var hs TokenHooks
 
-	if captureAside {
-		hs = testTokenHooks
-	}
-	testGrammarSamplesWithHooks(t, name, grammar, samples, hs, nil)
+	testGrammarSamplesWithHooks(t, name, grammar, samples, hs, nil, opts...)
 }
 
 func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []srcErrSample, hs Hooks) {
@@ -154,7 +146,7 @@ func TestSimple(t *testing.T) {
 		{"bbb", "(b b b)(b b)"},
 		{"cabcaa", "(c c (a a) (b b) (c c (a a a)))"},
 	}
-	testGrammarSamples(t, name, grammar, samples, false)
+	testGrammarSamples(t, name, grammar, samples)
 }
 
 func TestAside(t *testing.T) {
@@ -165,7 +157,7 @@ func TestAside(t *testing.T) {
 		{"a-a-a", "a - a - a"},
 		{"--b--c--", "- - b - - c - -"},
 	}
-	testGrammarSamples(t, name, grammar, samples, true)
+	testGrammarSamples(t, name, grammar, samples, WithAsides())
 }
 
 func TestAri(t *testing.T) {
@@ -187,7 +179,7 @@ func TestAri(t *testing.T) {
 	}
 	g, _ := langdef.ParseString("ari", grammar)
 	fmt.Printf("%v\r\n%v\r\n%v\r\n", g.States, g.Rules, g.Nodes)
-	testGrammarSamples(t, name, grammar, samples, false)
+	testGrammarSamples(t, name, grammar, samples)
 }
 
 func TestMultiRuleAri(t *testing.T) {
@@ -212,7 +204,7 @@ func TestMultiRuleAri(t *testing.T) {
 			"(sum (val 2) + (pro (pow (val 3) ^ (val 4)) * (val 5)))",
 		},
 	}
-	testGrammarSamples(t, name, grammar, samples, false)
+	testGrammarSamples(t, name, grammar, samples)
 }
 
 func TestTokenHooks(t *testing.T) {
@@ -320,7 +312,7 @@ func TestCaselessTokens(t *testing.T) {
 	samples := []srcExprSample{
 		{"foo BAR BAZ Bar foo FOO qux", "(key foo) BAR BAZ (key Bar) foo (key FOO) qux"},
 	}
-	testGrammarSamples(t, name, grammar, samples, false)
+	testGrammarSamples(t, name, grammar, samples)
 }
 
 func TestTrailingAsides(t *testing.T) {
@@ -332,7 +324,7 @@ func TestTrailingAsides(t *testing.T) {
 		{"--a--b--", "- - (ch a) - - (ch b) - -"},
 		//{"-[-a-1-[-b-]-]-", "- (bl [ - (ch a - 1) - (bl [ - (ch b) - ] ) - ] ) -"},
 	}
-	testGrammarSamples(t, name, grammar, samples, true)
+	testGrammarSamples(t, name, grammar, samples, WithAsides())
 }
 
 func TestReservedLiterals(t *testing.T) {
@@ -340,7 +332,7 @@ func TestReservedLiterals(t *testing.T) {
 	g1 := "!reserved 'var'; " + g0
 	src := "var var"
 	expected := "var var"
-	testGrammarSamples(t, "correct", g0, []srcExprSample{{src, expected}}, false)
+	testGrammarSamples(t, "correct", g0, []srcExprSample{{src, expected}})
 	testErrorSamples(t, "reserved", g1, []srcErrSample{{src, UnexpectedTokenError}})
 }
 

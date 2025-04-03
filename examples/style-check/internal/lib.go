@@ -146,7 +146,7 @@ func parseSource(s *source.Source) (tree.Element, error) {
 		Tokens: parser.TokenHooks{parser.AnyToken: handleToken},
 		Nodes:  parser.NodeHooks{parser.AnyNode: tree.NodeHook},
 	}
-	res, e := p.Parse(context.Background(), q, hs)
+	res, e := p.Parse(context.Background(), q, hs, parser.WithAsides())
 	if e == nil {
 		return res.(tree.Element), nil
 	} else {

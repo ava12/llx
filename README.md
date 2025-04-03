@@ -1,7 +1,7 @@
 # Universal LL(*) parser library
 
 The goal is to create a library suitable for making different parsing tools (translators, linters, style 
-checkers/formatters, etc.). It is not meant to be superfast or to be able to process gigabyte files. Grammars are 
+checkers/formatters, etc.). It is not meant to be super-fast or to be able to process gigabyte files. Grammars are 
 described in EBNF-like language, but unlike most parser generators this library does not generate _parsers_, only 
 _data_ used by the built-in parser.
 
@@ -99,17 +99,7 @@ split again. Branch is discarded when a syntax error encountered or when the nod
 from the stack (thus the variant consuming the longest run of tokens will be preferred). This process is stopped 
 when there is only one (or none) branch left, and then captured tokens and rules are «replayed» using node hooks.
 
-## Implemented features
-
-  - [x] multiple sources for the same parsing process
-  - [x] multiple parsers for the same source queue
-  - [x] multiple lexers for the same grammar
-  - [x] aside tokens
-  - [x] external tokens
-  - [x] token hooks
-  - [x] node hooks
-  - [x] parse tree generation and manipulation
-
+## Features
 
 ### Multiple sources for the same parsing process
 
@@ -131,8 +121,7 @@ text and another one for tag internal parts.
 ### Aside tokens
 
 A source may contain tokens which are not used in grammar rules, e.g. spaces, line breaks, comments. Such tokens 
-still can be hooked, e.g. to autogenerate semicolons at line breaks. Normally aside tokens are dropped, but token 
-hooks can instruct the parser to keep them, e.g. keep comments for documentation generator.
+still can be hooked, e.g. to autogenerate semicolons at line breaks.
 
 ### External tokens
 
@@ -155,3 +144,5 @@ specific (or any) nodes. The events are:
     parent node (or returned as parsing result if it is the root node);
   - new token is consumed;
   - nested node is dropped from the stack; handler receives the value returned by nested node handler.
+
+By default only non-aside tokens are sent to node hooks. Parse option `WithAsides()` can be used to send all tokens, even aside ones, e.g. to keep comments for documentation generator.

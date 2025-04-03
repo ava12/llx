@@ -301,16 +301,11 @@ func Parse(name string, src *[]byte) (*Conf, error) {
 	}
 
 	hs := parser.Hooks{
-		Tokens: parser.TokenHooks{
-			parser.AnyToken: func(context.Context, *lexer.Token, *parser.ParseContext) (bool, []*parser.Token, error) {
-				return true, nil, nil
-			},
-		},
 		Nodes: parser.NodeHooks{
 			parser.AnyNode: tree.NodeHook,
 		},
 	}
-	root, e := p.Parse(context.Background(), queue, hs)
+	root, e := p.Parse(context.Background(), queue, hs, parser.WithAsides())
 	if e != nil {
 		return nil, e
 	}

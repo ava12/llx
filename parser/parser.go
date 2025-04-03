@@ -22,7 +22,7 @@ type Token = lexer.Token
 // TokenHook allows to perform additional actions when token is fetched from lexer, but before
 // it is fed to parser, e.g. emit external $indent/$dedent tokens when text indentation changes,
 // fetch complex lexemes (e.g. heredoc strings).
-// emit flag set to true means that incoming token (even aside one) must be fed to parser,
+// emit flag set to true means that incoming token must be fed to parser,
 // false means that it must be skipped.
 // extra contains additional tokens that must be fed to parser after or instead of hooked one.
 type TokenHook = func(ctx context.Context, token *Token, pc *ParseContext) (emit bool, extra []*Token, e error)
@@ -94,7 +94,7 @@ type TokenHooks map[string]TokenHook
 type NodeHooks map[string]NodeHook
 
 // Hooks contains all token and node hooks used in parsing process.
-// Default action when no suitable token hook found is to drop aside token and use non-aside token as is.
+// Default action when no suitable token hook found is to use token as is.
 type Hooks struct {
 	// Tokens contains hooks for different token types. Key is either token type name or AnyToken constant.
 	// AnyToken hook is a fallback.
@@ -146,7 +146,7 @@ type parserSettings struct {
 }
 
 // Option is an optional argument for New
-type Option func(ps *parserSettings)
+type Option func(*parserSettings)
 
 // WithLayerTemplates defines hook layer templates that override registered ones.
 func WithLayerTemplates(templates map[string]HookLayerTemplate) Option {
@@ -257,12 +257,27 @@ func New(g *grammar.Grammar, opts ...Option) (*Parser, error) {
 	return result, nil
 }
 
+// ParseOption is an optional argument for Parser.Parse*
+type ParseOption func(*ParseContext)
+
+// WithAsides instructs parser to pass all tokens (include aside ones) to node hooks.
+// By default only non-aside tokens are passed to node hooks.
+func WithAsides() ParseOption {
+	return func(pc *ParseContext) {
+		pc.passAsides = true
+	}
+}
+
 // Parse launches new parsing process with new ParseContext.
 // result is the value returned by root node hook or nil if no node hooks used.
-func (p *Parser) Parse(ctx context.Context, q *source.Queue, hs Hooks) (result any, e error) {
+func (p *Parser) Parse(ctx context.Context, q *source.Queue, hs Hooks, opts ...ParseOption) (result any, e error) {
 	pc, e := newParseContext(ctx, p, q, hs)
 	if e != nil {
 		return nil, e
+	}
+
+	for _, opt := range opts {
+		opt(pc)
 	}
 
 	return pc.parse(ctx)
@@ -270,9 +285,9 @@ func (p *Parser) Parse(ctx context.Context, q *source.Queue, hs Hooks) (result a
 
 // ParseString is same as Parse, except it creates source queue containing single source having
 // provided content with provided name (name may be empty).
-func (p *Parser) ParseString(ctx context.Context, name, content string, hs Hooks) (result any, e error) {
+func (p *Parser) ParseString(ctx context.Context, name, content string, hs Hooks, opts ...ParseOption) (result any, e error) {
 	q := source.NewQueue().Append(source.New(name, []byte(content)))
-	return p.Parse(ctx, q, hs)
+	return p.Parse(ctx, q, hs, opts...)
 }
 
 // IsAsideType returns true if given argument is a valid aside token type.
@@ -333,7 +348,7 @@ type ParseContext struct {
 	appliedRules *queue.Queue[grammar.Rule]
 	lastResult   any
 	node         *nodeRec
-	watchAsides  bool
+	passAsides   bool
 	watchNodes   bool
 }
 
@@ -351,7 +366,6 @@ func newParseContext(ctx context.Context, p *Parser, q *source.Queue, hs Hooks) 
 		tokenHooks:   make([]tokenHookRec, 0, len(p.layers)+1),
 		nodeHooks:    make([][]NodeHook, 0, len(p.layers)+1),
 		appliedRules: queue.New[grammar.Rule](),
-		watchAsides:  len(hs.Tokens)+len(hs.Literals) != 0,
 		watchNodes:   len(hs.Nodes) != 0,
 	}
 
@@ -796,56 +810,56 @@ func (pc *ParseContext) nextToken(ctx context.Context, types grammar.BitSet) (*T
 	}
 
 	for {
-		tok, handled, e := pc.pullToken(ctx, types, 0)
+		tok, e := pc.pullToken(ctx, types, 0)
 		if e != nil {
 			return nil, e
 		}
 
 		isAside := tok != nil && pc.parser.IsAsideType(tok.Type())
 		isEof := tok != nil && tok.Type() == lexer.EofTokenType
-		if !isEof && (!isAside || (handled && pc.watchAsides)) {
+		if !isEof && (!isAside || pc.passAsides) {
 			return tok, nil
 		}
 	}
 }
 
-func (pc *ParseContext) pullToken(ctx context.Context, types grammar.BitSet, layer int) (*Token, bool, error) {
+func (pc *ParseContext) pullToken(ctx context.Context, types grammar.BitSet, layer int) (*Token, error) {
 	if layer >= len(pc.tokenHooks) {
 		tok, e := pc.fetchToken(ctx, types)
-		return tok, false, e
+		return tok, e
 	}
 
 	queue := pc.tokenHooks[layer].tokens
 	result, fetched := queue.First()
 	if fetched {
-		return result, true, nil
+		return result, nil
 	}
 
 	for {
-		result, _, e := pc.pullToken(ctx, types, layer+1)
+		result, e := pc.pullToken(ctx, types, layer+1)
 		if e != nil {
-			return nil, false, e
+			return nil, e
 		}
 
-		handled, emit, extra, e := pc.handleToken(ctx, result, pc.tokenHooks[layer].hooks)
+		emit, extra, e := pc.handleToken(ctx, result, pc.tokenHooks[layer].hooks)
 		if e != nil {
-			return nil, handled, e
+			return nil, e
 		}
 
 		for _, tok := range extra {
 			if !pc.parser.IsValidType(tok.Type()) {
-				return nil, false, emitWrongTokenError(tok)
+				return nil, emitWrongTokenError(tok)
 			}
 			queue.Append(tok)
 		}
 
 		if emit {
-			return result, handled, nil
+			return result, nil
 		}
 
 		result, fetched = queue.First()
 		if fetched {
-			return result, true, nil
+			return result, nil
 		}
 	}
 }
@@ -876,14 +890,14 @@ func (pc *ParseContext) nextRule(ctx context.Context, t *Token, s grammar.State)
 	return
 }
 
-func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []TokenHook) (handled, emit bool, extra []*Token, e error) {
+func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []TokenHook) (emit bool, extra []*Token, e error) {
 	if tok == nil {
-		return false, true, nil, nil
+		return true, nil, nil
 	}
 
 	e = ctx.Err()
 	if e != nil {
-		return false, false, nil, e
+		return false, nil, e
 	}
 
 	maxTokenType := len(hooks) - tokenHooksOffset - 1
@@ -914,7 +928,7 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 	}
 
 	if hook == nil {
-		return false, true, nil, nil
+		return true, nil, nil
 	}
 
 	emit, extra, e = hook(ctx, tok, pc)
@@ -925,7 +939,7 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 			extra = append(extra, tok)
 		}
 	}
-	return true, emit, extra, e
+	return emit, extra, e
 }
 
 func (pc *ParseContext) fetchToken(_ context.Context, types grammar.BitSet) (*Token, error) {

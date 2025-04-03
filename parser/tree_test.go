@@ -167,10 +167,10 @@ func (tv *treeValidator) validate() error {
 	}
 }
 
-func parseAsTestNode(ctx context.Context, parser *Parser, src string, ths, lhs TokenHooks) (*treeNode, error) {
+func parseAsTestNode(ctx context.Context, parser *Parser, src string, ths, lhs TokenHooks, opts ...ParseOption) (*treeNode, error) {
 	hs := Hooks{ths, lhs, testNodeHooks}
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
-	r, e := parser.Parse(ctx, q, hs)
+	r, e := parser.Parse(ctx, q, hs, opts...)
 	if e == nil {
 		return r.(*treeNode), nil
 	} else {
