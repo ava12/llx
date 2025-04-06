@@ -51,3 +51,9 @@ func ExpectErrorCode(t *testing.T, expected int, e error) {
 
 	fatalf(t, "expecting error code %d, got %v", expected, e)
 }
+
+func ExpectNoError(t *testing.T, e error) {
+	if e != nil {
+		fatalf(t, "unexpected error: %s", e)
+	}
+}

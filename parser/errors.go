@@ -25,6 +25,8 @@ const (
 	LayerRegisteredError
 	// trying to use unknown layer template
 	UnknownLayerError
+	// non-aside tokens left in source file(s) after parsing is done
+	RemainingSourceError
 )
 
 func unexpectedEofError(t *lexer.Token, expected string) *llx.Error {
@@ -57,4 +59,8 @@ func layerRegisteredError(name string) *llx.Error {
 
 func unknownLayerError(name string) *llx.Error {
 	return llx.FormatError(UnknownLayerError, "layer %q is not registered", name)
+}
+
+func remainingSourceError(t *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(t, RemainingSourceError, "got %q token after end of source", t.TypeName())
 }

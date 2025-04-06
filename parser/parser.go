@@ -268,6 +268,17 @@ func WithAsides() ParseOption {
 	}
 }
 
+// WithFullSource instructs parser to check whether there are any non-aside tokens left
+// in source file after parsing is done.
+// By default parser stops and returns result as soon as root node is finalized,
+// no matter if end of source is reached or not.
+// With this option parser returns error if there are any non-aside tokens left.
+func WithFullSource() ParseOption {
+	return func(pc *ParseContext) {
+		pc.fullSource = true
+	}
+}
+
 // Parse launches new parsing process with new ParseContext.
 // result is the value returned by root node hook or nil if no node hooks used.
 func (p *Parser) Parse(ctx context.Context, q *source.Queue, hs Hooks, opts ...ParseOption) (result any, e error) {
@@ -350,6 +361,7 @@ type ParseContext struct {
 	node         *nodeRec
 	passAsides   bool
 	watchNodes   bool
+	fullSource   bool
 }
 
 const (
@@ -594,7 +606,6 @@ func (pc *ParseContext) parse(ctx context.Context) (any, error) {
 						return nil, e
 					}
 				}
-
 				expected := pc.getExpectedToken(gr.States[nt.state])
 				if tok.Type() == lexer.EoiTokenType {
 					e = unexpectedEofError(tok, expected)
@@ -635,7 +646,25 @@ func (pc *ParseContext) parse(ctx context.Context) (any, error) {
 			if s != pc.sources.Source() {
 				pc.sources.Prepend(s)
 			}
-			pc.sources.Seek(s.Pos(tok.Line(), tok.Col()))
+			pc.sources.Seek(tok.Pos().Pos())
+		}
+	}
+
+	if pc.fullSource && tok.Type() != lexer.EoiTokenType {
+		for {
+			tok, e = pc.nextToken(ctx, lexer.AllTokenTypes)
+			if e != nil {
+				return nil, e
+			}
+
+			tt := tok.Type()
+			if tt == lexer.EoiTokenType {
+				break
+			}
+
+			if !pc.parser.IsAsideType(tt) {
+				return nil, remainingSourceError(tok)
+			}
 		}
 	}
 
@@ -825,7 +854,7 @@ func (pc *ParseContext) nextToken(ctx context.Context, types grammar.BitSet) (*T
 
 func (pc *ParseContext) pullToken(ctx context.Context, types grammar.BitSet, layer int) (*Token, error) {
 	if layer >= len(pc.tokenHooks) {
-		tok, e := pc.fetchToken(ctx, types)
+		tok, e := pc.fetchToken(types)
 		return tok, e
 	}
 
@@ -942,7 +971,7 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 	return emit, extra, e
 }
 
-func (pc *ParseContext) fetchToken(_ context.Context, types grammar.BitSet) (*Token, error) {
+func (pc *ParseContext) fetchToken(types grammar.BitSet) (*Token, error) {
 	var firstError error
 	var result *Token
 	var e error

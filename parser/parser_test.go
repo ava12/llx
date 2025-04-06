@@ -138,6 +138,35 @@ func TestHandlerKeyErrors(t *testing.T) {
 	}
 }
 
+func TestRemainingSourceError(t *testing.T) {
+	grammar := `!aside $space; $space = /\s+/; $name = /\w+/; g = {b}; b = 'do', {s}, 'done'; s = $name | b;`
+	samples := []struct {
+		src   string
+		isErr bool
+	}{
+		{"do foo done", false},
+		{"do foo done\n  ", false},
+		{"do foo done bar", true},
+	}
+	g, e := langdef.ParseString("", grammar)
+	test.ExpectNoError(t, e)
+
+	p, e := New(g)
+	test.ExpectNoError(t, e)
+
+	for i, sample := range samples {
+		name := fmt.Sprintf("sample #%d", i)
+		t.Run(name, func(t *testing.T) {
+			_, e = p.ParseString(context.Background(), "", sample.src, Hooks{}, WithFullSource())
+			if sample.isErr {
+				test.ExpectErrorCode(t, RemainingSourceError, e)
+			} else {
+				test.ExpectNoError(t, e)
+			}
+		})
+	}
+}
+
 func TestSimple(t *testing.T) {
 	name := "simple"
 	grammar := "$char = /\\w/; s = {a | b | c}; a = 'a',{'a'}; b = 'b', ['b']; c = 'c', {a | b | c};"
@@ -162,7 +191,8 @@ func TestAside(t *testing.T) {
 
 func TestAri(t *testing.T) {
 	name := "ari"
-	grammar := spaceDef + "$num=/-?\\d+/; $op=/[()^*\\/+-]/; $minus=/-/; !group $minus; ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num;"
+	grammar := spaceDef + "$num=/-?\\d+/; $op=/[()^*\\/+-]/; $minus=/-/; !group $minus; " +
+		"ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num;"
 	samples := []srcExprSample{
 		{
 			"2 + 2",
