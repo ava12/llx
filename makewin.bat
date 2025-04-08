@@ -16,7 +16,7 @@ go generate ./examples/style-check/internal
 @goto end
 
 :test
-go test . ./internal/ints ./internal/queue  ./internal/bmap ./source ./lexer ./langdef ./parser ./tree
+go test . ./internal/ints ./internal/queue  ./internal/bmap ./source ./lexer ./langdef ./parser/... ./tree
 go test ./examples/calc/internal ./examples/conf-edit/internal ./examples/style-check/internal
 
 :end
