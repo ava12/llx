@@ -1,6 +1,8 @@
 package common
 
-import "github.com/ava12/llx"
+import (
+	"github.com/ava12/llx"
+)
 
 const (
 	UnknownCommandError = llx.LayerErrors + iota
@@ -9,6 +11,7 @@ const (
 	InvalidArgumentError
 	CommandAlreadyUsedError
 	UnknownTokenTypeError
+	WrongTokenError
 )
 
 func MakeUnknownCommandError(layer, command string) *llx.Error {
@@ -36,4 +39,8 @@ func MakeCommandAlreadyUsedError(layer, command string) *llx.Error {
 func MakeUnknownTokenTypeError(layer, command, typeName string) *llx.Error {
 	return llx.FormatError(UnknownTokenTypeError, "unknown token type %q for %q command for %q layer",
 		typeName, command, layer)
+}
+
+func MakeWrongTokenError(layer, token, reason string) *llx.Error {
+	return llx.FormatError(WrongTokenError, "wrong %s token for %q layer: %s", token, layer, reason)
 }

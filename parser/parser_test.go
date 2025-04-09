@@ -247,24 +247,24 @@ func TestTokenHooks(t *testing.T) {
 
 	prevTokenText := ""
 	ths := TokenHooks{
-		"char": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+		"char": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 			f := t.Text() != prevTokenText // x x -> x
 			prevTokenText = t.Text()
 			return f, nil, nil
 		},
-		AnyToken: func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+		AnyToken: func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 			return false, []*Token{lexer.NewToken(0, "space", []byte{'_'}, source.Pos{})}, nil // " " -> _
 		},
 	}
 	lhs := TokenHooks{
-		"e": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+		"e": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 			if prevTokenText != "b" {
 				return true, nil, nil
 			}
 
 			return false, []*Token{lexer.NewToken(1, "char", []byte("ee"), source.Pos{})}, nil // e -> ee
 		},
-		"c": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+		"c": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 			extra := []*Token{
 				lexer.NewToken(1, "char", []byte{'a'}, source.Pos{}),
 				t,
@@ -294,7 +294,7 @@ func TestEofHooks(t *testing.T) {
 
 	prevIndent := 0
 	hooks := TokenHooks{
-		"indent": func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+		"indent": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 			text := t.Text()
 			indent := len(text)
 			if text[0] == '\n' {
@@ -312,7 +312,7 @@ func TestEofHooks(t *testing.T) {
 			}
 			return false, extra, e
 		},
-		EofToken: func(_ context.Context, t *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
+		EofToken: func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 			var e error
 			var extra []*Token
 			for prevIndent > 0 {
@@ -442,7 +442,7 @@ func TestNodeHooks(t *testing.T) {
 	result := make([]string, 0)
 	hs := Hooks{
 		Nodes: NodeHooks{
-			AnyNode: func(_ context.Context, node string, token *Token, pc *ParseContext) (NodeHookInstance, error) {
+			AnyNode: func(_ context.Context, node string, token *Token, _ *NodeContext) (NodeHookInstance, error) {
 				return &nthi{node, &result}, nil
 			},
 		},
@@ -484,7 +484,7 @@ func TestContext(t *testing.T) {
 	}
 
 	src := "foo bar baz"
-	tokenHook := func(_ context.Context, tok *lexer.Token, _ *ParseContext) (bool, []*Token, error) {
+	tokenHook := func(_ context.Context, tok *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
 		time.Sleep(time.Second)
 		return true, nil, nil
 	}
@@ -543,7 +543,7 @@ func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Pars
 		replaces[key] = entry
 	}
 
-	handler := func(_ context.Context, tok *Token, _ *ParseContext) (emit bool, extra []*Token, e error) {
+	handler := func(_ context.Context, tok *Token, _ *TokenContext) (emit bool, extra []*Token, e error) {
 		entry, found := replaces[tok.Text()]
 		if !found {
 			entry, found = replaces[""]
@@ -671,7 +671,7 @@ type testLayerRecordTemplate struct {
 func (lt *testLayerRecordTemplate) Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error) {
 	return testLayer{
 		Nodes: NodeHooks{
-			AnyNode: func(ctx context.Context, node string, t *lexer.Token, pc *ParseContext) (NodeHookInstance, error) {
+			AnyNode: func(ctx context.Context, node string, t *lexer.Token, _ *NodeContext) (NodeHookInstance, error) {
 				result := nodeNode(node)
 				if lt.result == nil {
 					lt.result = result
@@ -719,8 +719,8 @@ func TestLayerNodeHooks(t *testing.T) {
 func TestUserLiterals(t *testing.T) {
 	grammar := `$char = /\w/; g = {$char};`
 	hooks := TokenHooks{
-		"f": func(_ context.Context, _ *lexer.Token, pc *ParseContext) (bool, []*Token, error) {
-			newToken, _ := pc.Parser().MakeToken("char", []byte("b"))
+		"f": func(_ context.Context, _ *lexer.Token, tc *TokenContext) (bool, []*Token, error) {
+			newToken, _ := tc.ParseContext().Parser().MakeToken("char", []byte("b"))
 			return false, []*Token{newToken}, nil
 		},
 	}

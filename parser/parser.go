@@ -23,9 +23,9 @@ type Token = lexer.Token
 // it is fed to parser, e.g. emit external $indent/$dedent tokens when text indentation changes,
 // fetch complex lexemes (e.g. heredoc strings).
 // emit flag set to true means that incoming token must be fed to parser,
-// false means that it must be skipped.
+// false means that it must be dropped.
 // extra contains additional tokens that must be fed to parser after or instead of hooked one.
-type TokenHook = func(ctx context.Context, token *Token, pc *ParseContext) (emit bool, extra []*Token, e error)
+type TokenHook = func(ctx context.Context, token *Token, tc *TokenContext) (emit bool, extra []*Token, e error)
 
 // NodeHookInstance receives notifications for node being processed by parser.
 type NodeHookInstance interface {
@@ -48,7 +48,7 @@ type NodeHookInstance interface {
 
 // NodeHook allows to perform actions on nodes emitted by parser.
 // Receives node name and initial token.
-type NodeHook = func(ctx context.Context, node string, token *Token, pc *ParseContext) (NodeHookInstance, error)
+type NodeHook = func(ctx context.Context, node string, token *Token, nc *NodeContext) (NodeHookInstance, error)
 
 type defaultHookInstance struct {
 	result any
@@ -71,7 +71,7 @@ func (dhi *defaultHookInstance) EndNode() (result any, e error) {
 	return dhi.result, nil
 }
 
-func defaultNodeHook(context.Context, string, *Token, *ParseContext) (NodeHookInstance, error) {
+func defaultNodeHook(context.Context, string, *Token, *NodeContext) (NodeHookInstance, error) {
 	return &defaultHookInstance{}, nil
 }
 
@@ -107,6 +107,24 @@ type Hooks struct {
 	// Nodes contains hooks for nodes. Key is either node name or AnyNode constant.
 	// AnyNode hook is a fallback.
 	Nodes NodeHooks
+}
+
+// TokenContext contains methods that may be useful for token hooks.
+type TokenContext struct {
+	pc *ParseContext
+}
+
+func (tc *TokenContext) ParseContext() *ParseContext {
+	return tc.pc
+}
+
+// NodeContext contains methods that may be useful for node hooks.
+type NodeContext struct {
+	pc *ParseContext
+}
+
+func (nc *NodeContext) ParseContext() *ParseContext {
+	return nc.pc
 }
 
 // HookLayer is a token/node hook layer configured for specific grammar.
@@ -825,7 +843,8 @@ func (pc *ParseContext) getNodeHook(ctx context.Context, layerIndex, ntIndex int
 		hook = pc.nodeHooks[layerIndex][anyOffset+nodeHooksOffset]
 	}
 	if hook != nil {
-		res, e = hook(ctx, pc.parser.grammar.Nodes[ntIndex].Name, tok, pc)
+		nc := &NodeContext{pc}
+		res, e = hook(ctx, pc.parser.grammar.Nodes[ntIndex].Name, tok, nc)
 	} else {
 		e = nil
 	}
@@ -960,7 +979,8 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, hooks []Tok
 		return true, nil, nil
 	}
 
-	emit, extra, e = hook(ctx, tok, pc)
+	tc := &TokenContext{pc}
+	emit, extra, e = hook(ctx, tok, tc)
 	if !emit && tt < 0 {
 		if len(extra) == 0 {
 			emit = true

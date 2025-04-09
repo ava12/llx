@@ -45,7 +45,7 @@ func (n *treeNode) EndNode() (result any, e error) {
 	return n, nil
 }
 
-func nodeHook(ctx context.Context, node string, t *lexer.Token, pc *ParseContext) (NodeHookInstance, error) {
+func nodeHook(ctx context.Context, node string, t *lexer.Token, _ *NodeContext) (NodeHookInstance, error) {
 	return nodeNode(node), nil
 }
 

@@ -48,7 +48,7 @@ func (h *treeDefHook) EndNode() (result interface{}, e error) {
 	return h.nt, nil
 }
 
-func newTreeDefHook(_ context.Context, node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
+func newTreeDefHook(_ context.Context, node string, tok *lexer.Token, _ *parser.NodeContext) (parser.NodeHookInstance, error) {
 	return &treeDefHook{nt: &nodeElement{token: tok}, gotName: (node == "tree-def")}, nil
 }
 

@@ -70,7 +70,7 @@ func TestSavePosition(t *testing.T) {
 
 			texts := sample.texts
 			pos := sample.pos
-			handler := func(_ context.Context, token *parser.Token, _ *parser.ParseContext) (emit bool, extra []*parser.Token, e error) {
+			handler := func(_ context.Context, token *parser.Token, _ *parser.TokenContext) (emit bool, extra []*parser.Token, e error) {
 				test.Assert(t, len(texts) != 0, "excessive token %v", token)
 
 				checkToken(t, token, pos[0], 0, "char", texts[0])
@@ -128,7 +128,7 @@ func TestConvert(t *testing.T) {
 			pos := tokenPos
 			texts := sample.texts
 			types := sample.types
-			handler := func(_ context.Context, token *parser.Token, _ *parser.ParseContext) (emit bool, extra []*parser.Token, e error) {
+			handler := func(_ context.Context, token *parser.Token, _ *parser.TokenContext) (emit bool, extra []*parser.Token, e error) {
 				tt := token.Type()
 				if tt == 0 {
 					return false, nil, nil

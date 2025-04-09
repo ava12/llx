@@ -489,7 +489,7 @@ func (v *value) EndNode() (result interface{}, e error) {
 
 var hooks = parser.Hooks{
 	Nodes: parser.NodeHooks{
-		parser.AnyNode: func(_ context.Context, node string, t *parser.Token, pc *parser.ParseContext) (res parser.NodeHookInstance, e error) {
+		parser.AnyNode: func(_ context.Context, node string, t *parser.Token, _ *parser.NodeContext) (res parser.NodeHookInstance, e error) {
 			switch node {
 			case "calcGrammar":
 				res = newRootNode()

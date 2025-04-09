@@ -866,6 +866,6 @@ func (hi *HookInstance) EndNode() (result interface{}, e error) {
 
 // NodeHook implements parser.NodeHook and builds syntax tree.
 // Intended to be used as node hook for parser.AnyNode.
-func NodeHook(_ context.Context, node string, tok *lexer.Token, pc *parser.ParseContext) (parser.NodeHookInstance, error) {
+func NodeHook(_ context.Context, node string, tok *lexer.Token, _ *parser.NodeContext) (parser.NodeHookInstance, error) {
 	return NewHookInstance(node, tok), nil
 }

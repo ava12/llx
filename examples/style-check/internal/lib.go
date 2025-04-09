@@ -154,7 +154,7 @@ func parseSource(s *source.Source) (tree.Element, error) {
 	}
 }
 
-func handleToken(_ context.Context, token *lexer.Token, pc *parser.ParseContext) (emit bool, _ []*parser.Token, e error) {
+func handleToken(_ context.Context, token *lexer.Token, _ *parser.TokenContext) (emit bool, _ []*parser.Token, e error) {
 	tn := token.TypeName()
 	if token.Line() == 1 && token.Col() == 1 && tn == spaceType {
 		return false, []*parser.Token{lexer.NewToken(0, indentType, append([]byte{'\n'}, token.Content()...), token.Pos())}, nil

@@ -44,7 +44,7 @@ value = $name, '=', [$value], $nl;
 	result := make(map[string]string)
 	prefix, name, value := "", "", ""
 	hooks := parser.Hooks{Tokens: parser.TokenHooks{
-		parser.AnyToken: func(_ context.Context, t *parser.Token, pc *parser.ParseContext) (emit bool, extra []*parser.Token, e error) {
+		parser.AnyToken: func(_ context.Context, t *parser.Token, _ *parser.TokenContext) (emit bool, extra []*parser.Token, e error) {
 			switch t.TypeName() {
 			case "sec-name":
 				prefix = t.Text() + "."

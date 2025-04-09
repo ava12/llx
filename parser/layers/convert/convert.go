@@ -46,8 +46,19 @@ import (
 	"github.com/ava12/llx/source"
 )
 
+const (
+	layerName = "convert"
+
+	convertCommand      = "convert"
+	inputTypeCommand    = "input-type"
+	outputTypeCommand   = "output-type"
+	savePositionCommand = "save-position"
+
+	convDefinedErr = "this conversion is already defined"
+)
+
 func init() {
-	e := parser.RegisterHookLayer("convert", template{})
+	e := parser.RegisterHookLayer(layerName, template{})
 	if e != nil {
 		panic(e)
 	}
@@ -73,57 +84,57 @@ func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (pars
 	for _, command := range commands {
 		switch command.Command {
 
-		case "input-type", "output-type":
+		case inputTypeCommand, outputTypeCommand:
 			if len(command.Arguments) != 1 {
-				return nil, common.MakeNumberOfArgumentsError("convert", command.Command, 1, len(command.Arguments))
+				return nil, common.MakeNumberOfArgumentsError(layerName, command.Command, 1, len(command.Arguments))
 			}
 
 			_, valid := p.TokenType(command.Arguments[0])
 			if !valid {
-				return nil, common.MakeUnknownTokenTypeError("convert", command.Command, command.Arguments[0])
+				return nil, common.MakeUnknownTokenTypeError(layerName, command.Command, command.Arguments[0])
 			}
 
-			if command.Command == "input-type" {
+			if command.Command == inputTypeCommand {
 				if inputTypeName != "" {
-					return nil, common.MakeCommandAlreadyUsedError("convert", command.Command)
+					return nil, common.MakeCommandAlreadyUsedError(layerName, command.Command)
 				}
 
 				inputTypeName = command.Arguments[0]
 			} else {
 				if outputTypeName != "" {
-					return nil, common.MakeCommandAlreadyUsedError("convert", command.Command)
+					return nil, common.MakeCommandAlreadyUsedError(layerName, command.Command)
 				}
 
 				outputTypeName = command.Arguments[0]
 			}
 
-		case "convert":
+		case convertCommand:
 			gotReplaces = true
 			l := len(command.Arguments)
 			if l == 0 || l&1 != 0 {
-				return nil, common.MakeNumberOfArgumentsError("convert", command.Command, (l+2)&^1, l)
+				return nil, common.MakeNumberOfArgumentsError(layerName, command.Command, (l+2)&^1, l)
 			}
 
 			for i := 0; i < l; i += 2 {
 				from := command.Arguments[i]
 				_, has := replaces.GetString(from)
 				if has {
-					return nil, common.MakeInvalidArgumentError("convert", "convert", from, "this conversion already defined")
+					return nil, common.MakeInvalidArgumentError(layerName, convertCommand, from, convDefinedErr)
 				}
 
 				replaces.SetString(from, []byte(command.Arguments[i+1]))
 			}
 
-		case "save-position":
+		case savePositionCommand:
 			savePosition = true
 
 		default:
-			return nil, common.MakeUnknownCommandError("convert", command.Command)
+			return nil, common.MakeUnknownCommandError(layerName, command.Command)
 		}
 	}
 
 	if !gotReplaces {
-		return nil, common.MakeMissingCommandError("convert", "convert")
+		return nil, common.MakeMissingCommandError(layerName, convertCommand)
 	}
 
 	if outputTypeName == "" && inputTypeName != "" {
@@ -136,7 +147,7 @@ func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (pars
 
 	return layer{
 		Tokens: parser.TokenHooks{
-			inputTypeName: func(_ context.Context, token *parser.Token, _ *parser.ParseContext) (emit bool, extra []*parser.Token, e error) {
+			inputTypeName: func(_ context.Context, token *parser.Token, _ *parser.TokenContext) (emit bool, extra []*parser.Token, e error) {
 				replace, has := replaces.Get(token.Content())
 				if !has {
 					return true, nil, nil
