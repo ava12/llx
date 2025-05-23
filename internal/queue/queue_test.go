@@ -143,16 +143,19 @@ func TestItems(t *testing.T) {
 	for i := range items {
 		items[i] = i
 	}
-	q := New[int]()
-	q.items = items
-	q.size = l - 1
 
 	for i, s := range samples {
 		name := fmt.Sprintf("sample #%d", i)
 		t.Run(name, func(t *testing.T) {
+			q := New[int]()
+			q.Fill(items)
+			q.items = q.items[:l]
+			q.size = l - 1
+
 			q.head = s.head
 			q.tail = s.tail
 			items := q.Items()
+			q.items[q.head] = -1
 			ExpectInt(t, s.l, len(items))
 			v := s.head
 			for _, i := range items {
@@ -309,5 +312,41 @@ func TestFill(t *testing.T) {
 				ExpectInt(t, sample[i], q.items[i])
 			}
 		})
+	}
+}
+
+func TestPeek(t *testing.T) {
+	steps := []struct {
+		unshift       int
+		fill          []int
+		index, result int
+	}{
+		{0, nil, 0, 0},
+		{0, nil, 1, 0},
+		{0, nil, -1, 0},
+		{0, []int{1, 2, 3}, 1, 2},
+		{0, nil, 2, 3},
+		{0, nil, -1, 3},
+		{0, nil, -3, 1},
+		{0, nil, -4, 0},
+		{0, nil, 3, 0},
+		{2, []int{4, 5, 6}, 3, 6},
+		{0, nil, 0, 3},
+		{0, nil, 4, 0},
+		{0, nil, -1, 6},
+		{0, nil, -4, 3},
+	}
+
+	q := New[int]()
+	for i, step := range steps {
+		for j := step.unshift; j > 0; j-- {
+			q.First()
+		}
+		for _, j := range step.fill {
+			q.Append(j)
+		}
+		result, flag := q.Peek(step.index)
+		Assert(t, result == step.result && flag == (result != 0),
+			"step #%d, index %d: expecting %d, got %d, %t", i, step.index, step.result, result, flag)
 	}
 }

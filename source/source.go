@@ -188,6 +188,13 @@ type queueItem struct {
 	pos    int
 }
 
+// QueueSnapshot contains data used to restore source queue state.
+type QueueSnapshot struct {
+	items  []queueItem
+	source *Source
+	pos    int
+}
+
 // Queue represents a queue of source files to be processed.
 type Queue struct {
 	q      *queue.Queue[queueItem]
@@ -354,6 +361,18 @@ func (q *Queue) LineCol(pos int) (line, col int) {
 	} else {
 		return q.source.LineCol(pos)
 	}
+}
+
+// Snapshot saves source queue state.
+func (q *Queue) Snapshot() QueueSnapshot {
+	return QueueSnapshot{q.q.Items(), q.source, q.pos}
+}
+
+// Restore restores source queue state.
+func (q *Queue) Restore(s QueueSnapshot) {
+	q.source = s.source
+	q.pos = s.pos
+	q.q.Fill(s.items)
 }
 
 // NormalizeNls replaces all occurrences of "\r" and "\r\n" with "\n".

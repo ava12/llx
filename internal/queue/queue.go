@@ -24,14 +24,14 @@ func (q *Queue[T]) Len() int {
 }
 
 func (q *Queue[T]) Items() []T {
-	if q.tail >= q.head {
-		return q.items[q.head:q.tail]
-	}
-
 	l := q.Len()
 	result := make([]T, l)
-	copy(result, q.items[q.head:q.size+1])
-	copy(result[q.size-q.head+1:], q.items[:q.tail])
+	if q.tail >= q.head {
+		copy(result, q.items[q.head:q.tail])
+	} else {
+		copy(result, q.items[q.head:q.size+1])
+		copy(result[q.size-q.head+1:], q.items[:q.tail])
+	}
 	return result
 }
 
@@ -81,6 +81,18 @@ func (q *Queue[T]) Last() (T, bool) {
 	result := q.items[q.tail]
 	q.items[q.tail] = q.zero
 	return result, true
+}
+
+func (q *Queue[T]) Peek(index int) (T, bool) {
+	l := q.Len()
+	if index < 0 {
+		index += l
+	}
+	if index < 0 || index >= l {
+		return q.zero, false
+	}
+
+	return q.items[(q.head+index)&q.size], true
 }
 
 func (q *Queue[T]) Fill(items []T) {

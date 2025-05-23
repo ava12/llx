@@ -508,6 +508,10 @@ func (l testLayer) Init(context.Context, *ParseContext) Hooks {
 	return Hooks(l)
 }
 
+func (l testLayer) Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error) {
+	return l, nil
+}
+
 type testReplaceLayerEntry struct {
 	extra []string
 	emit  bool
@@ -759,5 +763,80 @@ func TestEofEoiHandling(t *testing.T) {
 	}
 	if e != nil {
 		t.Fatalf("got unexpected error: %s", e.Error())
+	}
+}
+
+func TestPeekToken(t *testing.T) {
+	grammar := `$char = /./; g = {$char};
+	@replace replace('c', 'c', 'c', 'c');
+	@replace replace('e', 'i');
+	@tmp;
+	`
+	samples := []struct {
+		src, expected string
+	}{
+		{"con", "cccon"},
+		{"ciao", "chchchiao"},
+		{"dagger", "daghghir"},
+	}
+
+	tmpLayer := testLayer{
+		Tokens: TokenHooks{
+			"char": func(_ context.Context, token *Token, tc *TokenContext) (bool, []*Token, error) {
+				if token.Text() != "c" && token.Text() != "g" {
+					return true, nil, nil
+				}
+
+				triggered := false
+			loop:
+				for {
+					tok, e := tc.PeekToken()
+					if e != nil || tok == nil || tok.Type() < 0 {
+						return true, nil, nil
+					}
+
+					switch tok.Text()[0] {
+					case 'a', 'o', 'u':
+						break loop
+					case 'e', 'i':
+						triggered = true
+						break loop
+					}
+				}
+
+				var extra []*Token
+				if triggered {
+					tok, _ := tc.ParseContext().Parser().MakeToken("char", []byte("h"))
+					extra = append(extra, tok)
+				}
+				return true, extra, nil
+			},
+		},
+	}
+
+	g, e := langdef.ParseString("", grammar)
+	test.ExpectNoError(t, e)
+	p, e := New(g, WithLayerTemplates(map[string]HookLayerTemplate{
+		"replace": testReplaceLayerTemplate{},
+		"tmp":     tmpLayer,
+	}))
+	test.ExpectNoError(t, e)
+
+	for i, sample := range samples {
+		name := fmt.Sprintf("sample #%d", i)
+		t.Run(name, func(t *testing.T) {
+			var got []string
+			hs := Hooks{
+				Tokens: TokenHooks{
+					AnyToken: func(_ context.Context, token *Token, tc *TokenContext) (bool, []*Token, error) {
+						got = append(got, token.Text())
+						return true, nil, nil
+					},
+				},
+			}
+			_, e := p.ParseString(context.Background(), "", sample.src, hs)
+			test.ExpectNoError(t, e)
+			test.ExpectString(t, sample.expected, strings.Join(got, ""))
+		})
 	}
 }

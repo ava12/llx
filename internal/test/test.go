@@ -41,6 +41,10 @@ func ExpectInt(t *testing.T, expected, got int) {
 	Expect(t, expected == got, expected, got)
 }
 
+func ExpectString(t *testing.T, expected, got string) {
+	Expect(t, expected == got, expected, got)
+}
+
 func ExpectErrorCode(t *testing.T, expected int, e error) {
 	if e != nil {
 		ee, valid := e.(*llx.Error)
