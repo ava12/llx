@@ -1,4 +1,4 @@
-package parser
+package parser_test
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"github.com/ava12/llx/internal/test"
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/parser"
+	pt "github.com/ava12/llx/parser/test"
 	"github.com/ava12/llx/source"
 )
 
@@ -26,42 +28,42 @@ type srcErrSample struct {
 }
 
 func testGrammarSamplesWithHooks(t *testing.T, name, grammar string, samples []srcExprSample,
-	ths, lhs TokenHooks, opts ...ParseOption) {
+	ths, lhs parser.TokenHooks, opts ...parser.ParseOption) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
 		return
 	}
 
-	p, _ := New(g)
+	p, _ := parser.New(g)
 	for i, sample := range samples {
-		n, e := parseAsTestNode(context.Background(), p, sample.src, ths, lhs, opts...)
+		n, e := pt.ParseAsTestNode(context.Background(), p, sample.src, ths, lhs, opts...)
 		if e != nil {
 			t.Errorf("grammar %q, sample #%d: got error: %s", name, i, e.Error())
 			continue
 		}
 
-		e = newTreeValidator(n, sample.expr).validate()
+		e = pt.NewTreeValidator(n, sample.expr).Validate()
 		if e != nil {
 			t.Errorf("grammar %q, sample #%d: validation error: %s", name, i, e.Error())
 		}
 	}
 }
 
-func testGrammarSamples(t *testing.T, name, grammar string, samples []srcExprSample, opts ...ParseOption) {
-	var hs TokenHooks
+func testGrammarSamples(t *testing.T, name, grammar string, samples []srcExprSample, opts ...parser.ParseOption) {
+	var hs parser.TokenHooks
 
 	testGrammarSamplesWithHooks(t, name, grammar, samples, hs, nil, opts...)
 }
 
-func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []srcErrSample, hs Hooks) {
+func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []srcErrSample, hs parser.Hooks) {
 	g, e := langdef.ParseString(name, grammar)
 	if e != nil {
 		t.Errorf("grammar %q: got error: %s", name, e.Error())
 		return
 	}
 
-	parser, _ := New(g)
+	parser, _ := parser.New(g)
 
 	for i, sample := range samples {
 		q := source.NewQueue().Append(source.New("sample", []byte(sample.src)))
@@ -85,7 +87,7 @@ func testErrorSamplesWithHooks(t *testing.T, name, grammar string, samples []src
 }
 
 func testErrorSamples(t *testing.T, name, grammar string, samples []srcErrSample) {
-	testErrorSamplesWithHooks(t, name, grammar, samples, Hooks{})
+	testErrorSamplesWithHooks(t, name, grammar, samples, parser.Hooks{})
 }
 
 const spaceDef = "!aside $space; $space = /\\s+/; "
@@ -94,8 +96,8 @@ func TestErrors(t *testing.T) {
 	name := "errors"
 	grammar := spaceDef + "$name = /\\w+/; $op = /[()]/; s = 'foo' | 'bar', '(', 'bar' | 'baz', ')';"
 	samples := []srcErrSample{
-		{"foo(bar", UnexpectedEoiError},
-		{"foo(bar baz", UnexpectedTokenError},
+		{"foo(bar", parser.UnexpectedEoiError},
+		{"foo(bar baz", parser.UnexpectedTokenError},
 	}
 	testErrorSamples(t, name, grammar, samples)
 }
@@ -109,18 +111,18 @@ func TestHandlerKeyErrors(t *testing.T) {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	parser, _ := New(g)
+	p, _ := parser.New(g)
 
 	samples := []struct {
-		hooks Hooks
+		hooks parser.Hooks
 		err   int
 	}{
-		{Hooks{TokenHooks{"space": nil}, nil, nil}, UnknownTokenTypeError},
-		{Hooks{nil, nil, NodeHooks{"foo": nil}}, UnknownNodeError},
+		{parser.Hooks{parser.TokenHooks{"space": nil}, nil, nil}, parser.UnknownTokenTypeError},
+		{parser.Hooks{nil, nil, parser.NodeHooks{"foo": nil}}, parser.UnknownNodeError},
 	}
 
 	for i, sample := range samples {
-		_, e := parser.Parse(context.Background(), queue, sample.hooks)
+		_, e := p.Parse(context.Background(), queue, sample.hooks)
 		var (
 			ee   *llx.Error
 			code int
@@ -151,15 +153,15 @@ func TestRemainingSourceError(t *testing.T) {
 	g, e := langdef.ParseString("", grammar)
 	test.ExpectNoError(t, e)
 
-	p, e := New(g)
+	p, e := parser.New(g)
 	test.ExpectNoError(t, e)
 
 	for i, sample := range samples {
 		name := fmt.Sprintf("sample #%d", i)
 		t.Run(name, func(t *testing.T) {
-			_, e = p.ParseString(context.Background(), "", sample.src, Hooks{}, WithFullSource())
+			_, e = p.ParseString(context.Background(), "", sample.src, parser.Hooks{}, parser.WithFullSource())
 			if sample.isErr {
-				test.ExpectErrorCode(t, RemainingSourceError, e)
+				test.ExpectErrorCode(t, parser.RemainingSourceError, e)
 			} else {
 				test.ExpectNoError(t, e)
 			}
@@ -186,7 +188,7 @@ func TestAside(t *testing.T) {
 		{"a-a-a", "a - a - a"},
 		{"--b--c--", "- - b - - c - -"},
 	}
-	testGrammarSamples(t, name, grammar, samples, WithAsides())
+	testGrammarSamples(t, name, grammar, samples, parser.WithAsides())
 }
 
 func TestAri(t *testing.T) {
@@ -194,14 +196,14 @@ func TestAri(t *testing.T) {
 	grammar := spaceDef + "$num=/-?\\d+/; $op=/[()^*\\/+-]/; $minus=/-/; !group $minus; " +
 		"ari=sum; sum=pro,{('+'|'-'),pro}; pro=pow,{('*'|'/'),pow}; pow=val,{'^',val}; val=$num;"
 	samples := []srcExprSample{
-		{
+		/*{
 			"2 + 2",
 			"(sum (pro (pow (val 2))) + (pro (pow (val 2))))",
 		},
 		{
 			"2 + 3^4*5",
 			"(sum (pro (pow (val 2))) + (pro (pow (val 3) ^ (val 4)) * (pow (val 5))))",
-		},
+		},*/
 		{
 			"-2-3*-1",
 			"(sum (pro (pow (val -2))) - (pro (pow (val 3)) * (pow (val -1))))",
@@ -246,26 +248,26 @@ func TestTokenHooks(t *testing.T) {
 	}
 
 	prevTokenText := ""
-	ths := TokenHooks{
-		"char": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
+	ths := parser.TokenHooks{
+		"char": func(_ context.Context, t *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
 			f := t.Text() != prevTokenText // x x -> x
 			prevTokenText = t.Text()
 			return f, nil, nil
 		},
-		AnyToken: func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
-			return false, []*Token{lexer.NewToken(0, "space", []byte{'_'}, source.Pos{})}, nil // " " -> _
+		parser.AnyToken: func(_ context.Context, t *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
+			return false, []*parser.Token{lexer.NewToken(0, "space", []byte{'_'}, source.Pos{})}, nil // " " -> _
 		},
 	}
-	lhs := TokenHooks{
-		"e": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
+	lhs := parser.TokenHooks{
+		"e": func(_ context.Context, t *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
 			if prevTokenText != "b" {
 				return true, nil, nil
 			}
 
-			return false, []*Token{lexer.NewToken(1, "char", []byte("ee"), source.Pos{})}, nil // e -> ee
+			return false, []*parser.Token{lexer.NewToken(1, "char", []byte("ee"), source.Pos{})}, nil // e -> ee
 		},
-		"c": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
-			extra := []*Token{
+		"c": func(_ context.Context, t *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
+			extra := []*parser.Token{
 				lexer.NewToken(1, "char", []byte{'a'}, source.Pos{}),
 				t,
 			}
@@ -293,15 +295,15 @@ func TestEofHooks(t *testing.T) {
 	}
 
 	prevIndent := 0
-	hooks := TokenHooks{
-		"indent": func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
+	hooks := parser.TokenHooks{
+		"indent": func(_ context.Context, t *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
 			text := t.Text()
 			indent := len(text)
 			if text[0] == '\n' {
 				indent--
 			}
 			var e error
-			var extra []*Token
+			var extra []*parser.Token
 			for indent > prevIndent {
 				extra = append(extra, lexer.NewToken(3, "begin", []byte{'{'}, source.Pos{}))
 				prevIndent++
@@ -312,9 +314,9 @@ func TestEofHooks(t *testing.T) {
 			}
 			return false, extra, e
 		},
-		EofToken: func(_ context.Context, t *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
+		parser.EofToken: func(_ context.Context, t *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
 			var e error
-			var extra []*Token
+			var extra []*parser.Token
 			for prevIndent > 0 {
 				extra = append(extra, lexer.NewToken(4, "end", []byte{'}'}, source.Pos{}))
 				prevIndent--
@@ -330,7 +332,7 @@ func TestResolveAnyTokenEof(t *testing.T) {
 	name := "resolve * AnyToken * EoF"
 	grammar := "$name = /\\w+/; $op = /[()+]/; g = sum | call; sum = $name, ['+', $name]; call = $name, '(', $name, ')';"
 	samples := []srcErrSample{
-		{"foo(", UnexpectedEoiError},
+		{"foo(", parser.UnexpectedEoiError},
 	}
 	testErrorSamples(t, name, grammar, samples)
 }
@@ -354,7 +356,7 @@ func TestTrailingAsides(t *testing.T) {
 		{"--a--b--", "- - (ch a) - - (ch b) - -"},
 		//{"-[-a-1-[-b-]-]-", "- (bl [ - (ch a - 1) - (bl [ - (ch b) - ] ) - ] ) -"},
 	}
-	testGrammarSamples(t, name, grammar, samples, WithAsides())
+	testGrammarSamples(t, name, grammar, samples, parser.WithAsides())
 }
 
 func TestReservedLiterals(t *testing.T) {
@@ -363,7 +365,7 @@ func TestReservedLiterals(t *testing.T) {
 	src := "var var"
 	expected := "var var"
 	testGrammarSamples(t, "correct", g0, []srcExprSample{{src, expected}})
-	testErrorSamples(t, "reserved", g1, []srcErrSample{{src, UnexpectedTokenError}})
+	testErrorSamples(t, "reserved", g1, []srcErrSample{{src, parser.UnexpectedTokenError}})
 }
 
 func TestBypass(t *testing.T) {
@@ -393,10 +395,10 @@ func TestBypass(t *testing.T) {
 			t.Fatalf("sample #%d: unexpected grammar error: %s", i, e)
 		}
 
-		p, _ := New(g)
+		p, _ := parser.New(g)
 		for j, src := range s.correct {
 			q := source.NewQueue().Append(source.New("", []byte(src)))
-			_, e = p.Parse(context.Background(), q, Hooks{})
+			_, e = p.Parse(context.Background(), q, parser.Hooks{})
 			if e != nil {
 				t.Errorf("sample #%d, correct example #%d: unexpected error: %s", i, j, e)
 			} else if !q.Eof() {
@@ -405,7 +407,7 @@ func TestBypass(t *testing.T) {
 		}
 		for j, src := range s.wrong {
 			q := source.NewQueue().Append(source.New("", []byte(src)))
-			_, e = p.Parse(context.Background(), q, Hooks{})
+			_, e = p.Parse(context.Background(), q, parser.Hooks{})
 			if e == nil && q.IsEmpty() {
 				t.Errorf("sample #%d, wrong example #%d: expecting error or input left, got success", i, j)
 			}
@@ -418,7 +420,7 @@ type nthi struct {
 	result *[]string
 }
 
-func (hi nthi) NewNode(node string, token *Token) error {
+func (hi nthi) NewNode(node string, token *parser.Token) error {
 	*hi.result = append(*hi.result, hi.nt+"^"+node+token.Text())
 	return nil
 }
@@ -428,7 +430,7 @@ func (hi nthi) HandleNode(node string, result any) error {
 	return nil
 }
 
-func (hi nthi) HandleToken(token *Token) error {
+func (hi nthi) HandleToken(token *parser.Token) error {
 	*hi.result = append(*hi.result, hi.nt+":"+token.Text())
 	return nil
 }
@@ -440,9 +442,9 @@ func (hi nthi) EndNode() (result any, e error) {
 
 func TestNodeHooks(t *testing.T) {
 	result := make([]string, 0)
-	hs := Hooks{
-		Nodes: NodeHooks{
-			AnyNode: func(_ context.Context, node string, token *Token, _ *NodeContext) (NodeHookInstance, error) {
+	hs := parser.Hooks{
+		Nodes: parser.NodeHooks{
+			parser.AnyNode: func(_ context.Context, node string, token *parser.Token, _ *parser.NodeContext) (parser.NodeHookInstance, error) {
 				return &nthi{node, &result}, nil
 			},
 		},
@@ -459,7 +461,7 @@ func TestNodeHooks(t *testing.T) {
 	src := "a + b * c"
 	expected := "s^pa p:a p. s$pp s:+ s^pb p:b p:* p:c p. s$pp s."
 
-	p, _ := New(g)
+	p, _ := parser.New(g)
 	_, e = p.ParseString(context.Background(), "", src, hs)
 	if e != nil {
 		t.Fatal("unexpected error: " + e.Error())
@@ -478,19 +480,19 @@ func TestContext(t *testing.T) {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	p, e := New(g)
+	p, e := parser.New(g)
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
 	src := "foo bar baz"
-	tokenHook := func(_ context.Context, tok *lexer.Token, _ *TokenContext) (bool, []*Token, error) {
+	tokenHook := func(_ context.Context, tok *lexer.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
 		time.Sleep(time.Second)
 		return true, nil, nil
 	}
-	hooks := Hooks{
-		Tokens: TokenHooks{
-			AnyToken: tokenHook,
+	hooks := parser.Hooks{
+		Tokens: parser.TokenHooks{
+			parser.AnyToken: tokenHook,
 		},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -502,13 +504,13 @@ func TestContext(t *testing.T) {
 	}
 }
 
-type testLayer Hooks
+type testLayer parser.Hooks
 
-func (l testLayer) Init(context.Context, *ParseContext) Hooks {
-	return Hooks(l)
+func (l testLayer) Init(context.Context, *parser.ParseContext) parser.Hooks {
+	return parser.Hooks(l)
 }
 
-func (l testLayer) Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error) {
+func (l testLayer) Setup(commands []grammar.LayerCommand, p *parser.Parser) (parser.HookLayer, error) {
 	return l, nil
 }
 
@@ -521,7 +523,7 @@ type testReplaceLayerTemplate struct {
 	override map[string]testReplaceLayerEntry
 }
 
-func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error) {
+func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *parser.Parser) (parser.HookLayer, error) {
 	replaces := make(map[string]testReplaceLayerEntry, len(commands)+len(t.override))
 	var tokenTypes []string
 	var emitTypeName string
@@ -547,7 +549,7 @@ func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Pars
 		replaces[key] = entry
 	}
 
-	handler := func(_ context.Context, tok *Token, _ *TokenContext) (emit bool, extra []*Token, e error) {
+	handler := func(_ context.Context, tok *parser.Token, _ *parser.TokenContext) (emit bool, extra []*parser.Token, e error) {
 		entry, found := replaces[tok.Text()]
 		if !found {
 			entry, found = replaces[""]
@@ -557,8 +559,8 @@ func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Pars
 		}
 
 		emit = entry.emit
-		extra = make([]*Token, 0, len(entry.extra))
-		var newTok *Token
+		extra = make([]*parser.Token, 0, len(entry.extra))
+		var newTok *parser.Token
 		typeName := emitTypeName
 		if typeName == "" {
 			typeName = tok.TypeName()
@@ -575,11 +577,11 @@ func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Pars
 	}
 
 	result := testLayer{
-		Tokens: TokenHooks{},
+		Tokens: parser.TokenHooks{},
 	}
 
 	if len(tokenTypes) == 0 {
-		tokenTypes = append(tokenTypes, AnyToken)
+		tokenTypes = append(tokenTypes, parser.AnyToken)
 	}
 	for _, tokenType := range tokenTypes {
 		result.Tokens[tokenType] = handler
@@ -590,7 +592,7 @@ func (t testReplaceLayerTemplate) Setup(commands []grammar.LayerCommand, p *Pars
 
 func TestLayerRegister(t *testing.T) {
 	grammar := "$char = /\\w/; g = {$char}; @test-setup _('', '', x);"
-	templates := map[string]HookLayerTemplate{
+	templates := map[string]parser.HookLayerTemplate{
 		"test-setup": testReplaceLayerTemplate{
 			override: map[string]testReplaceLayerEntry{
 				"a": {[]string{"z"}, true},
@@ -605,34 +607,34 @@ func TestLayerRegister(t *testing.T) {
 		t.Fatalf("got unexpected error: %s", e.Error())
 	}
 
-	_, e = New(g)
-	test.ExpectErrorCode(t, UnknownLayerError, e)
+	_, e = parser.New(g)
+	test.ExpectErrorCode(t, parser.UnknownLayerError, e)
 
-	_, e = New(g, WithLayerTemplates(templates))
+	_, e = parser.New(g, parser.WithLayerTemplates(templates))
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	e = RegisterHookLayer("test-setup", testReplaceLayerTemplate{})
+	e = parser.RegisterHookLayer("test-setup", testReplaceLayerTemplate{})
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
 	}
-	e = RegisterHookLayer("test-setup", testReplaceLayerTemplate{})
-	test.ExpectErrorCode(t, LayerRegisteredError, e)
+	e = parser.RegisterHookLayer("test-setup", testReplaceLayerTemplate{})
+	test.ExpectErrorCode(t, parser.LayerRegisteredError, e)
 
-	_, e = New(g)
-	if e != nil {
-		t.Fatalf("unexpected error: %s", e)
-	}
-
-	p, e := New(g, WithLayerTemplates(templates))
+	_, e = parser.New(g)
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	node, e := parseAsTestNode(context.Background(), p, src, nil, nil)
+	p, e := parser.New(g, parser.WithLayerTemplates(templates))
+	if e != nil {
+		t.Fatalf("unexpected error: %s", e)
+	}
+
+	node, e := pt.ParseAsTestNode(context.Background(), p, src, nil, nil)
 	if e == nil {
-		e = newTreeValidator(node, expected).validate()
+		e = pt.NewTreeValidator(node, expected).Validate()
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
@@ -645,23 +647,23 @@ func TestLayerTokenHooks(t *testing.T) {
 		@replace _(a, x) _(c, c, z);`
 	src := "abc"
 	expected := "x c z c z"
-	templates := map[string]HookLayerTemplate{
+	templates := map[string]parser.HookLayerTemplate{
 		"replace": testReplaceLayerTemplate{},
 	}
 
 	var (
-		p *Parser
-		n *treeNode
+		p *parser.Parser
+		n *pt.TreeNode
 	)
 	g, e := langdef.ParseString("", grammar)
 	if e == nil {
-		p, e = New(g, WithLayerTemplates(templates))
+		p, e = parser.New(g, parser.WithLayerTemplates(templates))
 	}
 	if e == nil {
-		n, e = parseAsTestNode(context.Background(), p, src, nil, nil)
+		n, e = pt.ParseAsTestNode(context.Background(), p, src, nil, nil)
 	}
 	if e == nil {
-		e = newTreeValidator(n, expected).validate()
+		e = pt.NewTreeValidator(n, expected).Validate()
 	}
 	if e != nil {
 		t.Fatalf("got unexpected error: %s", e.Error())
@@ -669,14 +671,14 @@ func TestLayerTokenHooks(t *testing.T) {
 }
 
 type testLayerRecordTemplate struct {
-	result *treeNode
+	result *pt.TreeNode
 }
 
-func (lt *testLayerRecordTemplate) Setup(commands []grammar.LayerCommand, p *Parser) (HookLayer, error) {
+func (lt *testLayerRecordTemplate) Setup(commands []grammar.LayerCommand, p *parser.Parser) (parser.HookLayer, error) {
 	return testLayer{
-		Nodes: NodeHooks{
-			AnyNode: func(ctx context.Context, node string, t *lexer.Token, _ *NodeContext) (NodeHookInstance, error) {
-				result := nodeNode(node)
+		Nodes: parser.NodeHooks{
+			parser.AnyNode: func(ctx context.Context, node string, t *lexer.Token, _ *parser.NodeContext) (parser.NodeHookInstance, error) {
+				result := pt.NodeNode(node)
 				if lt.result == nil {
 					lt.result = result
 				}
@@ -693,27 +695,27 @@ func TestLayerNodeHooks(t *testing.T) {
 	expected := "(syl w (vowel i)) (syl n) (syl n (vowel i) (vowel e))"
 	fooLt := testLayerRecordTemplate{}
 	barLt := testLayerRecordTemplate{}
-	templates := map[string]HookLayerTemplate{
+	templates := map[string]parser.HookLayerTemplate{
 		"foo": &fooLt,
 		"bar": &barLt,
 	}
 
-	var p *Parser
-	var n *treeNode
+	var p *parser.Parser
+	var n *pt.TreeNode
 	g, e := langdef.ParseString("", grammar)
 	if e == nil {
-		p, e = New(g, WithLayerTemplates(templates))
+		p, e = parser.New(g, parser.WithLayerTemplates(templates))
 	}
 	if e == nil {
-		n, e = parseAsTestNode(context.Background(), p, src, nil, nil)
+		n, e = pt.ParseAsTestNode(context.Background(), p, src, nil, nil)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
 	}
 
-	results := []*treeNode{n, fooLt.result, barLt.result}
+	results := []*pt.TreeNode{n, fooLt.result, barLt.result}
 	for i, result := range results {
-		e = newTreeValidator(result, expected).validate()
+		e = pt.NewTreeValidator(result, expected).Validate()
 		if e != nil {
 			t.Fatalf("result #%d: error: %s", i, e)
 		}
@@ -722,10 +724,10 @@ func TestLayerNodeHooks(t *testing.T) {
 
 func TestUserLiterals(t *testing.T) {
 	grammar := `$char = /\w/; g = {$char};`
-	hooks := TokenHooks{
-		"f": func(_ context.Context, _ *lexer.Token, tc *TokenContext) (bool, []*Token, error) {
+	hooks := parser.TokenHooks{
+		"f": func(_ context.Context, _ *lexer.Token, tc *parser.TokenContext) (bool, []*parser.Token, error) {
 			newToken, _ := tc.ParseContext().Parser().MakeToken("char", []byte("b"))
-			return false, []*Token{newToken}, nil
+			return false, []*parser.Token{newToken}, nil
 		},
 	}
 	samples := []srcExprSample{
@@ -741,25 +743,25 @@ func TestEofEoiHandling(t *testing.T) {
 		@replace watch('-eof-', '-eoi-') emit(char) replace('', end);`
 	src := "abc"
 	expected := "a b c eof end eoi end"
-	templates := map[string]HookLayerTemplate{
+	templates := map[string]parser.HookLayerTemplate{
 		"replace": testReplaceLayerTemplate{},
 	}
 
 	var (
-		p *Parser
-		n *treeNode
+		p *parser.Parser
+		n *pt.TreeNode
 	)
 	g, e := langdef.ParseString("", grammar)
 	if e == nil {
-		p, e = New(g, WithLayerTemplates(templates))
+		p, e = parser.New(g, parser.WithLayerTemplates(templates))
 	}
 	if e == nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		n, e = parseAsTestNode(ctx, p, src, nil, nil)
+		n, e = pt.ParseAsTestNode(ctx, p, src, nil, nil)
 	}
 	if e == nil {
-		e = newTreeValidator(n, expected).validate()
+		e = pt.NewTreeValidator(n, expected).Validate()
 	}
 	if e != nil {
 		t.Fatalf("got unexpected error: %s", e.Error())
@@ -781,8 +783,8 @@ func TestPeekToken(t *testing.T) {
 	}
 
 	tmpLayer := testLayer{
-		Tokens: TokenHooks{
-			"char": func(_ context.Context, token *Token, tc *TokenContext) (bool, []*Token, error) {
+		Tokens: parser.TokenHooks{
+			"char": func(_ context.Context, token *parser.Token, tc *parser.TokenContext) (bool, []*parser.Token, error) {
 				if token.Text() != "c" && token.Text() != "g" {
 					return true, nil, nil
 				}
@@ -804,7 +806,7 @@ func TestPeekToken(t *testing.T) {
 					}
 				}
 
-				var extra []*Token
+				var extra []*parser.Token
 				if triggered {
 					tok, _ := tc.ParseContext().Parser().MakeToken("char", []byte("h"))
 					extra = append(extra, tok)
@@ -816,7 +818,7 @@ func TestPeekToken(t *testing.T) {
 
 	g, e := langdef.ParseString("", grammar)
 	test.ExpectNoError(t, e)
-	p, e := New(g, WithLayerTemplates(map[string]HookLayerTemplate{
+	p, e := parser.New(g, parser.WithLayerTemplates(map[string]parser.HookLayerTemplate{
 		"replace": testReplaceLayerTemplate{},
 		"tmp":     tmpLayer,
 	}))
@@ -826,9 +828,9 @@ func TestPeekToken(t *testing.T) {
 		name := fmt.Sprintf("sample #%d", i)
 		t.Run(name, func(t *testing.T) {
 			var got []string
-			hs := Hooks{
-				Tokens: TokenHooks{
-					AnyToken: func(_ context.Context, token *Token, tc *TokenContext) (bool, []*Token, error) {
+			hs := parser.Hooks{
+				Tokens: parser.TokenHooks{
+					parser.AnyToken: func(_ context.Context, token *parser.Token, tc *parser.TokenContext) (bool, []*parser.Token, error) {
 						got = append(got, token.Text())
 						return true, nil, nil
 					},

@@ -1,4 +1,4 @@
-package parser
+package test
 
 import (
 	"context"
@@ -10,65 +10,66 @@ import (
 
 	"github.com/ava12/llx/langdef"
 	"github.com/ava12/llx/lexer"
+	"github.com/ava12/llx/parser"
 	"github.com/ava12/llx/source"
 )
 
-type treeNode struct {
+type TreeNode struct {
 	isNode     bool
 	name, text string
-	children   []*treeNode
+	children   []*TreeNode
 }
 
-func nodeNode(name string) *treeNode {
-	return &treeNode{true, name, "", make([]*treeNode, 0)}
+func NodeNode(name string) *TreeNode {
+	return &TreeNode{true, name, "", make([]*TreeNode, 0)}
 }
 
-func tokenNode(name, content string) *treeNode {
-	return &treeNode{false, name, content, nil}
+func TokenNode(name, content string) *TreeNode {
+	return &TreeNode{false, name, content, nil}
 }
 
-func (n *treeNode) NewNode(node string, token *lexer.Token) error {
+func (n *TreeNode) NewNode(node string, token *lexer.Token) error {
 	return nil
 }
 
-func (n *treeNode) HandleNode(node string, result any) error {
-	n.children = append(n.children, result.(*treeNode))
+func (n *TreeNode) HandleNode(node string, result any) error {
+	n.children = append(n.children, result.(*TreeNode))
 	return nil
 }
 
-func (n *treeNode) HandleToken(token *lexer.Token) error {
-	n.children = append(n.children, tokenNode(token.TypeName(), token.Text()))
+func (n *TreeNode) HandleToken(token *lexer.Token) error {
+	n.children = append(n.children, TokenNode(token.TypeName(), token.Text()))
 	return nil
 }
 
-func (n *treeNode) EndNode() (result any, e error) {
+func (n *TreeNode) EndNode() (result any, e error) {
 	return n, nil
 }
 
-func nodeHook(ctx context.Context, node string, t *lexer.Token, _ *NodeContext) (NodeHookInstance, error) {
-	return nodeNode(node), nil
+func nodeHook(ctx context.Context, node string, t *lexer.Token, _ *parser.NodeContext) (parser.NodeHookInstance, error) {
+	return NodeNode(node), nil
 }
 
-var testNodeHooks = NodeHooks{AnyNode: nodeHook}
+var testNodeHooks = parser.NodeHooks{parser.AnyNode: nodeHook}
 
 type stackNode struct {
 	parent        *stackNode
-	node          *treeNode
+	node          *TreeNode
 	length, index int
 }
 
-type treeValidator struct {
+type TreeValidator struct {
 	sn   *stackNode
 	cmds []string
 }
 
 var exprRe = regexp.MustCompile("\\(|\\)|'.+?'|[^\\s()]+")
 
-func newTreeValidator(n *treeNode, expr string) *treeValidator {
-	return &treeValidator{&stackNode{nil, n, len(n.children), 0}, exprRe.FindAllString(expr, -1)}
+func NewTreeValidator(n *TreeNode, expr string) *TreeValidator {
+	return &TreeValidator{&stackNode{nil, n, len(n.children), 0}, exprRe.FindAllString(expr, -1)}
 }
 
-func (tv *treeValidator) newError(message string, params ...any) error {
+func (tv *TreeValidator) newError(message string, params ...any) error {
 	if len(params) > 0 {
 		message = fmt.Sprintf(message, params...)
 	}
@@ -82,11 +83,11 @@ func (tv *treeValidator) newError(message string, params ...any) error {
 	return errors.New(pathString + message)
 }
 
-func (tv *treeValidator) exprError(msg string) error {
+func (tv *TreeValidator) exprError(msg string) error {
 	return tv.newError("error in validator expression: " + msg)
 }
 
-func (tv *treeValidator) matchName(name string) error {
+func (tv *TreeValidator) matchName(name string) error {
 	if name[0] == '\'' {
 		name = name[1 : len(name)-1]
 	}
@@ -115,7 +116,7 @@ func (tv *treeValidator) matchName(name string) error {
 	return nil
 }
 
-func (tv *treeValidator) matchNtStart() error {
+func (tv *TreeValidator) matchNtStart() error {
 	if tv.sn.index >= tv.sn.length {
 		return tv.newError("expecting child node, got end of node")
 	}
@@ -129,7 +130,7 @@ func (tv *treeValidator) matchNtStart() error {
 	return nil
 }
 
-func (tv *treeValidator) matchNtEnd() error {
+func (tv *TreeValidator) matchNtEnd() error {
 	if tv.sn.parent == nil {
 		return tv.exprError("excessive )")
 	}
@@ -143,7 +144,7 @@ func (tv *treeValidator) matchNtEnd() error {
 	return nil
 }
 
-func (tv *treeValidator) validate() error {
+func (tv *TreeValidator) Validate() error {
 	var e error
 	for _, cmd := range tv.cmds {
 		switch cmd {
@@ -167,12 +168,12 @@ func (tv *treeValidator) validate() error {
 	}
 }
 
-func parseAsTestNode(ctx context.Context, parser *Parser, src string, ths, lhs TokenHooks, opts ...ParseOption) (*treeNode, error) {
-	hs := Hooks{ths, lhs, testNodeHooks}
+func ParseAsTestNode(ctx context.Context, p *parser.Parser, src string, ths, lhs parser.TokenHooks, opts ...parser.ParseOption) (*TreeNode, error) {
+	hs := parser.Hooks{ths, lhs, testNodeHooks}
 	q := source.NewQueue().Append(source.New("sample", []byte(src)))
-	r, e := parser.Parse(ctx, q, hs, opts...)
+	r, e := p.Parse(ctx, q, hs, opts...)
 	if e == nil {
-		return r.(*treeNode), nil
+		return r.(*TreeNode), nil
 	} else {
 		return nil, e
 	}
@@ -192,17 +193,17 @@ func TestParseTreeExpr(t *testing.T) {
 	}
 
 	g, e := langdef.ParseString("", grammarSrc)
-	var n *treeNode
+	var n *TreeNode
 	if e == nil {
-		p, _ := New(g)
-		n, e = parseAsTestNode(context.Background(), p, src, nil, nil)
+		p, _ := parser.New(g)
+		n, e = ParseAsTestNode(context.Background(), p, src, nil, nil)
 	}
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e.Error())
 	}
 
 	for i, sample := range samples {
-		e := newTreeValidator(n, sample.expr).validate()
+		e := NewTreeValidator(n, sample.expr).Validate()
 		if sample.err == "" {
 			if e != nil {
 				t.Errorf("sample #%d: unexpected error: %s", i, e.Error())
