@@ -363,6 +363,11 @@ func (p *Parser) ParseString(ctx context.Context, name, content string, hs Hooks
 	return p.Parse(ctx, q, hs, opts...)
 }
 
+// Tokens returns all tokens defined in grammar.
+func (p *Parser) Tokens() []grammar.Token {
+	return p.grammar.Tokens
+}
+
 // IsAsideType returns true if given argument is a valid aside token type.
 func (p *Parser) IsAsideType(tt int) bool {
 	return tt >= 0 && tt < len(p.grammar.Tokens) && (p.grammar.Tokens[tt].Flags&grammar.AsideToken != 0)
