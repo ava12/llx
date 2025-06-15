@@ -2,36 +2,36 @@
 Package convert contains layer template to convert specific tokens to other tokens
 with different type and/or content.
 
-Contains no exported definitions. Registers hook layer template named "convert",
-panics if template with this name already registered.
+Contains no exported definitions. Registers a hook layer template named "convert",
+panics if a template with this name is already registered.
 
-Layer definition looks like:
+The layer definition looks like:
 
 	@convert input-type(digraph) output-type(op) save-position() convert('(.', '[', '.)', ']');
 
-Layer definition must contain at least one "convert" command:
+Must contain at least one "convert" command:
 
 	convert(<from>, <to>, <from>, <to>, ...)
 
-Command expects non-zero number of argument pairs, first argument in pair defines input token text
-and the second one defines output token text.
+Takes non-zero number of pairs of arguments, the first argument in a pair defines an input token text
+and the second one defines an output token text.
 
-Definition may also contain optional commands:
+A definition may also contain optional commands:
 
 	input-type(<token_type>)
 
-Command takes single argument defining hooked token type name.
+Takes a single argument defining hooked token type name.
 By default all token types are hooked.
 
 	output-type(<token_type>)
 
-Command takes single argument defining output token type name.
-By default output token has the same type as input one.
+Takes a single argument defining an output token type name.
+By default an output token has the same type as an input one.
 
 	save-position()
 
-Takes no arguments, instructs layer to copy position information from input token to output.
-By default output token has no position information.
+Takes no arguments, instructs the layer to copy position information from an input token to an output one.
+By default an output token has no position information.
 */
 package convert
 
