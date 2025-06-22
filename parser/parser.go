@@ -171,6 +171,21 @@ func (nc *NodeContext) ParseContext() *ParseContext {
 	return nc.pc
 }
 
+// NodeStack returns list of stacked node names.
+// The first element is the current node being processed, and the last one is the root.
+func (nc *NodeContext) NodeStack() []string {
+	var result []string
+
+	nodes := nc.pc.parser.grammar.Nodes
+	node := nc.pc.node
+	for node != nil {
+		result = append(result, nodes[node.index].Name)
+		node = node.prev
+	}
+
+	return result
+}
+
 // HookLayer is a token/node hook layer configured for specific grammar.
 type HookLayer interface {
 	// Init is called for each layer when parsing context is created but before parsing is started.
