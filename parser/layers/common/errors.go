@@ -1,3 +1,6 @@
+/*
+Package common contains definitions used by all standard hook layers.
+*/
 package common
 
 import (
@@ -5,13 +8,21 @@ import (
 	"github.com/ava12/llx/parser"
 )
 
+// Error codes emitted by standard hook layers.
 const (
+	// a layer definition contains unknown command
 	UnknownCommandError = llx.LayerErrors + iota
+	// a layer definition is missing required command
 	MissingCommandError
+	// a command has too few or too many arguments
 	NumberOfArgumentsError
+	// a command has incorrect argument
 	InvalidArgumentError
+	// repeating a command that must not be repeated
 	CommandAlreadyUsedError
+	// a command argument doesn't match any known token type
 	UnknownTokenTypeError
+	// incoming token triggered an error
 	WrongTokenError
 )
 
