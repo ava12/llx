@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/ava12/llx"
+	"github.com/ava12/llx/parser"
 )
 
 const (
@@ -41,6 +42,12 @@ func MakeUnknownTokenTypeError(layer, command, typeName string) *llx.Error {
 		typeName, command, layer)
 }
 
-func MakeWrongTokenError(layer, token, reason string) *llx.Error {
-	return llx.FormatError(WrongTokenError, "wrong %s token for %q layer: %s", token, layer, reason)
+func MakeWrongTokenError(layer string, token *parser.Token, reason string) *llx.Error {
+	text := token.Text()
+	if len(text) > 10 {
+		text = text[:7] + "..."
+	}
+
+	return llx.FormatErrorPos(token, WrongTokenError, "wrong %s (%q) token for %q layer: %s",
+		token.TypeName(), text, layer, reason)
 }

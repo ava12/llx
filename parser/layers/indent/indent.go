@@ -203,7 +203,7 @@ func (ls *layerState) handleCommon(tok *parser.Token) (bool, []*parser.Token, er
 		}
 
 	case invalidIndent, indentAside:
-		e = common.MakeWrongTokenError(layerName, tok.Text(), errInvalidIndent)
+		e = common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 	}
 
 	return emit, extra, e
@@ -240,7 +240,7 @@ func (ls *layerState) handleSpace(tok *parser.Token, tc *parser.TokenContext) (b
 	var extra []*parser.Token
 	switch ls.state {
 	case invalidIndent, indentAside:
-		e = common.MakeWrongTokenError(layerName, tok.Text(), errInvalidIndent)
+		e = common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 	case incIndent:
 		extra, e = ls.indent()
 	case decIndent:
@@ -308,7 +308,7 @@ func (ls *layerState) handleAside(tc *parser.TokenContext) error {
 		return e
 	}
 
-	return common.MakeWrongTokenError(layerName, tok.Text(), errInvalidIndent)
+	return common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 }
 
 func (ls *layerState) handleEoi(tok *parser.Token) ([]*parser.Token, error) {
