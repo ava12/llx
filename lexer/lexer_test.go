@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	tokenRe = regexp.MustCompile("(?s:[\\s]+|(-?\\d+)|([a-z_][a-z0-9_]*)|('.*?')|('.{0,10}))")
+	tokenRe = regexp.MustCompile(`(?s:[\s]+|(-?\d+)|([a-z_][a-z0-9_]*)|('.*?')|('.{0,10}))`)
 	tokenTypes = []TokenType{{1, "number"}, {2, "name"}, {3, "string"}}
 	tokenSamples = []byte("123 foo 'bar'")
 }
@@ -108,7 +108,7 @@ func TestSourceBoundary(t *testing.T) {
 }
 
 func TestTokenTypes(t *testing.T) {
-	re := regexp.MustCompile("(-?\\d+)|\\s+|(\\w+)|#.*\\n|([+-])")
+	re := regexp.MustCompile(`(-?\d+)|\s+|(\w+)|#.*\n|([+-])`)
 	types := []TokenType{{0, "num"}, {2, "name"}, {4, "op"}}
 	src := "1 + foo -2"
 	expected := []int{0, 2, 1, 0}
@@ -134,7 +134,7 @@ func TestTokenTypes(t *testing.T) {
 }
 
 func TestErrorPos(t *testing.T) {
-	re := regexp.MustCompile("(\\s+)|(\\w+)|(<\\w+>)|(<.+)")
+	re := regexp.MustCompile(`(\s+)|(\w+)|(<\w+>)|(<.+)`)
 	types := []TokenType{
 		{0, "space"},
 		{1, "word"},

@@ -23,7 +23,7 @@ type Source struct {
 func New(name string, content []byte) *Source {
 	s := &Source{name: name, content: content, prevLineIndex: -1}
 	lineCnt := bytes.Count(content, []byte("\n")) + 1
-	s.lineStarts = make([]int, lineCnt, lineCnt)
+	s.lineStarts = make([]int, lineCnt)
 	s.lineStarts[0] = 0
 	j := 1
 	for i := 0; i < len(content) && j < lineCnt; i++ {
@@ -54,6 +54,8 @@ func (s *Source) Len() int {
 // LineCol returns line and column number (both 1-based) of rune starting at given position in the source content.
 // Negative position is treated as 0, position equal to or higher than length of content is treated
 // as position right after EoF.
+// NB: column number is actually rune number since finding grapheme boundaries in Unicode string
+// is too complicated.
 func (s *Source) LineCol(pos int) (line, col int) {
 	var lineIndex int
 	if pos < 0 {
@@ -140,8 +142,8 @@ func (s *Source) findLineIndex(pos int) int {
 // Pos combines captured source, position, line, and column number corresponding to that position.
 // Zero value means no source and position information available.
 type Pos struct {
-	src            *Source
-	pos, line, col int
+	src *Source
+	pos int
 }
 
 // NewPos returns Pos structure. Returns zero value if s is nil.
@@ -150,8 +152,7 @@ func NewPos(s *Source, pos int) Pos {
 		return Pos{}
 	}
 
-	l, c := s.LineCol(pos)
-	return Pos{s, pos, l, c}
+	return Pos{s, pos}
 }
 
 // Source returns captured source or nil.
@@ -173,14 +174,13 @@ func (p Pos) Pos() int {
 	return p.pos
 }
 
-// Line returns captured 1-based line number or 0.
-func (p Pos) Line() int {
-	return p.line
-}
+// LineCol returns captured 1-based line and column number or 0.
+func (p Pos) LineCol() (line, col int) {
+	if p.src == nil {
+		return 0, 0
+	}
 
-// Col returns captured 1-based column number or 0.
-func (p Pos) Col() int {
-	return p.col
+	return p.src.LineCol(p.pos)
 }
 
 type queueItem struct {
@@ -229,11 +229,7 @@ func (q *Queue) Pos() int {
 // SourcePos returns current source and current position in it.
 // Returns zero value if the queue is empty.
 func (q *Queue) SourcePos() Pos {
-	res := Pos{q.source, q.pos, 0, 0}
-	if q.source != nil {
-		res.line, res.col = q.source.LineCol(q.pos)
-	}
-	return res
+	return NewPos(q.source, q.pos)
 }
 
 // NextSource discards current source from the queue.

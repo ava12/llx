@@ -73,7 +73,8 @@ func (rs *reports) report(line, col int, message string) {
 }
 
 func (rs *reports) reportToken(t *lexer.Token, message string) {
-	rs.report(t.Line(), t.Col(), message)
+	line, col := t.LineCol()
+	rs.report(line, col, message)
 }
 
 func (rs *reports) flatten() []ReportLine {
@@ -156,7 +157,7 @@ func parseSource(s *source.Source) (tree.Element, error) {
 
 func handleToken(_ context.Context, token *lexer.Token, _ *parser.TokenContext) (emit bool, _ []*parser.Token, e error) {
 	tn := token.TypeName()
-	if token.Line() == 1 && token.Col() == 1 && tn == spaceType {
+	if token.Pos().Pos() == 0 && tn == spaceType {
 		return false, []*parser.Token{lexer.NewToken(0, indentType, append([]byte{'\n'}, token.Content()...), token.Pos())}, nil
 	}
 
@@ -187,8 +188,8 @@ func inspectCode(st tree.Element) *reports {
 func reportNoFinalNl(st tree.Element, rs *reports) {
 	lt := tree.LastTokenElement(st).Token()
 	if lt.TypeName() != indentType {
-		line := lt.Line()
-		col := lt.Col() + len(lt.Text())
+		line, col := lt.LineCol()
+		col += len(lt.Text())
 		rs.report(line, col, ErrNoEofNl)
 	}
 }
@@ -224,7 +225,8 @@ func reportTrailingSpaces(st tree.Element, rs *reports) {
 		rs.reportToken(n.Token(), ErrTrailSpace)
 	}
 	for _, n := range indentSel.Apply(st) {
-		rs.report(n.Token().Line()+1, 1, ErrTrailSpace)
+		line, _ := n.Token().LineCol()
+		rs.report(line+1, 1, ErrTrailSpace)
 	}
 }
 
@@ -282,9 +284,9 @@ func reportInconsistentStructAlign(st tree.Element, rs *reports) {
 			continue
 		}
 
-		defaultCol := tree.FirstTokenElement(names[0]).Token().Col()
+		_, defaultCol := tree.FirstTokenElement(names[0]).Token().LineCol()
 		for i := 1; i < len(names); i++ {
-			col := tree.FirstTokenElement(names[i]).Token().Col()
+			_, col := tree.FirstTokenElement(names[i]).Token().LineCol()
 			if col != defaultCol {
 				rs.reportToken(tree.FirstTokenElement(names[i]).Token(), ErrAlign)
 				break

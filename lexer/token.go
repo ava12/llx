@@ -54,16 +54,10 @@ func (t *Token) SourceName() string {
 	return t.pos.SourceName()
 }
 
-// Line returns 1-based line number of the first byte of the token.
-// Returns 0 if source is not known.
-func (t *Token) Line() int {
-	return t.pos.Line()
-}
-
-// Col returns 1-based column number of the first byte of the token.
-// Returns 0 if source is not known.
-func (t *Token) Col() int {
-	return t.pos.Col()
+// LineCol returns 1-based line and column number of the first byte of the token content.
+// Returns 0, 0 if no source info provided.
+func (t *Token) LineCol() (line, col int) {
+	return t.pos.LineCol()
 }
 
 // NewToken creates a token.

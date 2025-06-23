@@ -60,10 +60,8 @@ type Error struct {
 type SourcePos interface {
 	// SourceName returns source file name or empty string.
 	SourceName() string
-	// Line returns line number or 0.
-	Line() int
-	// Col returns column number or 0.
-	Col() int
+	// LineCol returns line and column number or 0, 0.
+	LineCol() (line, col int)
 }
 
 // NewError creates new Error structure.
@@ -96,5 +94,6 @@ func FormatErrorPos(pos SourcePos, code int, msg string, params ...any) *Error {
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
-	return NewError(code, msg, pos.SourceName(), pos.Line(), pos.Col())
+	line, col := pos.LineCol()
+	return NewError(code, msg, pos.SourceName(), line, col)
 }
