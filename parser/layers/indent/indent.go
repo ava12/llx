@@ -13,8 +13,9 @@ All commands are required, each command must be used exactly once.
 
 	space(<token_type>, ...)
 
-Takes one or more type names of tokens consisting of space and/or newline symbols (U+000a).
+Takes one or more type names of tokens consisting of spacing and/or newline (U+000a) symbols.
 These are the only token types used to detect line breaks and indentations.
+Other tokens (e.g. line comments) should not end with newline symbol, or it may break the algorithm.
 
 	on-indent(<token_type>)
 
@@ -37,6 +38,8 @@ Emits required number of on-dedent tokens if current line indentation equals one
 Does nothing if current line indentation is valid.
 Otherwise (current indentation is shorter than the valid one and matches none of stack entries) emits an error.
 Emits on-dedent token for each indentation stack item if the peeked token is an end-of-input.
+On-indent and on-dedent tokens are emitted first, followed by newline and space tokens
+which caused indentation level change.
 */
 package indent
 
@@ -97,6 +100,7 @@ type layerState struct {
 	indentStack            [][]byte
 	validIndent            []byte
 	currentIndent          []byte
+	spaces                 []*parser.Token
 	state                  state
 }
 
@@ -121,7 +125,7 @@ func (ls *layerState) handle(tok *parser.Token, tc *parser.TokenContext) (bool, 
 	case spaceRole:
 		emit, extra, e = ls.handleSpace(tok, tc)
 	case asideRole:
-		e = ls.handleAside(tc)
+		emit, extra, e = ls.handleAside(tok, tc)
 	}
 
 	return emit, extra, e
@@ -144,25 +148,25 @@ func (ls *layerState) role(tok *parser.Token) tokenRole {
 	return commonRole
 }
 
-func (ls *layerState) indent() ([]*parser.Token, error) {
+func (ls *layerState) indent(tokens ...*parser.Token) ([]*parser.Token, error) {
 	ls.indentStack = append(ls.indentStack, ls.validIndent)
 	ls.validIndent = ls.currentIndent
 	indent, e := ls.parser.MakeToken(ls.indentType, nil)
 	if e != nil {
-		return nil, e
+		return ls.pad(tokens...), e
 	}
 
-	return []*parser.Token{indent}, nil
+	return append([]*parser.Token{indent}, ls.pad(tokens...)...), nil
 }
 
-func (ls *layerState) dedent() ([]*parser.Token, error) {
+func (ls *layerState) dedent(tokens ...*parser.Token) ([]*parser.Token, error) {
 	var result []*parser.Token
 	l := len(ls.currentIndent)
 
 	for i := len(ls.indentStack) - 1; i >= 0; i-- {
 		dedent, e := ls.parser.MakeToken(ls.dedentType, nil)
 		if e != nil {
-			return nil, e
+			return ls.pad(tokens...), e
 		}
 
 		result = append(result, dedent)
@@ -173,36 +177,44 @@ func (ls *layerState) dedent() ([]*parser.Token, error) {
 	}
 
 	ls.validIndent = ls.currentIndent
-	return result, nil
+	return append(result, ls.pad(tokens...)...), nil
+}
+
+func (ls *layerState) pad(tokens ...*parser.Token) []*parser.Token {
+	result := ls.spaces
+	if ls.spaces != nil {
+		ls.spaces = ls.spaces[:0]
+	}
+	return append(result, tokens...)
 }
 
 func (ls *layerState) handleCommon(tok *parser.Token) (bool, []*parser.Token, error) {
-	emit := true
+	emit := false
 	var extra []*parser.Token
 	var e error
 
 	switch ls.state {
+	case indented:
+		emit = true
 
 	case validIndent:
+		extra = ls.pad(tok)
 		ls.state = indented
 
 	case incIndent:
-		extra, e = ls.indent()
-		emit = false
+		extra, e = ls.indent(tok)
 		if e == nil {
-			extra = append(extra, tok)
 			ls.state = indented
 		}
 
 	case decIndent:
-		extra, e = ls.dedent()
-		emit = false
+		extra, e = ls.dedent(tok)
 		if e == nil {
-			extra = append(extra, tok)
 			ls.state = indented
 		}
 
 	case invalidIndent, indentAside:
+		extra = ls.pad(tok)
 		e = common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 	}
 
@@ -232,14 +244,18 @@ func (ls *layerState) handleSpace(tok *parser.Token, tc *parser.TokenContext) (b
 		return false, nil, e
 	}
 
+	ls.spaces = append(ls.spaces, tok)
 	role := ls.role(nextTok)
 	if role != commonRole {
-		return true, nil, nil
+		return false, nil, nil
 	}
 
 	var extra []*parser.Token
 	switch ls.state {
+	case validIndent:
+		extra = ls.pad()
 	case invalidIndent, indentAside:
+		extra = ls.pad()
 		e = common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 	case incIndent:
 		extra, e = ls.indent()
@@ -251,7 +267,7 @@ func (ls *layerState) handleSpace(tok *parser.Token, tc *parser.TokenContext) (b
 		ls.state = indented
 	}
 
-	return true, extra, e
+	return false, extra, e
 }
 
 func (ls *layerState) stripNl(content []byte) ([]byte, bool) {
@@ -297,18 +313,18 @@ func (ls *layerState) adjustIndent(content []byte) state {
 	return invalidIndent
 }
 
-func (ls *layerState) handleAside(tc *parser.TokenContext) error {
+func (ls *layerState) handleAside(tok *parser.Token, tc *parser.TokenContext) (bool, []*parser.Token, error) {
 	if ls.state == indented {
-		return nil
+		return true, nil, nil
 	}
 
 	ls.state = indentAside
-	tok, e := tc.PeekToken()
-	if e != nil || tok == nil || ls.role(tok) != commonRole {
-		return e
+	nextTok, e := tc.PeekToken()
+	if e != nil || nextTok == nil || ls.role(nextTok) != commonRole {
+		return false, ls.pad(tok), e
 	}
 
-	return common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
+	return false, nil, common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 }
 
 func (ls *layerState) handleEoi(tok *parser.Token) ([]*parser.Token, error) {
@@ -325,6 +341,7 @@ func (ls *layerState) handleEoi(tok *parser.Token) ([]*parser.Token, error) {
 		}
 	}
 
+	result = append(result, ls.pad()...)
 	return append(result, tok), nil
 }
 

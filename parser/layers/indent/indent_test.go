@@ -115,5 +115,56 @@ func TestParse(t *testing.T) {
 			test.ExpectNoError(t, e)
 		})
 	}
+}
 
+func TestTokenOrder(t *testing.T) {
+	grammar := `!aside $space $comment; !extern $in $de; $space = /\s+/; $comment = /\{.*?\}/; $name = /\w+/;
+		g = st, {st}; st = ('do', $in, st, {st}, $de) | $name;
+		@indent space(space) on-indent(in) on-dedent(de);`
+
+	samples := []struct {
+		src, expected string
+	}{
+		{"foo", "foo"},
+		{"foo\nbar", "foo\nbar"},
+		{"do\n  foo\nbar", "do(\n  foo)\nbar"},
+		{"do\n  foo\n  bar", "do(\n  foo\n  bar)"},
+		{"foo\n\t{c}\n  \nbar", "foo\n\t{c}\n  \nbar"},
+		{"do\n do\n  do\n   foo\n", "do(\n do(\n  do(\n   foo)))\n"},
+		{"do\n{c}\n foo", "do\n{c}(\n foo)"},
+	}
+
+	g, e := langdef.ParseString("", grammar)
+	test.ExpectNoError(t, e)
+
+	p, e := parser.New(g)
+	test.ExpectNoError(t, e)
+
+	var result []byte
+	hooks := parser.Hooks{
+		Tokens: parser.TokenHooks{
+			parser.AnyToken: func(_ context.Context, token *parser.Token, _ *parser.TokenContext) (bool, []*parser.Token, error) {
+				switch token.TypeName() {
+				case "in":
+					result = append(result, '(')
+				case "de":
+					result = append(result, ')')
+				default:
+					result = append(result, token.Content()...)
+				}
+				return true, nil, nil
+			},
+		},
+	}
+
+	for i, sample := range samples {
+		name := fmt.Sprintf("sample #%d (%s)", i, sample.src)
+		t.Run(name, func(t *testing.T) {
+			result = nil
+			_, e := p.ParseString(context.Background(), "", sample.src, hooks)
+			test.ExpectNoError(t, e)
+
+			test.ExpectString(t, sample.expected, string(result))
+		})
+	}
 }
