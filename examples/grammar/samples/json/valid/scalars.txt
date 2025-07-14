@@ -1,0 +1,8 @@
+---
+null
+---
+false
+---
+true
+---
+"foo\b\f\n\r\t\u0123\"\\"

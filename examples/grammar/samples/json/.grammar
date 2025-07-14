@@ -1,0 +1,16 @@
+# RFC 8259
+
+!aside $space; !error $error;
+
+$space = /[ \n\r\t]+/;
+$number = /(?:0|-?[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE](?:[+-]?[0-9]+))?/;
+$op = /[\[\{\]\}:,]/;
+$string = /"(?:[^\\"\x00-\x1f]|\\(?:["\\\/bfnrt]|u[0-9A-Fa-f]{4}))*"/;
+$keyword = /false|null|true/;
+$error = /".{,20}/;
+
+json = value;
+value = $keyword | object | array | $number | $string;
+object = '{', [key, ':', value, {',', key, ':', value}], '}';
+key = $string;
+array = '[', [value, {',', value}], ']';
