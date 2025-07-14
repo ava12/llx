@@ -27,7 +27,7 @@ func checkGrammar(g *grammar.Grammar, nti nodes) error {
 
 	for i := 0; i < ntcnt; i++ {
 		if g.Nodes[i].Name != nti[i].name {
-			return errors.New(fmt.Sprintf("nt #%d: %s expected, got %s", i, nti[i].name, g.Nodes[i].Name))
+			return fmt.Errorf("nt #%d: %s expected, got %s", i, nti[i].name, g.Nodes[i].Name)
 		}
 	}
 
@@ -68,7 +68,7 @@ func checkNode(g *grammar.Grammar, nti int, ent node) error {
 	states := g.States[firstState:lastState]
 
 	if len(states) != len(ent.states) {
-		return errors.New(fmt.Sprintf("state lengths differ: %d (expecting %d)", len(states), len(ent.states)))
+		return fmt.Errorf("state lengths differ: %d (expecting %d)", len(states), len(ent.states))
 	}
 
 	for i, s := range states {
@@ -99,7 +99,7 @@ func checkState(g *grammar.Grammar, s grammar.State, firstState int, es state) e
 			if !f {
 				_, f = multiRules[k]
 				if !f {
-					return errors.New(fmt.Sprintf("missing rule for %d", k))
+					return fmt.Errorf("missing rule for %d", k)
 				}
 			}
 		}
@@ -108,11 +108,11 @@ func checkState(g *grammar.Grammar, s grammar.State, firstState int, es state) e
 	for k, r := range rules {
 		ers, f := es[k]
 		if !f {
-			return errors.New(fmt.Sprintf("unexpected rule for %d (%v)", k, r))
+			return fmt.Errorf("unexpected rule for %d (%v)", k, r)
 		}
 
 		if len(ers) != 1 {
-			return errors.New(fmt.Sprintf("only one rule for %d (%v)", k, r))
+			return fmt.Errorf("only one rule for %d (%v)", k, r)
 		}
 
 		er := ers[0]
@@ -120,14 +120,14 @@ func checkState(g *grammar.Grammar, s grammar.State, firstState int, es state) e
 			er.State += firstState
 		}
 		if r.State != er.State || r.Node != er.Node {
-			return errors.New(fmt.Sprintf("rules for %d differ: %v (expecting %v)", k, r, er))
+			return fmt.Errorf("rules for %d differ: %v (expecting %v)", k, r, er)
 		}
 	}
 
 	for k, rs := range multiRules {
 		ers, f := es[k]
 		if !f {
-			return errors.New(fmt.Sprintf("unexpected rules for %d", k))
+			return fmt.Errorf("unexpected rules for %d", k)
 		}
 
 		for _, er := range ers {
@@ -139,7 +139,7 @@ func checkState(g *grammar.Grammar, s grammar.State, firstState int, es state) e
 				}
 			}
 			if !f {
-				return errors.New(fmt.Sprintf("missing rule %d (%v)", k, er))
+				return fmt.Errorf("missing rule %d (%v)", k, er)
 			}
 		}
 
@@ -155,7 +155,7 @@ func checkState(g *grammar.Grammar, s grammar.State, firstState int, es state) e
 				}
 			}
 			if !f {
-				return errors.New(fmt.Sprintf("unexpected rule %d (%v)", k, r))
+				return fmt.Errorf("unexpected rule %d (%v)", k, r)
 			}
 		}
 	}

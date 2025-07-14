@@ -63,7 +63,7 @@ type TreeValidator struct {
 	cmds []string
 }
 
-var exprRe = regexp.MustCompile("\\(|\\)|'.+?'|[^\\s()]+")
+var exprRe = regexp.MustCompile(`\(|\)|'.+?'|[^\s()]+`)
 
 func NewTreeValidator(n *TreeNode, expr string) *TreeValidator {
 	return &TreeValidator{&stackNode{nil, n, len(n.children), 0}, exprRe.FindAllString(expr, -1)}

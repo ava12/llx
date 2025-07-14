@@ -92,7 +92,7 @@ func splitName(name string) (sec, val string) {
 }
 
 func NewConf(root tree.NodeElement) *Conf {
-	return &Conf{RootNode: root.(tree.NodeElement), Sections: make(map[string]*Section)}
+	return &Conf{RootNode: root, Sections: make(map[string]*Section)}
 }
 
 func (c *Conf) Updated() bool {
