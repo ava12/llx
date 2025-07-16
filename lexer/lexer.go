@@ -52,8 +52,9 @@ const AllTokenTypes = TokenTypeSet(1<<64 - 1)
 // in this case lexer tries to fetch a token again at new position.
 // Every byte of source file must belong to some lexeme.
 type Lexer struct {
-	types []TokenType
-	re    *regexp.Regexp
+	types    []TokenType
+	re       *regexp.Regexp
+	typeMask TokenTypeSet
 }
 
 // New creates new Lexer.
@@ -61,15 +62,17 @@ type Lexer struct {
 // A group that has no description or that has token type < 0 or > 63 is treated as ErrorTokenType.
 func New(re *regexp.Regexp, types []TokenType) *Lexer {
 	ts := make([]TokenType, len(types))
+	var tm TokenTypeSet
 	for i, t := range types {
 		ts[i].TypeName = t.TypeName
 		if t.Type >= 0 && t.Type < 64 {
 			ts[i].Type = t.Type
+			tm |= 1 << t.Type
 		} else {
 			ts[i].Type = ErrorTokenType
 		}
 	}
-	return &Lexer{types: ts, re: re}
+	return &Lexer{types: ts, re: re, typeMask: tm}
 }
 
 func wrongCharError(s *source.Source, content []byte, line, col int) *llx.Error {
@@ -156,6 +159,10 @@ func (l *Lexer) Next(q *source.Queue) (*Token, error) {
 // Returns EoI token if queue is empty.
 // Returns EoF token and discards current source if current position is beyond the end of current source.
 func (l *Lexer) NextOf(q *source.Queue, tts TokenTypeSet) (*Token, error) {
+	if tts&l.typeMask == 0 {
+		return nil, nil
+	}
+
 	for {
 		t, advanced, e := l.fetch(q, tts)
 		if t != nil || e != nil || !advanced {
