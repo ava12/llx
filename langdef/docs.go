@@ -3,13 +3,16 @@ Package langdef converts textual grammar description to a grammar.Grammar struct
 
 A grammar is described using a language resembling EBNF. A self-definition of this language is:
 */
+//  $$name = /[a-zA-Z_][a-zA-Z_0-9-]*/;
+//
 //  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*(?:\n|$)/;
 //  $string = /(?:"(?:[^\\"]|\\.)*")|(?:'.*?')/;
-//  $name = /[a-zA-Z_][a-zA-Z_0-9-]*/;
+//  $name = name;
 //  $type-dir = /!(?:aside|caseless|error|extern|group)\b/;
 //  $literal-dir = /!reserved\b/;
 //  $mixed-dir = /!literal\b/;
-//  $token-name = /\$[a-zA-z_][a-zA-Z_0-9-]*/;
+//  $template-name = /\$\$/name;
+//  $token-name = /\$/name;
 //  $regexp = /\/(?:[^\\\/]|\\.)+\//;
 //  $op = /[(){}\[\]=|,;@]/;
 //  $error = /["'!].{0,10}/;
@@ -18,12 +21,14 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //
 //  # the first node is the root one
 //  # no token definitions nor directives allowed after the first node
-//  langdef = {directive | token-definition | layer-definition}, node-definition, {node-definition | layer-definition};
+//  langdef = {directive | template-definition | token-definition | layer-definition},
+//            node-definition, {node-definition | layer-definition};
 //  directive = type-directive | literal-directive | mixed-directive;
 //  type-directive = $type-dir, {$token-name}, ';';
 //  literal-directive = $literal-dir, {$string}, ';';
 //  mixed-directive = $mixed-dir, {$token-name | $string}, ';';
-//  token-definition = $token-name, '=', $regexp, ';';
+//  template-definition = $template-name, '=', $regexp | $name, {',', $regexp | name}, ';';
+//  token-definition = $token-name, '=', $regexp | $name, {',', $regexp | name}, ';';
 //  layer-definition = '@', $name, {layer-command}, ';';
 //  layer-command = $name, '(', [$name | $string, {',', $name | $string}], ')';
 //  node-definition = $name, '=', sequence, ';';
@@ -56,7 +61,9 @@ e.g. "\"Foo\" bar". May also contain special quoted symbols:
 A name is a sequence of latin letters, digits, underscores, and hyphens, starting with a letter or an underscore.
 Names are case-sensitive.
 
-A token type name is a name preceded by $. Token type names are case-sensitive.
+A token type name is a name preceded by "$". Token type names are case-sensitive.
+
+A template name is a name preceded by "$$". Template names are case-sensitive.
 
 A regular expression literal is a RE2 regular expression delimited with slashes (/). To use slashes inside regexp
 escape them with backslashes (\).
@@ -68,20 +75,39 @@ Operator is one of symbols:
 
 All other symbols not contained in comments or string literals are forbidden.
 
-A grammar description contains four types of records: token type definitions, node definitions, directives,
-and hook layer definitions.
+A grammar description contains five types of records: template definitions, token type definitions,
+directives, node definitions, and hook layer definitions.
 There must be at least one node definition. All token type definitions and directives
 must precede node definitions.
 
-A token type definition has a form:
-  $type-name = /regexp/ ;
+A template definition has a form:
+  $$template-name = (/regexp/ | template-name) {, (/regexp/ | template-name)} ;
+
+This defines a template that can be used later in other template or token type definitions.
+The resulting regular expression is a concatenation of regexps with delimiters stripped, e.g.
+  $$time = /\d\d:\d\d:\d\d/;
+  $datetime = /\d{4}-\d\d-\d\d/
+                /(?:T/time/)?/
+              /|/ time;
+Is equivalent to:
+  $datetime = /\d{4}-\d\d-\d\d(?:T\d\d:\d\d:\d\d)?|\d\d:\d\d:\d\d/;
+
+Template definition order is important: all templates must be defined before they can be used, e.g.
+  $foo = bar; # bar template is not defined yet
+  $$bar = /foo/;
+is an error.
 
 A regular expression should not contain capturing groups (e.g. /(foo|bar)+/ will cause incorrect behavior
 of lexer), use non-capturing groups instead (e.g. /(?:foo|bar)+/).
 By default, token regular expressions use "s" flag (let "." match "\n"), to override it use non-capturing groups
 with flags (e.g. /"(?U-s:.*)"/).
 
-Token definition order is important, lexer returns the first defined token type it can match.
+A token type definition has a form:
+  $type-name = (/regexp/ | template-name) {, (/regexp/ | template-name)} ;
+
+The structure is the same as for a template definition.
+
+Token definition order is important, a lexer returns the first defined token type it can match.
 E.g. a lexer for grammar definition language will match an $error token type only if it sees a quote or exclamation sign,
 but cannot match neither a string literal, nor a correct directive name.
 Each token type mentioned in a grammar description must be defined exactly once or listed in !extern directive.

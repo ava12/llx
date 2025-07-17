@@ -4,6 +4,7 @@ help:
 	@echo valid targets are  cmd, generate, test
 
 cmd:
+	rm bin/llxgen
 	go build -o bin/llxgen ./cmd/llxgen/llxgen.go
 
 generate:

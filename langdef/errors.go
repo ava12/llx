@@ -45,6 +45,10 @@ const (
 	InvalidEscapeError
 	// invalid hexadecimal rune code
 	InvalidRuneError
+	// token template with this name already defined
+	TemplateDefinedError
+	// token template is not defined
+	UnknownTemplateError
 )
 
 func eofError(token *lexer.Token) *llx.Error {
@@ -117,4 +121,12 @@ func invalidEscapeError(token *lexer.Token, text string) *llx.Error {
 
 func invalidRuneError(token *lexer.Token, text string) *llx.Error {
 	return llx.FormatErrorPos(token, InvalidRuneError, "invalid hexadecimal rune code: %q", text)
+}
+
+func templateDefinedError(token *lexer.Token, name string) *llx.Error {
+	return llx.FormatErrorPos(token, TemplateDefinedError, "template %q already defined", name)
+}
+
+func unknownTemplateError(token *lexer.Token, name string) *llx.Error {
+	return llx.FormatErrorPos(token, UnknownTemplateError, "unknown template: %q", name)
 }

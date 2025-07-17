@@ -72,16 +72,17 @@ func Parse(s *source.Source) (*grammar.Grammar, error) {
 }
 
 const (
-	stringTok     = "string"
-	nameTok       = "name"
-	dirTok        = "dir"
-	literalDirTok = "literal"
-	mixedDirTok   = "mixed"
-	groupDirTok   = "group-dir"
-	tokenNameTok  = "token-name"
-	regexpTok     = "regexp"
-	opTok         = "op"
-	wrongTok      = ""
+	stringTok       = "string"
+	nameTok         = "name"
+	dirTok          = "dir"
+	literalDirTok   = "literal"
+	mixedDirTok     = "mixed"
+	groupDirTok     = "group-dir"
+	templateNameTok = "template-name"
+	tokenNameTok    = "token-name"
+	regexpTok       = "regexp"
+	opTok           = "op"
+	wrongTok        = ""
 )
 
 const (
@@ -121,6 +122,7 @@ type parseContext struct {
 	extraTokens          []extraToken
 	extraIndex           map[string]int
 	savedToken           *lexer.Token
+	templates            map[string]string
 	currentGroup         int
 	restrictLiteralTypes bool
 	restrictLiterals     bool
@@ -151,9 +153,10 @@ func init() {
 		{4, literalDirTok},
 		{5, mixedDirTok},
 		{6, groupDirTok},
-		{7, tokenNameTok},
-		{8, regexpTok},
-		{9, opTok},
+		{7, templateNameTok},
+		{8, tokenNameTok},
+		{9, regexpTok},
+		{10, opTok},
 		{lexer.ErrorTokenType, wrongTok},
 	}
 
@@ -165,6 +168,7 @@ func init() {
 			`(!reserved\b)|` +
 			`(!literal\b)|` +
 			`(!group\b)|` +
+			`(\$\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(\/(?:[^\\\/]|\\.)+\/)|` +
 			`([(){}\[\]=|,;@])|` +
@@ -182,6 +186,7 @@ func newParseContext() *parseContext {
 		literalIndex: make(tokenIndex),
 		extraTokens:  make([]extraToken, 0),
 		extraIndex:   make(map[string]int),
+		templates:    make(map[string]string),
 	}
 }
 
@@ -193,7 +198,7 @@ func (c *parseContext) Parse(s *source.Source) (*parseResult, error) {
 
 	for e == nil {
 		t, e = c.fetch([]string{
-			nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, opTok, tokenNameTok,
+			nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, opTok, templateNameTok, tokenNameTok,
 		}, true, nil)
 		if e != nil {
 			return nil, e
@@ -218,6 +223,15 @@ func (c *parseContext) Parse(s *source.Source) (*parseResult, error) {
 
 		case opTok:
 			e = c.parseLayerDef(t)
+
+		case templateNameTok:
+			name := t.Text()[2:]
+			_, has := c.templates[name]
+			if has {
+				return nil, templateDefinedError(t, name)
+			}
+
+			e = c.parseTemplateDef(name)
 
 		case tokenNameTok:
 			name := t.Text()[1:]
@@ -644,23 +658,68 @@ func (c *parseContext) parseLayerDef(t *lexer.Token) error {
 	return nil
 }
 
-func (c *parseContext) parseTokenDef(name string) error {
+func (c *parseContext) parseTemplateDef(name string) error {
 	e := c.skipOne(equTok, nil)
-	token, e := c.fetchOne(regexpTok, true, e)
+	re, e := c.fetchRegexp(e)
 	e = c.skipOne(semicolonTok, e)
 	if e != nil {
 		return e
 	}
 
-	re := token.Text()[1 : len(token.Text())-1]
-	_, e = regexp.Compile(re)
+	c.templates[name] = re
+
+	return nil
+}
+
+func (c *parseContext) parseTokenDef(name string) error {
+	e := c.skipOne(equTok, nil)
+	re, e := c.fetchRegexp(e)
+	e = c.skipOne(semicolonTok, e)
 	if e != nil {
-		return regexpError(token, e)
+		return e
 	}
 
 	c.addToken(name, re, 0)
 
 	return nil
+}
+
+func (c *parseContext) fetchRegexp(e error) (string, error) {
+	types := []string{regexpTok, nameTok}
+	tokens, e := c.fetchAll(types, e)
+	if e != nil {
+		return "", e
+	}
+
+	if len(tokens) == 0 {
+		_, e = c.fetch(types, true, nil)
+		return "", e
+	}
+
+	var contents []byte
+	for _, token := range tokens {
+		switch token.TypeName() {
+		case regexpTok:
+			content := token.Content()
+			contents = append(contents, content[1:len(content)-1]...)
+
+		case nameTok:
+			content, has := c.templates[token.Text()]
+			if !has {
+				return "", unknownTemplateError(token, token.Text())
+			}
+
+			contents = append(contents, content...)
+		}
+	}
+
+	re := string(contents)
+	_, e = regexp.Compile(re)
+	if e != nil {
+		return "", regexpError(tokens[0], e)
+	}
+
+	return re, nil
 }
 
 func (c *parseContext) addNode(name string, define bool) *nodeItem {

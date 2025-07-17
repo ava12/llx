@@ -13,8 +13,6 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-const toks = "$tok = /\\S+/;"
-
 func checkErrorCode(t *testing.T, samples []string, code int) {
 	for index, src := range samples {
 		errPrefix := "input #" + strconv.Itoa(index)
@@ -184,15 +182,29 @@ func TestUnknownLiteralError(t *testing.T) {
 
 func TestReassignedGroupError(t *testing.T) {
 	samples := []string{
-		" $num = /\\d+/; $name = /\\w+/; !group $name; !group $name $num;",
+		"$num = /\\d+/; $name = /\\w+/; !group $name; !group $name $num;",
 	}
 	checkErrorCode(t, samples, ReassignedGroupError)
 }
 
+func TestTemplateDefinedError(t *testing.T) {
+	samples := []string{
+		"$$foo = /bar/; $$foo = /baz/;",
+	}
+	checkErrorCode(t, samples, TemplateDefinedError)
+}
+
+func TestUnknownTemplateError(t *testing.T) {
+	samples := []string{
+		"$foo = /bar/ baz;",
+	}
+	checkErrorCode(t, samples, UnknownTemplateError)
+}
+
 func TestNoError(t *testing.T) {
 	samples := []string{
-		toks + "foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		toks + "!aside; !extern; !error; !literal; !caseless; !reserved; @foo; foo = 'foo';",
+		"$tok = /\\S+/; foo = 'foo' | bar; bar = 'bar' | 'baz';",
+		"$tok = /\\S+/; !aside; !extern; !error; !literal; !caseless; !reserved; @foo; foo = 'foo';",
 		"!aside $space; !group $space; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 		"!literal $name 'a' 'b'; $name = /\\w+/; g = $name | 'a' | 'b';",
@@ -201,12 +213,13 @@ func TestNoError(t *testing.T) {
 		"$n = /\\S+/; g = $n; @ foo bar() baz();",
 		"$op = /[+-]/; g = \"+\", \"+\" | \"-\";",
 		"$op = /[+-]/; g = '+', '+' | '-';",
+		"$$foo = /foo/; $$bar = /a/foo/z/; $tok = foo/-/bar; g = $tok;",
 	}
 	checkErrorCode(t, samples, 0)
 }
 
 func TestNoDuplicateLiterals(t *testing.T) {
-	sample := toks + "grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
+	sample := "$tok = /\\S+/; grammar = 'a', 'foo', 'is', foo, 'or', 'a', 'bar'; foo = 'a', ('foo' | 'bar');"
 	expectedTokCnt := 6
 	g, e := ParseString("", sample)
 	if e != nil {
@@ -357,7 +370,7 @@ func TestLayer(t *testing.T) {
 
 	g, e := ParseString("", sample)
 	if e != nil {
-		t.Fatalf("got unexpectedd error %v", e)
+		t.Fatalf("got unexpected error %v", e)
 	}
 
 	if len(g.Layers) != len(expected) {
@@ -389,6 +402,30 @@ func TestLayer(t *testing.T) {
 	for i, layer := range g.Layers {
 		if !check(expected[i], layer) {
 			t.Errorf("layer %d: expecting %v, got %v", i, expected[i], layer)
+		}
+	}
+}
+
+func TestTemplates(t *testing.T) {
+	sample := `$$dd = /\d\d/; $$date = /\d{4}-/dd/-/dd; $$time = dd/:/dd/:/dd;
+	$date = date; $time = time; $datetime = date /T/ time;
+	g = $date | $time | $datetime;`
+
+	expected := []string{
+		`\d{4}-\d\d-\d\d`,
+		`\d\d:\d\d:\d\d`,
+		`\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d`,
+	}
+
+	g, e := ParseString("", sample)
+	if e != nil {
+		t.Fatalf("unexpected error: %v", e)
+	}
+
+	for i, re := range expected {
+		if g.Tokens[i].Re != re {
+			t.Errorf("token #%d(%s): expecting regexp %q, got %q",
+				i, g.Tokens[i].Name, re, g.Tokens[i].Re)
 		}
 	}
 }
