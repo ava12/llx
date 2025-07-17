@@ -9,23 +9,23 @@ import (
 
 // Error codes used by langdef.Parse* functions:
 const (
-	// EoF reached when token expected
+	// EoF reached when a token expected
 	UnexpectedEofError = llx.LangDefErrors + iota
-	// fetched token of unexpected type or with unexpected content
+	// fetched a token of unexpected type or with unexpected content
 	UnexpectedTokenError
-	// node definition uses undefined token type
+	// a node definition uses undefined token type
 	UnknownTokenError
-	// node definition uses aside or error token
+	// a node definition uses an aside or an error token
 	WrongTokenError
 	// redefining already defined token type
 	TokenDefinedError
 	// redefining already defined node
 	NodeDefinedError
-	// error in regular expression
+	// error in a regular expression
 	WrongRegexpError
-	// node definition uses node that was never defined
+	// a node definition uses a node that was never defined
 	UnknownNodeError
-	// found node that is defined but not used
+	// found a node that is defined but not used
 	UnusedNodeError
 	// cannot resolve node dependencies, this maybe a circular cross-reference (e. g. foo = bar; bar = foo;)
 	UnresolvedError
@@ -33,15 +33,15 @@ const (
 	RecursionError
 	// too many token types
 	TokenTypeNumberError
-	// cannot associate string literal with any token type
+	// cannot associate a string literal with any token type
 	UnresolvedTokenTypesError
-	// token type listed in directive is not defined
+	// a token type listed in a directive is not defined
 	UndefinedTokenError
-	// node definition uses string literal that is not whitelisted
+	// a node definition uses a string literal that is not whitelisted
 	UnknownLiteralError
-	// trying to move token to new group more than once
+	// trying to move a token to a new group more than once
 	ReassignedGroupError
-	// invalid backslash escape in string literal
+	// invalid backslash escape in a string literal
 	InvalidEscapeError
 	// invalid hexadecimal rune code
 	InvalidRuneError
