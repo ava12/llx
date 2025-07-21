@@ -12,7 +12,7 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //  $literal-dir = /!reserved\b/;
 //  $mixed-dir = /!literal\b/;
 //  $template-name = /\$\$/name;
-//  $token-name = /\$/name;
+//  $token-name = /\$(?:/name/)?/;
 //  $regexp = /\/(?:[^\\\/]|\\.)+\//;
 //  $op = /[(){}\[\]=|,;@]/;
 //  $error = /["'!].{0,10}/;
@@ -106,6 +106,10 @@ A token type definition has a form:
   $type-name = (/regexp/ | template-name) {, (/regexp/ | template-name)} ;
 
 The structure is the same as for a template definition.
+
+There is reserved token type "$" denoting end-of-input token (sent when the source queue is empty).
+It is treated as an aside token, but it may be used in node definitions, e.g.
+  config = {key, "=", value, $new-line | $};
 
 Token definition order is important, a lexer returns the first defined token type it can match.
 E.g. a lexer for grammar definition language will match an $error token type only if it sees a quote or exclamation sign,

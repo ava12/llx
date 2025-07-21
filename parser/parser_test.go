@@ -842,3 +842,12 @@ func TestPeekToken(t *testing.T) {
 		})
 	}
 }
+
+func TestEofToken(t *testing.T) {
+	grammar := `$nl = /\n/; $name = /\S+/; g = {$nl | ($name, $nl | $)};`
+	samples := []srcExprSample{
+		{"foo\nbar", "foo nl bar"},
+		{"foo\nbar\n", "foo nl bar nl"},
+	}
+	testGrammarSamples(t, "eof token", grammar, samples)
+}

@@ -169,7 +169,7 @@ func init() {
 			`(!literal\b)|` +
 			`(!group\b)|` +
 			`(\$\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
-			`(\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
+			`(\$(?:[a-zA-Z_][a-zA-Z_0-9-]*)?)|` +
 			`(\/(?:[^\\\/]|\\.)+\/)|` +
 			`([(){}\[\]=|,;@])|` +
 			`(['"/!].{0,10}))`)
@@ -236,7 +236,7 @@ func (c *parseContext) Parse(s *source.Source) (*parseResult, error) {
 		case tokenNameTok:
 			name := t.Text()[1:]
 			i, has := c.tokenIndex[name]
-			if has && c.result.Tokens[i].Re != "" {
+			if (has && c.result.Tokens[i].Re != "") || name == "" {
 				return nil, defTokenError(t)
 			}
 
@@ -814,13 +814,18 @@ func (c *parseContext) parseVariant(name string) (chunk, error) {
 		return newNodeChunk(t.Text(), nt), nil
 
 	case tokenNameTok:
-		index, f = c.tokenIndex[t.Text()[1:]]
-		if !f {
-			return nil, tokenError(t)
-		}
+		tokenName := t.Text()[1:]
+		if tokenName == "" {
+			index = lexer.EoiTokenType
+		} else {
+			index, f = c.tokenIndex[tokenName]
+			if !f {
+				return nil, tokenError(t)
+			}
 
-		if (c.result.Tokens[index].Flags & unusedToken) != 0 {
-			return nil, wrongTokenError(t)
+			if (c.result.Tokens[index].Flags & unusedToken) != 0 {
+				return nil, wrongTokenError(t)
+			}
 		}
 
 		return newTokenChunk(index), nil

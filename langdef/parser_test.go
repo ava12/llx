@@ -89,6 +89,7 @@ func TestWrongToken(t *testing.T) {
 func TestTokenDefined(t *testing.T) {
 	samples := []string{
 		"$foo = /a/; $bar = /b/; $foo = /c/;",
+		"$ = /foo/;",
 	}
 	checkErrorCode(t, samples, TokenDefinedError)
 }
@@ -214,6 +215,7 @@ func TestNoError(t *testing.T) {
 		"$op = /[+-]/; g = \"+\", \"+\" | \"-\";",
 		"$op = /[+-]/; g = '+', '+' | '-';",
 		"$$foo = /foo/; $$bar = /a/foo/z/; $tok = foo/-/bar; g = $tok;",
+		"$nl = /\\n/; $name = /\\S+/; g = {$nl | ($name, $nl | $)};",
 	}
 	checkErrorCode(t, samples, 0)
 }
