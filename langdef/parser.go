@@ -75,9 +75,6 @@ const (
 	stringTok       = "string"
 	nameTok         = "name"
 	dirTok          = "dir"
-	literalDirTok   = "literal"
-	mixedDirTok     = "mixed"
-	groupDirTok     = "group-dir"
 	templateNameTok = "template-name"
 	tokenNameTok    = "token-name"
 	regexpTok       = "regexp"
@@ -100,6 +97,16 @@ const (
 	rSquareTok   = "]"
 	lCurlyTok    = "{"
 	rCurlyTok    = "}"
+)
+
+const (
+	asideDir    = "!aside"
+	caselessDir = "!caseless"
+	errorDir    = "!error"
+	externDir   = "!extern"
+	groupDir    = "!group"
+	literalDir  = "!literal"
+	reservedDir = "!reserved"
 )
 
 type extraToken struct {
@@ -150,13 +157,10 @@ func init() {
 		{1, stringTok},
 		{2, nameTok},
 		{3, dirTok},
-		{4, literalDirTok},
-		{5, mixedDirTok},
-		{6, groupDirTok},
-		{7, templateNameTok},
-		{8, tokenNameTok},
-		{9, regexpTok},
-		{10, opTok},
+		{4, templateNameTok},
+		{5, tokenNameTok},
+		{6, regexpTok},
+		{7, opTok},
 		{lexer.ErrorTokenType, wrongTok},
 	}
 
@@ -164,10 +168,7 @@ func init() {
 		`^(?:\s+|#[^\n]*|` +
 			`((?:"(?:[^\\"]|\\.)*")|(?:'.*?'))|` +
 			`([a-zA-Z_][a-zA-Z_0-9-]*)|` +
-			`(!(?:aside|caseless|error|extern)\b)|` +
-			`(!reserved\b)|` +
-			`(!literal\b)|` +
-			`(!group\b)|` +
+			`(![a-z]+)|` +
 			`(\$\$[a-zA-Z_][a-zA-Z_0-9-]*)|` +
 			`(\$(?:[a-zA-Z_][a-zA-Z_0-9-]*)?)|` +
 			`(\/(?:[^\\\/]|\\.)+\/)|` +
@@ -198,7 +199,7 @@ func (c *parseContext) Parse(s *source.Source) (*parseResult, error) {
 
 	for e == nil {
 		t, e = c.fetch([]string{
-			nameTok, dirTok, literalDirTok, mixedDirTok, groupDirTok, opTok, templateNameTok, tokenNameTok,
+			nameTok, dirTok, opTok, templateNameTok, tokenNameTok,
 		}, true, nil)
 		if e != nil {
 			return nil, e
@@ -210,16 +211,7 @@ func (c *parseContext) Parse(s *source.Source) (*parseResult, error) {
 
 		switch t.TypeName() {
 		case dirTok:
-			e = c.parseDir(t.Text())
-
-		case groupDirTok:
-			e = c.parseGroupDir()
-
-		case literalDirTok:
-			e = c.parseLiteralDir(t.Text())
-
-		case mixedDirTok:
-			e = c.parseMixedDir()
+			e = c.parseDir(t)
 
 		case opTok:
 			e = c.parseLayerDef(t)
@@ -507,7 +499,27 @@ func (c *parseContext) addTokenFlag(name string, flag grammar.TokenFlags) {
 	}
 }
 
-func (c *parseContext) parseDir(name string) error {
+func (c *parseContext) parseDir(tok *lexer.Token) error {
+	name := tok.Text()
+	var e error
+
+	switch name {
+	case asideDir, caselessDir, externDir, errorDir:
+		e = c.parseTokenFlagDir(name)
+	case groupDir:
+		e = c.parseGroupDir()
+	case reservedDir:
+		e = c.parseReservedDir()
+	case literalDir:
+		e = c.parseLiteralDir()
+	default:
+		e = unknownDirectiveError(tok)
+	}
+
+	return e
+}
+
+func (c *parseContext) parseTokenFlagDir(name string) error {
 	tokens, e := c.fetchAll([]string{tokenNameTok}, nil)
 	e = c.skipOne(semicolonTok, e)
 	if e != nil {
@@ -516,13 +528,13 @@ func (c *parseContext) parseDir(name string) error {
 
 	var flag grammar.TokenFlags = 0
 	switch name {
-	case "!aside":
+	case asideDir:
 		flag = grammar.AsideToken
-	case "!caseless":
+	case caselessDir:
 		flag = grammar.CaselessToken
-	case "!extern":
+	case externDir:
 		flag = grammar.ExternalToken
-	case "!error":
+	case errorDir:
 		flag = grammar.ErrorToken
 	}
 	for _, token := range tokens {
@@ -557,11 +569,8 @@ func (c *parseContext) parseGroupDir() error {
 	return nil
 }
 
-func (c *parseContext) parseLiteralDir(dir string) error {
-	flags := grammar.LiteralToken
-	if dir == "!reserved" {
-		flags |= grammar.ReservedToken
-	}
+func (c *parseContext) parseReservedDir() error {
+	flags := grammar.ReservedToken
 	tokens, e := c.fetchAll([]string{stringTok}, nil)
 	e = c.skipOne(semicolonTok, e)
 	if e != nil {
@@ -575,7 +584,7 @@ func (c *parseContext) parseLiteralDir(dir string) error {
 	return nil
 }
 
-func (c *parseContext) parseMixedDir() error {
+func (c *parseContext) parseLiteralDir() error {
 	tokens, e := c.fetchAll([]string{stringTok, tokenNameTok}, nil)
 	e = c.skipOne(semicolonTok, e)
 	if e != nil {
@@ -586,7 +595,7 @@ func (c *parseContext) parseMixedDir() error {
 		text := t.Text()
 		if t.TypeName() == tokenNameTok {
 			c.restrictLiteralTypes = true
-			c.addTokenFlag(text[1:], grammar.NoLiteralsToken)
+			c.addTokenFlag(text[1:], grammar.NoLiteralsToken) // will be xor-ed later
 		} else {
 			c.restrictLiterals = true
 			c.addLiteralToken(text[1:len(text)-1], 0)

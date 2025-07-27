@@ -8,9 +8,7 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //  $space = /[ \r\n\t\f]+/; $comment = /#[^\n]*(?:\n|$)/;
 //  $string = /(?:"(?:[^\\"]|\\.)*")|(?:'.*?')/;
 //  $name = name;
-//  $type-dir = /!(?:aside|caseless|error|extern|group)\b/;
-//  $literal-dir = /!reserved\b/;
-//  $mixed-dir = /!literal\b/;
+//  $dir-name = /![a-z]+/;
 //  $template-name = /\$\$/name;
 //  $token-name = /\$(?:/name/)?/;
 //  $regexp = /\/(?:[^\\\/]|\\.)+\//;
@@ -23,10 +21,7 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //  # no token definitions nor directives allowed after the first node
 //  langdef = {directive | template-definition | token-definition | layer-definition},
 //            node-definition, {node-definition | layer-definition};
-//  directive = type-directive | literal-directive | mixed-directive;
-//  type-directive = $type-dir, {$token-name}, ';';
-//  literal-directive = $literal-dir, {$string}, ';';
-//  mixed-directive = $mixed-dir, {$token-name | $string}, ';';
+//  directive = $dir-name, {$token-name | $string}, ';';
 //  template-definition = $template-name, '=', $regexp | $name, {',', $regexp | name}, ';';
 //  token-definition = $token-name, '=', $regexp | $name, {',', $regexp | name}, ';';
 //  layer-definition = '@', $name, {layer-command}, ';';

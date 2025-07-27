@@ -202,6 +202,12 @@ func TestUnknownTemplateError(t *testing.T) {
 	checkErrorCode(t, samples, UnknownTemplateError)
 }
 
+func TestUnknownDirectiveError(t *testing.T) {
+	samples := []string{
+		"!dir;",
+	}
+	checkErrorCode(t, samples, UnknownDirectiveError)
+}
 func TestNoError(t *testing.T) {
 	samples := []string{
 		"$tok = /\\S+/; foo = 'foo' | bar; bar = 'bar' | 'baz';",

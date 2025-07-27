@@ -49,6 +49,8 @@ const (
 	TemplateDefinedError
 	// token template is not defined
 	UnknownTemplateError
+	// unknown directive name
+	UnknownDirectiveError
 )
 
 func eofError(token *lexer.Token) *llx.Error {
@@ -129,4 +131,8 @@ func templateDefinedError(token *lexer.Token, name string) *llx.Error {
 
 func unknownTemplateError(token *lexer.Token, name string) *llx.Error {
 	return llx.FormatErrorPos(token, UnknownTemplateError, "unknown template: %q", name)
+}
+
+func unknownDirectiveError(token *lexer.Token) *llx.Error {
+	return llx.FormatErrorPos(token, UnknownDirectiveError, "unknown directive: %s", token.Text())
 }
