@@ -734,7 +734,7 @@ func (pc *ParseContext) parse(ctx context.Context) (any, error) {
 		}
 	}
 
-	if pc.fullSource && tok.Type() != lexer.EoiTokenType {
+	if pc.fullSource && (tok == nil || tok.Type() != lexer.EoiTokenType) {
 		for {
 			tok, e = pc.nextToken(ctx, lexer.AllTokenTypes)
 			if e != nil {

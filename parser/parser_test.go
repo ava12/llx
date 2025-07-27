@@ -851,3 +851,16 @@ func TestEofToken(t *testing.T) {
 	}
 	testGrammarSamples(t, "eof token", grammar, samples)
 }
+
+func TestNullFinalToken(t *testing.T) {
+	grammar := `$name = /\w+/; $op = /:/; g = {$name, ':'};`
+	sample := "foo:bar::"
+	g, e := langdef.ParseString("", grammar)
+	test.ExpectNoError(t, e)
+
+	p, e := parser.New(g)
+	test.ExpectNoError(t, e)
+
+	_, e = p.ParseString(context.Background(), "", sample, parser.Hooks{}, parser.WithFullSource())
+	test.ExpectErrorCode(t, parser.RemainingSourceError, e)
+}
