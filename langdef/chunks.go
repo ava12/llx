@@ -3,6 +3,7 @@ package langdef
 import (
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/internal/ints"
+	"github.com/ava12/llx/lexer"
 )
 
 type variantChunk struct {
@@ -112,6 +113,20 @@ func (c *groupChunk) BuildStates(g *parseResult, stateIndex, nextIndex int) {
 	if needExtraRule {
 		g.States[stateIndex].CopyRules(g.States[states[0]])
 	}
+}
+
+type eoiChunk struct{}
+
+func (eoiChunk) FirstTokens() *ints.Set {
+	return ints.NewSet(lexer.EoiTokenType)
+}
+
+func (eoiChunk) IsOptional() bool {
+	return false
+}
+
+func (eoiChunk) BuildStates(g *parseResult, stateIndex, _ int) {
+	g.States[stateIndex].AddRule(grammar.FinalState, grammar.SameNode, lexer.EoiTokenType)
 }
 
 type tokenChunk int

@@ -825,18 +825,17 @@ func (c *parseContext) parseVariant(name string) (chunk, error) {
 	case tokenNameTok:
 		tokenName := t.Text()[1:]
 		if tokenName == "" {
-			index = lexer.EoiTokenType
-		} else {
-			index, f = c.tokenIndex[tokenName]
-			if !f {
-				return nil, tokenError(t)
-			}
-
-			if (c.result.Tokens[index].Flags & unusedToken) != 0 {
-				return nil, wrongTokenError(t)
-			}
+			return eoiChunk{}, nil
 		}
 
+		index, f = c.tokenIndex[tokenName]
+		if !f {
+			return nil, tokenError(t)
+		}
+
+		if (c.result.Tokens[index].Flags & unusedToken) != 0 {
+			return nil, wrongTokenError(t)
+		}
 		return newTokenChunk(index), nil
 
 	case stringTok:

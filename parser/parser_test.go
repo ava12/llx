@@ -864,3 +864,19 @@ func TestNullFinalToken(t *testing.T) {
 	_, e = p.ParseString(context.Background(), "", sample, parser.Hooks{}, parser.WithFullSource())
 	test.ExpectErrorCode(t, parser.RemainingSourceError, e)
 }
+
+func TestEoiTokenLoop(t *testing.T) {
+	grammar := `$some = /\S/; g = {$some | $};`
+	sample := "foo"
+
+	g, e := langdef.ParseString("", grammar)
+	test.ExpectNoError(t, e)
+
+	p, e := parser.New(g)
+	test.ExpectNoError(t, e)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, e = p.ParseString(ctx, "", sample, parser.Hooks{}, parser.WithFullSource())
+	test.ExpectNoError(t, e)
+}
