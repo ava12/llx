@@ -1065,23 +1065,22 @@ func (pc *ParseContext) fetchToken(types grammar.BitSet) (*Token, error) {
 	var result *Token
 	var e error
 
-	for i, l := range pc.parser.lexers {
+	for _, l := range pc.parser.lexers {
 		result, e = l.NextOf(pc.sources, types)
 		if e == nil && result != nil {
-			firstError = nil
-			break
+			return result, nil
 		}
 
-		if e != nil && i == 0 {
+		if e != nil && firstError == nil {
 			firstError = e
 		}
 	}
 
-	if firstError != nil {
+	if types == lexer.AllTokenTypes {
 		return nil, firstError
 	}
 
-	return result, nil
+	return nil, nil
 }
 
 func (pc *ParseContext) isAsideToken(t *Token) bool {

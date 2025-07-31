@@ -880,3 +880,21 @@ func TestEoiTokenLoop(t *testing.T) {
 	_, e = p.ParseString(ctx, "", sample, parser.Hooks{}, parser.WithFullSource())
 	test.ExpectNoError(t, e)
 }
+
+func TestGroupNilToken(t *testing.T) {
+	grammar := `
+	$space = /\s+/; $name = /[a-z]+/; $op = /\./; $brace = /[\[\]]/;
+	!aside $space; !group $op; !group $brace;
+	g = '[', key, ']'; key = $name, {'.', $name};
+	`
+	sample := "[foo]"
+
+	g, e := langdef.ParseString("", grammar)
+	test.ExpectNoError(t, e)
+
+	p, e := parser.New(g)
+	test.ExpectNoError(t, e)
+
+	_, e = p.ParseString(context.Background(), "", sample, parser.Hooks{}, parser.WithFullSource())
+	test.ExpectNoError(t, e)
+}

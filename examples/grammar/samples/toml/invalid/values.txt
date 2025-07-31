@@ -1,0 +1,60 @@
+---
+# no key
+= true
+---
+leading-zeros = 001
+---
+no-exp = 12.34e
+---
+wrong-case = True
+---
+wrong-case = NaN
+---
+wrong-bin = 0b12
+---
+wrong-oct = 0o678
+---
+wrong-hex = 0xah
+---
+under = _123
+---
+under = 123_
+---
+under = _1.2
+---
+under = 1_.2
+---
+under = 1._2
+---
+under = 1.2_
+---
+under = 1e_3
+---
+under = 1e3_
+---
+br = "foo
+bar"
+---
+wrong-esc = "foo\gbar"
+---
+short-u = "\u123"
+---
+wrong-u = "\u0efg"
+---
+short-U = "\U1234567"
+---
+wrong-U = "\U0efg1234"
+---
+br = 'foo
+bar'
+---
+dangling = {foo = 1,}
+---
+br = {foo = 1,
+bar = 2}
+---
+t = 23:44
+---
+tz = 12:13:14+03:30
+---
+d = 12-12-12
