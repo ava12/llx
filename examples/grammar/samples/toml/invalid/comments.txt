@@ -1,0 +1,8 @@
+---
+foo = #comment
+1
+---
+[foo #comment
+]
+---
+[[foo #comment]]

@@ -1,0 +1,24 @@
+dz = 0
+dnz = 12_3_4
+dp = +12_3_4
+dn = -12_3_4
+
+fz = 0.0
+fnz = 12_3.4_56
+fp = +123.456
+fn = -123.456
+ffe = 12.34e1_2
+fep = 12e+34
+fen = 12e-34
+ffe = 0.12e34
+
+b = 0b1_01_10
+o = 0o5_67_45
+h = 0x12_eF_Ab
+
+inf = inf
+infp = +inf
+infn = -inf
+nan = nan
+nanp = +nan
+nann = -nan

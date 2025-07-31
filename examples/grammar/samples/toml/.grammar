@@ -1,0 +1,70 @@
+# https://toml.io/en/v1.0.0
+# https://github.com/toml-lang/toml/blob/1.0.0/toml.abnf
+
+!aside $space $comment;
+!group $bare-string $op;
+!group $double-brace;
+!group $brace;
+
+$space = /[ \t]+/;
+$nl = /\n/;
+$comment = /#[\t -\x{0010ffff}]*/;
+$bare-string = /[A-Za-z0-9_-]+/;
+
+$$backslash-escapes = /\\(?:/
+                        /["\\bfnrt\x00-\x1f\x7f]/
+                        /|u[0-9A-Fa-f]{4}/
+                        /|U[0-9A-Fa-f]{8}/
+                      /)/;
+
+$basic-multiline = /"""(?:[^\\\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
+                     /|/ backslash-escapes
+                   /)*?"""/;
+$literal-multiline = /'''[^\x00-\x08\x0b-\x1f]*?'''/;
+$basic-string = /"(?:[^"\\\x00-\x08\x0a-\x1f\x7f]/
+                  /|/ backslash-escapes
+                /)*"/;
+$literal-string = /'[^'\n]*?'/;
+
+$$date = /\d{4}-(?:0[1-9]|1[0-2])-(?:[0-2]\d|3[01])/; 
+$$time = /(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?/;
+
+$datetime = date /[ Tt]/ time /(?:[Zz]|[+-]\d\d:[0-5]\d)?/;
+$date = date;
+$time = time;
+
+$bin-number = /0b[01]+(?:_[01]+)*/;
+$oct-number = /0o[0-7]+(?:_[0-7]+)*/;
+$hex-number = /0x[0-9A-Fa-f]+(?:_[0-9A-Fa-f]+)*/;
+$float-number = /(?:0|[+-]?[1-9](?:_?\d+)*)/
+                /(?:/
+                  /(?:\.\d(?:_?\d+)*(?:e[+-]?\d(?:_?\d+)*)?)/
+                  /|(?:e[+-]?\d(?:_?\d+)*)/
+                /)/;
+$dec-number = /0|[+-]?[1-9]\d*(?:_\d+)*/;
+$nan = /[+-]?(?:inf|nan)/;
+
+$keywords = /true|false/;
+$brace = /[\[\]]/;
+$double-brace = /\[\[|\]\]/;
+$op = /[.,=\{\}]/;
+
+toml = {$nl | (expression, $nl | $)};
+
+expression = key-value | table | table-array;
+
+key-value = key, '=', value;
+key = key-part, {".", key-part};
+key-part = $bare-string | $basic-string | $literal-string;
+value = string | boolean | array | inline-table | datetime | integer | float;
+
+table = '[', key, ']';
+table-array = '[[', key, ']]';
+
+string = $basic-string | $basic-multiline | $literal-string | $literal-multiline;
+boolean = "true" | "false";
+integer = $dec-number | $bin-number | $oct-number | $hex-number;
+float = $float-number | $nan;
+datetime = $datetime | $date | $time;
+array = '[', {$nl}, [value, {$nl}, {',', {$nl}, value, {$nl}}, [',', {$nl}]], ']';
+inline-table = '{', [key-value, {',', key-value}], '}';

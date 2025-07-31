@@ -1,0 +1,13 @@
+# comment
+foo = 1 #comment
+
+[bar]
+bar = 2
+
+[bar.123]
+bar.baz = true
+
+['bar'."qux"]
+'bar'."qux" = false
+
+[['bar'."baz"]]

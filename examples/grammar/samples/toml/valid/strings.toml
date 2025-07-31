@@ -1,0 +1,15 @@
+basic = "foo bar"
+basic-empty = ""
+basic-escape = "\"\\ \b\f\n\r\t\u12Cd\U001000aB"
+literal = '"f\oo bar"'
+literal-empty = ''
+
+basic-multiline = """
+  foo bar \
+  \"\\  \b\f\n\r\t\u1234\U00100080
+  " ""
+""" # """ {trigger error}
+
+literal-multiline = '''
+  'foo' ''bar''
+''' # ''' {trigger error}
