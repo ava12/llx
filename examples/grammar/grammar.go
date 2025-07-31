@@ -6,7 +6,10 @@ Maximum length of grammar definition and source file is 1 MB.
 
 Usage is
 
-	grammar [{-m | -s <prefix>}] <grammar_file> <source_file>
+	grammar [-e] [{-m | -s <prefix>}] <grammar_file> <source_file>
+
+Flag -e means that source file contains syntax errors. The program returns non-zero error code
+if the source is parsed successfully.
 
 Flag -m treats source file as multiple sources delimited by separators, the first line is the separator.
 Each separator line starts with the same sequence of non-spacing characters.
@@ -14,8 +17,8 @@ The rest of the separator line (after one or more spacing chars) is ignored and 
 
 Argument -s <prefix> treats the source file as multiple sources if it starts with the given prefix.
 
-NB: the last line feed character preceding the separator is not included in the sample.
-To add trailing line feed to the sample use empty line.
+NB: the last LF character preceding the separator is not included in the sample.
+To add trailing LF to the sample add empty line.
 
 The parser returns following error codes:
 
@@ -23,10 +26,10 @@ The parser returns following error codes:
 	2: error reading a file
 	3: a file is not a valid UTF-8 encoded text
 	4: invalid grammar definition
-	5: error creating parser (regexp error, layer initialization error)
-	6: syntax error
+	5: error creating a parser (regexp error, layer initialization error)
+	6: syntax error (or missing expected syntax error)
 
-An error message is printed to STDERR for every error code except for syntax error.
+Error messages are printed to STDERR.
 */
 package main
 
@@ -68,12 +71,14 @@ func main() {
 	var (
 		lineWidth       int
 		multiSample     bool
+		expectError     bool
 		sampleSeparator string
 	)
 
 	var exitCode = 0
 
 	flag.Usage = printHelp
+	flag.BoolVar(&expectError, "e", false, "source file contains syntax errors")
 	flag.BoolVar(&multiSample, "m", false, "source file contains multiple samples, first line is the separator")
 	flag.StringVar(&sampleSeparator, "s", "", "treat source file as multiple samples if starts with this string")
 	flag.IntVar(&lineWidth, "w", maxLineLength, "maximum output line width, runes")
@@ -91,19 +96,28 @@ func main() {
 		fmt.Println(src.Name())
 		t, e := parse(p, src)
 		if e != nil {
-			fmt.Println("  *** error:", e.Error())
-			exitCode = errSyntax
+			if expectError {
+				fmt.Println("  *** error:", e.Error())
+			} else {
+				reportError(0, "  *** error: %s", e.Error())
+				exitCode = errSyntax
+			}
 		} else {
-			pr := newPrinter(indentSize, lineWidth).Indent()
-			printTreeNode(t, pr)
-			pr.Newline()
+			if expectError {
+				reportError(0, "  *** expecting error, got success in %s", src.Name())
+				exitCode = errSyntax
+			} else {
+				pr := newPrinter(indentSize, lineWidth).Indent()
+				printTreeNode(t, pr)
+				pr.Newline()
+			}
 		}
 	}
 	os.Exit(exitCode)
 }
 
 func printHelp() {
-	fmt.Fprintln(os.Stderr, "Usage is  grammar [{-m | -s <prefix>}] <grammar_file> <source_file>")
+	fmt.Fprintln(os.Stderr, "Usage is  grammar [-e] [{-m | -s <prefix>}] <grammar_file> <source_file>")
 	flag.PrintDefaults()
 	os.Exit(errUsage)
 }
@@ -113,7 +127,9 @@ func reportError(exitCode int, message string, args ...any) {
 		message = fmt.Sprintf(message, args...)
 	}
 	fmt.Fprintln(os.Stderr, message)
-	os.Exit(exitCode)
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
 }
 
 func loadFile(name string) []byte {
