@@ -12,7 +12,7 @@ import (
 )
 
 func TestConfigErrors(t *testing.T) {
-	grammar := `!aside $space; !extern $in $de; $space = /\s+/; $char = /\w/; g = {$char};`
+	grammar := `!side $space; !extern $in $de; $space = /\s+/; $char = /\w/; g = {$char};`
 	samples := []struct {
 		layer string
 		code  int
@@ -51,7 +51,7 @@ func TestConfigErrors(t *testing.T) {
 }
 
 func TestRuntimeErrors(t *testing.T) {
-	grammar := `!aside $space; $space = /\s+/; $op = /[()]/; $name = /\w+/;
+	grammar := `!side $space; $space = /\s+/; $op = /[()]/; $name = /\w+/;
 		@restrict node(apple) allow-in(grass, tree) forbid-in(dirt, box);
 		g = grass | dirt | rock; apple = 'apple'; rock = 'rock', '(', {place | $name}, ')';
 		grass = 'grass', '(', {place | $name}, ')'; dirt = 'dirt', '(', {place | $name}, ')';

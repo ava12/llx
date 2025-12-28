@@ -13,7 +13,7 @@ import (
 	"github.com/ava12/llx/source"
 )
 
-const treeGrammarDef = "!aside $space; $space = /\\s+/; " +
+const treeGrammarDef = "!side $space; $space = /\\s+/; " +
 	"$name = /[a-z0-9]+/; $string = /\".*?\"|'.*?'/; $op = /[()]/; " +
 	"tree-def = {$name | $string | nt}; nt = '(', $name, {$name | $string | nt}, ')';"
 

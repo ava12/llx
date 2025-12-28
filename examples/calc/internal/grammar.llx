@@ -1,4 +1,4 @@
-!aside $space;
+!side $space;
 !group $minus;
 
 $space = /\s+/;

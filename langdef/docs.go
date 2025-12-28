@@ -15,7 +15,7 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //  $op = /[(){}\[\]=|,;@]/;
 //  $error = /["'!].{0,10}/;
 //
-//  !aside $space $comment; !error $error;
+//  !side $space $comment; !error $error;
 //
 //  # the first node is the root one
 //  # no token definitions nor directives allowed after the first node
@@ -103,7 +103,7 @@ A token type definition has a form:
 The structure is the same as for a template definition.
 
 There is reserved token type "$" denoting end-of-input token (sent when the source queue is empty).
-It is treated as an aside token, but it may be used in node definitions, e.g.
+It is treated as a side token, but it may be used in node definitions, e.g.
   config = {key, "=", value, $new-line | $};
 
 Token definition order is important, a lexer returns the first defined token type it can match.
@@ -143,10 +143,6 @@ argument is either a token type name or a string literal.
 
 A directive may contain token types that are defined later. A directive may contain token types, string literals,
 or both depending on directive type. A language description may contain several directives of the same type.
-
-  !aside
-!aside directive lists token types that do not affect syntax (but may be important for, say, formatters).
-Aside tokens must not be used in node definitions.
 
   !caseless
 !caseless directive lists token types holding case-insensitive strings. String literals matching
@@ -189,6 +185,10 @@ Using directive !literal $op; solves this problem.
 !reserved directive lists string literals that are treated as reserved words.
 If a token text is a reserved word it can be matched as a literal, but not as a token type,
 e.g. if a parser expects $name token type and a lexer fetches a "for" reserved word, it is a syntax error.
+
+  !side
+!side directive lists token types that do not affect syntax (but may be important for, say, formatters).
+Side tokens must not be used in node definitions.
 
 */
 package langdef

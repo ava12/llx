@@ -337,19 +337,19 @@ func New(g *grammar.Grammar, opts ...Option) (*Parser, error) {
 // ParseOption is an optional argument for Parser.Parse*
 type ParseOption func(*ParseContext)
 
-// WithAsides instructs parser to pass all tokens (include aside ones) to node hooks.
-// By default only non-aside tokens are passed to node hooks.
-func WithAsides() ParseOption {
+// WithSides instructs parser to pass all tokens (include side ones) to node hooks.
+// By default only non-side tokens are passed to node hooks.
+func WithSides() ParseOption {
 	return func(pc *ParseContext) {
-		pc.passAsides = true
+		pc.passSides = true
 	}
 }
 
-// WithFullSource instructs parser to check whether there are any non-aside tokens left
+// WithFullSource instructs parser to check whether there are any non-side tokens left
 // in source file after parsing is done.
 // By default parser stops and returns result as soon as root node is finalized,
 // no matter if end of source is reached or not.
-// With this option parser returns error if there are any non-aside tokens left.
+// With this option parser returns error if there are any non-side tokens left.
 func WithFullSource() ParseOption {
 	return func(pc *ParseContext) {
 		pc.fullSource = true
@@ -383,9 +383,9 @@ func (p *Parser) Tokens() []grammar.Token {
 	return p.grammar.Tokens
 }
 
-// IsAsideType returns true if given argument is a valid aside token type.
-func (p *Parser) IsAsideType(tt int) bool {
-	return tt >= 0 && tt < len(p.grammar.Tokens) && (p.grammar.Tokens[tt].Flags&grammar.AsideToken != 0)
+// IsSideType returns true if given argument is a valid side token type.
+func (p *Parser) IsSideType(tt int) bool {
+	return tt >= 0 && tt < len(p.grammar.Tokens) && (p.grammar.Tokens[tt].Flags&grammar.SideToken != 0)
 }
 
 // IsSpecialType returns true if given argument is a valid special token type (EoF, EoI).
@@ -417,12 +417,12 @@ func (p *Parser) MakeToken(typeName string, content []byte) (*Token, error) {
 }
 
 type nodeRec struct {
-	prev   *nodeRec
-	hooks  []NodeHookInstance
-	asides []*Token
-	types  grammar.BitSet
-	index  int
-	state  int
+	prev  *nodeRec
+	hooks []NodeHookInstance
+	sides []*Token
+	types grammar.BitSet
+	index int
+	state int
 }
 
 type tokenHookRec struct {
@@ -441,7 +441,7 @@ type ParseContext struct {
 	appliedRules *queue.Queue[grammar.Rule]
 	lastResult   any
 	node         *nodeRec
-	passAsides   bool
+	passSides    bool
 	watchNodes   bool
 	fullSource   bool
 	tc           TokenContext
@@ -559,7 +559,7 @@ func (pc *ParseContext) Sources() *source.Queue {
 }
 
 func (pc *ParseContext) pushNode(ctx context.Context, index int, tok *Token) error {
-	e := pc.ntHandleAsides()
+	e := pc.ntHandleSides()
 	if e != nil {
 		return e
 	}
@@ -598,13 +598,13 @@ func (pc *ParseContext) popNode() error {
 	)
 	nts := pc.parser.grammar.Nodes
 
-	asides := pc.node.asides
-	pc.node.asides = nil
+	sides := pc.node.sides
+	pc.node.sides = nil
 
 	for e == nil && pc.node != nil && pc.node.state == grammar.FinalState {
 		nt := pc.node
 		if nt.prev == nil {
-			for _, t := range asides {
+			for _, t := range sides {
 				for _, hook := range nt.hooks {
 					if hook == nil {
 						continue
@@ -652,7 +652,7 @@ func (pc *ParseContext) popNode() error {
 	}
 
 	if pc.node != nil {
-		pc.node.asides = asides
+		pc.node.sides = sides
 	}
 
 	return e
@@ -746,7 +746,7 @@ func (pc *ParseContext) parse(ctx context.Context) (any, error) {
 				break
 			}
 
-			if !pc.parser.IsAsideType(tt) {
+			if !pc.parser.IsSideType(tt) {
 				return nil, remainingSourceError(tok)
 			}
 		}
@@ -831,7 +831,7 @@ func (pc *ParseContext) getExpectedToken(s grammar.State) string {
 }
 
 func (pc *ParseContext) findRules(t *Token, s grammar.State) []grammar.Rule {
-	if pc.isAsideToken(t) {
+	if pc.isSideToken(t) {
 		return []grammar.Rule{{t.Type(), repeatState, grammar.SameNode}}
 	}
 
@@ -929,9 +929,9 @@ func (pc *ParseContext) nextToken(ctx context.Context, types grammar.BitSet) (*T
 			return nil, e
 		}
 
-		isAside := tok != nil && pc.parser.IsAsideType(tok.Type())
+		isSide := tok != nil && pc.parser.IsSideType(tok.Type())
 		isEof := tok != nil && tok.Type() == lexer.EofTokenType
-		if !isEof && (!isAside || pc.passAsides) {
+		if !isEof && (!isSide || pc.passSides) {
 			return tok, nil
 		}
 	}
@@ -1083,23 +1083,23 @@ func (pc *ParseContext) fetchToken(types grammar.BitSet) (*Token, error) {
 	return nil, nil
 }
 
-func (pc *ParseContext) isAsideToken(t *Token) bool {
+func (pc *ParseContext) isSideToken(t *Token) bool {
 	if t == nil {
 		return false
 	}
 
 	tokens := pc.parser.grammar.Tokens
 	i := t.Type()
-	return (i >= 0 && i < len(tokens) && tokens[i].Flags&grammar.AsideToken != 0)
+	return (i >= 0 && i < len(tokens) && tokens[i].Flags&grammar.SideToken != 0)
 }
 
-func (pc *ParseContext) ntHandleAsides() (e error) {
+func (pc *ParseContext) ntHandleSides() (e error) {
 	ntr := pc.node
-	if ntr == nil || ntr.asides == nil {
+	if ntr == nil || ntr.sides == nil {
 		return nil
 	}
 
-	for _, t := range ntr.asides {
+	for _, t := range ntr.sides {
 		for _, hook := range ntr.hooks {
 			if hook == nil {
 				continue
@@ -1112,7 +1112,7 @@ func (pc *ParseContext) ntHandleAsides() (e error) {
 		}
 	}
 
-	ntr.asides = nil
+	ntr.sides = nil
 	return
 }
 
@@ -1122,10 +1122,10 @@ func (pc *ParseContext) ntHandleToken(tok *Token) (e error) {
 	}
 
 	ntr := pc.node
-	if pc.isAsideToken(tok) {
-		ntr.asides = append(ntr.asides, tok)
+	if pc.isSideToken(tok) {
+		ntr.sides = append(ntr.sides, tok)
 	} else {
-		e = pc.ntHandleAsides()
+		e = pc.ntHandleSides()
 		if e == nil {
 			for _, hook := range ntr.hooks {
 				if hook == nil {

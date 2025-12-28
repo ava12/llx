@@ -66,9 +66,9 @@ const (
 	// E.g. fake $begin and $end can be emitted when source code indentation level changes.
 	ExternalToken
 
-	// AsideToken is a token type that does not affect syntax and thus
+	// SideToken is a token type that does not affect syntax and thus
 	// not fed to parser normally, but can be hooked. E.g. space or comment.
-	AsideToken
+	SideToken
 
 	// ErrorToken is a token type that represents some lexical error, e.g. unmatched opening quote.
 	// This token automatically generates an error message containing captured text.

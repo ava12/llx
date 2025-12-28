@@ -61,7 +61,7 @@ func TestUnexpectedToken(t *testing.T) {
 		"!error =",
 		"!error $foo,",
 		"!extern $foo; s $foo;",
-		"$s = /\\s+/; $n = /\\d+/; g = {$n}; !aside",
+		"$s = /\\s+/; $n = /\\d+/; g = {$n}; !side",
 		"@foo bar((",
 		"@foo bar(baz,)",
 		"@foo bar(,)",
@@ -80,7 +80,7 @@ func TestUnknownToken(t *testing.T) {
 
 func TestWrongToken(t *testing.T) {
 	samples := []string{
-		"!aside $foo; $foo = /foo/; bar = $foo;",
+		"!side $foo; $foo = /foo/; bar = $foo;",
 		"!error $foo; $foo = /foo/; bar = $foo;",
 	}
 	checkErrorCode(t, samples, WrongTokenError)
@@ -211,8 +211,8 @@ func TestUnknownDirectiveError(t *testing.T) {
 func TestNoError(t *testing.T) {
 	samples := []string{
 		"$tok = /\\S+/; foo = 'foo' | bar; bar = 'bar' | 'baz';",
-		"$tok = /\\S+/; !aside; !extern; !error; !literal; !caseless; !reserved; @foo; foo = 'foo';",
-		"!aside $space; !group $space; $space = /\\s/; $name = /\\w/; g = {$name};",
+		"$tok = /\\S+/; !side; !extern; !error; !literal; !caseless; !reserved; @foo; foo = 'foo';",
+		"!side $space; !group $space; $space = /\\s/; $name = /\\w/; g = {$name};",
 		"$name = /\\w+/; !literal 'a' 'b'; g = $name;",
 		"!literal $name 'a' 'b'; $name = /\\w+/; g = $name | 'a' | 'b';",
 		"!extern $ex; $name = /\\S+/; g = $name, $ex;",
@@ -277,7 +277,7 @@ func TestTokenFlags(t *testing.T) {
 		flags gr.TokenFlags
 	}{
 		{nd + gd, "foo", gr.LiteralToken},
-		{nd + "!aside $sp; $sp = /\\s+/;" + gd, "sp", gr.AsideToken},
+		{nd + "!side $sp; $sp = /\\s+/;" + gd, "sp", gr.SideToken},
 		{nd + "!caseless $name; g = 'FOO';", "name", gr.CaselessToken},
 		{nd + "!error $e; $e = /\\W/;" + gd, "e", gr.ErrorToken},
 		{nd + "!extern $foo;" + gd, "foo", gr.ExternalToken},

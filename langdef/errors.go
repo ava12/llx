@@ -15,7 +15,7 @@ const (
 	UnexpectedTokenError
 	// a node definition uses undefined token type
 	UnknownTokenError
-	// a node definition uses an aside or an error token
+	// a node definition uses a side or an error token
 	WrongTokenError
 	// redefining already defined token type
 	TokenDefinedError

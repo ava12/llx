@@ -25,7 +25,7 @@ const (
 	LayerRegisteredError
 	// trying to use unknown layer template
 	UnknownLayerError
-	// non-aside tokens left in source file(s) after parsing is done
+	// non-side tokens left in source file(s) after parsing is done
 	RemainingSourceError
 )
 

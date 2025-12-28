@@ -90,7 +90,7 @@ func testErrorSamples(t *testing.T, name, grammar string, samples []srcErrSample
 	testErrorSamplesWithHooks(t, name, grammar, samples, parser.Hooks{})
 }
 
-const spaceDef = "!aside $space; $space = /\\s+/; "
+const spaceDef = "!side $space; $space = /\\s+/; "
 
 func TestErrors(t *testing.T) {
 	name := "errors"
@@ -141,7 +141,7 @@ func TestHandlerKeyErrors(t *testing.T) {
 }
 
 func TestRemainingSourceError(t *testing.T) {
-	grammar := `!aside $space; $space = /\s+/; $name = /\w+/; g = {b}; b = 'do', {s}, 'done'; s = $name | b;`
+	grammar := `!side $space; $space = /\s+/; $name = /\w+/; g = {b}; b = 'do', {s}, 'done'; s = $name | b;`
 	samples := []struct {
 		src   string
 		isErr bool
@@ -180,15 +180,15 @@ func TestSimple(t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples)
 }
 
-func TestAside(t *testing.T) {
-	name := "aside"
-	grammar := "!aside $sep; $sep = /-/; $char = /\\w/; s = {'a' | 'b' | 'c'};"
+func TestSide(t *testing.T) {
+	name := "side"
+	grammar := "!side $sep; $sep = /-/; $char = /\\w/; s = {'a' | 'b' | 'c'};"
 	samples := []srcExprSample{
 		{"abc", "a b c"},
 		{"a-a-a", "a - a - a"},
 		{"--b--c--", "- - b - - c - -"},
 	}
-	testGrammarSamples(t, name, grammar, samples, parser.WithAsides())
+	testGrammarSamples(t, name, grammar, samples, parser.WithSides())
 }
 
 func TestAri(t *testing.T) {
@@ -280,7 +280,7 @@ func TestTokenHooks(t *testing.T) {
 
 func TestEofHooks(t *testing.T) {
 	name := "EoF hooks"
-	grammar := "!aside $space $indent; !extern $begin $end; " +
+	grammar := "!side $space $indent; !extern $begin $end; " +
 		"$indent = /(?:\\n|^)\\t+/; $space = /[ \\t]+/; $name = /\\w+/; " +
 		"g = {$name | block}; block = $begin, {$name | block}, $end;"
 	samples := []srcExprSample{
@@ -347,20 +347,20 @@ func TestCaselessTokens(t *testing.T) {
 	testGrammarSamples(t, name, grammar, samples)
 }
 
-func TestTrailingAsides(t *testing.T) {
-	name := "(non)trailing aside tokens"
-	grammar := "!aside $space; $space = /-/; $char = /[a-z]/; $digit = /\\d/; $op = /\\[|\\]/; " +
+func TestTrailingSides(t *testing.T) {
+	name := "(non)trailing side tokens"
+	grammar := "!side $space; $space = /-/; $char = /[a-z]/; $digit = /\\d/; $op = /\\[|\\]/; " +
 		"g = {ch | di | bl}; ch = $char, [$digit]; di = $digit; bl = '[', {ch | di | bl}, ']';"
 	samples := []srcExprSample{
 		//{"--a--1--", "- - (ch a - - 1) - -"},
 		{"--a--b--", "- - (ch a) - - (ch b) - -"},
 		//{"-[-a-1-[-b-]-]-", "- (bl [ - (ch a - 1) - (bl [ - (ch b) - ] ) - ] ) -"},
 	}
-	testGrammarSamples(t, name, grammar, samples, parser.WithAsides())
+	testGrammarSamples(t, name, grammar, samples, parser.WithSides())
 }
 
 func TestReservedLiterals(t *testing.T) {
-	g0 := "!aside $space; $space = /\\s+/; $name = /\\w+/; g = 'var', $name;"
+	g0 := "!side $space; $space = /\\s+/; $name = /\\w+/; g = 'var', $name;"
 	g1 := "!reserved 'var'; " + g0
 	src := "var var"
 	expected := "var var"
@@ -450,7 +450,7 @@ func TestNodeHooks(t *testing.T) {
 		},
 	}
 
-	grammar := "!aside $sp; $sp = /\\s+/; $name = /\\w+/; $op = /[+*]/; " +
+	grammar := "!side $sp; $sp = /\\s+/; $name = /\\w+/; $op = /[+*]/; " +
 		"s = p, {'+', p}; p = $name, {'*', $name};"
 
 	g, e := langdef.ParseString("", grammar)
@@ -474,7 +474,7 @@ func TestNodeHooks(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	grammar := "!aside $s; $s = /\\s+/; $n = /\\S+/; g = {$n};"
+	grammar := "!side $s; $s = /\\s+/; $n = /\\S+/; g = {$n};"
 	g, e := langdef.ParseString("", grammar)
 	if e != nil {
 		t.Fatalf("unexpected error: %s", e)
@@ -884,7 +884,7 @@ func TestEoiTokenLoop(t *testing.T) {
 func TestGroupNilToken(t *testing.T) {
 	grammar := `
 	$space = /\s+/; $name = /[a-z]+/; $op = /\./; $brace = /[\[\]]/;
-	!aside $space; !group $op; !group $brace;
+	!side $space; !group $op; !group $brace;
 	g = '[', key, ']'; key = $name, {'.', $name};
 	`
 	sample := "[foo]"

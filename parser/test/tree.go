@@ -184,7 +184,7 @@ type exprErrSample struct {
 }
 
 func TestParseTreeExpr(t *testing.T) {
-	grammarSrc := "!aside $space; $space=/\\s+/; $any=/\\S+/; g={foo|bar|baz};foo='foo';bar='bar';baz='baz';"
+	grammarSrc := "!side $space; $space=/\\s+/; $any=/\\S+/; g={foo|bar|baz};foo='foo';bar='bar';baz='baz';"
 	src := "baz foo"
 	samples := []exprErrSample{
 		{"(baz baz)(foo foo)", ""},

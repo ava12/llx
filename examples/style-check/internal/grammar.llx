@@ -1,4 +1,4 @@
-!aside $space $indent $comment;
+!side $space $indent $comment;
 
 $indent = /\n[ \t]*/;
 $space = /[ \t]+/;

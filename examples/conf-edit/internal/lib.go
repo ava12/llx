@@ -305,7 +305,7 @@ func Parse(name string, src *[]byte) (*Conf, error) {
 			parser.AnyNode: tree.NodeHook,
 		},
 	}
-	root, e := p.Parse(context.Background(), queue, hs, parser.WithAsides())
+	root, e := p.Parse(context.Background(), queue, hs, parser.WithSides())
 	if e != nil {
 		return nil, e
 	}

@@ -48,7 +48,7 @@ $op = /[=\[\]]/;
 $name = /[a-z]+/; $sec-name = /[a-z]+(?:\.[a-z]+)*/;
 $value = /[^\n]+/;
 
-!aside $space;
+!side $space;
 !group $sec-name; !group $value $nl; !group $op $name $nl;
 
 config = {section | value | $nl};
@@ -118,7 +118,7 @@ Grammar definitions allow splitting tokens into groups, a separate lexer is cons
 useful in case lexer output is context-sensitive. E.g. HTML grammar needs two lexers: one to separate tags from raw 
 text and another one for tag internal parts.
 
-### Aside tokens
+### Side tokens
 
 A source may contain tokens which are not used in grammar rules, e.g. spaces, line breaks, comments. Such tokens 
 still can be hooked, e.g. to autogenerate semicolons at line breaks.
@@ -145,4 +145,4 @@ specific (or any) nodes. The events are:
   - new token is consumed;
   - nested node is dropped from the stack; handler receives the value returned by nested node handler.
 
-By default only non-aside tokens are sent to node hooks. Parse option `WithAsides()` can be used to send all tokens, even aside ones, e.g. to keep comments for documentation generator.
+By default only non-side tokens are sent to node hooks. Parse option `WithSides()` can be used to send all tokens, even side ones, e.g. to keep comments for documentation generator.

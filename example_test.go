@@ -23,7 +23,7 @@ $op = /[=\[\]]/;
 $name = /[a-z]+/; $sec-name = /[a-z]+(?:\.[a-z]+)*/;
 $value = /[^\n]+/;
 
-!aside $space;
+!side $space;
 !group $sec-name; !group $value $nl; !group $op $name $nl;
 
 config = {section | value | $nl};

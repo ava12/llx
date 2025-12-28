@@ -13,7 +13,7 @@ import (
 )
 
 func TestConfigErrors(t *testing.T) {
-	grammar := `!aside $space; !extern $in $de; $space = /\s+/; $char = /\w/; g = {$char};`
+	grammar := `!side $space; !extern $in $de; $space = /\s+/; $char = /\w/; g = {$char};`
 	samples := []struct {
 		layer string
 		code  int
@@ -45,7 +45,7 @@ func TestConfigErrors(t *testing.T) {
 }
 
 func TestRuntimeErrors(t *testing.T) {
-	grammar := `!aside $space $comment; !extern $in $de; $space = /\s/; $comment = /\{.*?\}/; $name = /\w+/;
+	grammar := `!side $space $comment; !extern $in $de; $space = /\s/; $comment = /\{.*?\}/; $name = /\w+/;
 		g = st, {st}; st = ('do', $in, st, {st}, $de) | $name;
 		@indent space(space) on-indent(in) on-dedent(de);`
 
@@ -84,7 +84,7 @@ func TestRuntimeErrors(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	grammar := `!aside $space $comment; !extern $in $de; $space = /\s+/; $comment = /\{.*?\}/; $name = /\w+/;
+	grammar := `!side $space $comment; !extern $in $de; $space = /\s+/; $comment = /\{.*?\}/; $name = /\w+/;
 		g = st, {st}; st = ('do', $in, st, {st}, $de) | $name;
 		@indent space(space) on-indent(in) on-dedent(de);`
 
@@ -118,7 +118,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestTokenOrder(t *testing.T) {
-	grammar := `!aside $space $comment; !extern $in $de; $space = /\s+/; $comment = /\{.*?\}/; $name = /\w+/;
+	grammar := `!side $space $comment; !extern $in $de; $space = /\s+/; $comment = /\{.*?\}/; $name = /\w+/;
 		g = st, {st}; st = ('do', $in, st, {st}, $de) | $name;
 		@indent space(space) on-indent(in) on-dedent(de);`
 

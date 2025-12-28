@@ -47,7 +47,7 @@ func (b *branch) applyToken(tok *lexer.Token) (success bool) {
 		return false
 	}
 
-	if b.pc.isAsideToken(tok) {
+	if b.pc.isSideToken(tok) {
 		b.applied = append(b.applied, grammar.Rule{tok.Type(), repeatState, grammar.SameNode})
 		return true
 	}

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	unusedToken = grammar.AsideToken | grammar.ErrorToken
+	unusedToken = grammar.SideToken | grammar.ErrorToken
 )
 
 type nodeItem struct {
@@ -100,7 +100,7 @@ const (
 )
 
 const (
-	asideDir    = "!aside"
+	sideDir     = "!side"
 	caselessDir = "!caseless"
 	errorDir    = "!error"
 	externDir   = "!extern"
@@ -504,7 +504,7 @@ func (c *parseContext) parseDir(tok *lexer.Token) error {
 	var e error
 
 	switch name {
-	case asideDir, caselessDir, externDir, errorDir:
+	case sideDir, caselessDir, externDir, errorDir:
 		e = c.parseTokenFlagDir(name)
 	case groupDir:
 		e = c.parseGroupDir()
@@ -528,8 +528,8 @@ func (c *parseContext) parseTokenFlagDir(name string) error {
 
 	var flag grammar.TokenFlags = 0
 	switch name {
-	case asideDir:
-		flag = grammar.AsideToken
+	case sideDir:
+		flag = grammar.SideToken
 	case caselessDir:
 		flag = grammar.CaselessToken
 	case externDir:
@@ -1107,7 +1107,7 @@ func assignStateTokenTypes(g *parseResult, e error) error {
 
 	var defaultTypes grammar.BitSet
 	for i, t := range g.Tokens {
-		if t.Flags&grammar.AsideToken != 0 {
+		if t.Flags&grammar.SideToken != 0 {
 			defaultTypes |= 1 << i
 		}
 	}

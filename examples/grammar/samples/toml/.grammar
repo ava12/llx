@@ -1,7 +1,7 @@
 # https://toml.io/en/v1.0.0
 # https://github.com/toml-lang/toml/blob/1.0.0/toml.abnf
 
-!aside $space $comment;
+!side $space $comment;
 !group $bare-string $op;
 !group $double-brace;
 !group $brace;

@@ -93,7 +93,7 @@ func TestSavePosition(t *testing.T) {
 }
 
 func TestConvert(t *testing.T) {
-	grammar := `!aside $space; $space = /\s+/; $name = /[a-z]+/; $number = /\d+/; g = {$name | $number};`
+	grammar := `!side $space; $space = /\s+/; $name = /[a-z]+/; $number = /\d+/; g = {$name | $number};`
 	typeNames := []string{"space", "name", "number"}
 	src := "foo 1 bar 2 baz"
 	tokenPos := []int{0, 4, 6, 10, 12}

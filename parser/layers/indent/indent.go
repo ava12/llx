@@ -25,14 +25,14 @@ Takes exactly one type name of a token that must be emitted every time an indent
 
 Takes exactly one type name of a token that must be emitted every time an indentation level decreases.
 
-Indented source line starts with zero or more spacing symbols followed by a non-aside token.
-Empty lines and lines containing only aside tokens are ignored.
-All other variants (e.g. a line starting with a comment followed by a non-aside token) emit an error.
-The first non-aside token in a source code must have zero indentation level.
+Indented source line starts with zero or more spacing symbols followed by a non-side token.
+Empty lines and lines containing only side tokens are ignored.
+All other variants (e.g. a line starting with a comment followed by a non-side token) emit an error.
+The first non-side token in a source code must have zero indentation level.
 
 The layer treats indentations as pairs: each on-indent token must match an on-dedent token.
 The layer keeps a stack of nested indentations. The layer peeks the next token and checks
-current indentation level if that token is a non-aside one.
+current indentation level if that token is a non-side one.
 Emits one on-indent token if valid indentation is a prefix of current line indentation.
 Emits required number of on-dedent tokens if current line indentation equals one of saved indentations.
 Does nothing if current line indentation is valid.
@@ -66,7 +66,7 @@ type tokenRole byte
 const (
 	commonRole tokenRole = iota
 	spaceRole
-	asideRole
+	sideRole
 	emptyRole
 	eoiRole
 )
@@ -78,8 +78,8 @@ const (
 	incIndent                  // after valid indent deeper than current one, no indent token sent yet
 	decIndent                  // after valid indent shallower than current one, no dedent tokens sent yet
 	invalidIndent              // got invalid indent
-	indentAside                // aside token after indent
-	indented                   // got non-empty non-space non-aside token, in/dedent tokens sent if needed
+	indentSide                 // side token after indent
+	indented                   // got non-empty non-space non-side token, in/dedent tokens sent if needed
 )
 
 const (
@@ -124,8 +124,8 @@ func (ls *layerState) handle(tok *parser.Token, tc *parser.TokenContext) (bool, 
 		emit, extra, e = ls.handleCommon(tok)
 	case spaceRole:
 		emit, extra, e = ls.handleSpace(tok, tc)
-	case asideRole:
-		emit, extra, e = ls.handleAside(tok, tc)
+	case sideRole:
+		emit, extra, e = ls.handleSide(tok, tc)
 	}
 
 	return emit, extra, e
@@ -213,7 +213,7 @@ func (ls *layerState) handleCommon(tok *parser.Token) (bool, []*parser.Token, er
 			ls.state = indented
 		}
 
-	case invalidIndent, indentAside:
+	case invalidIndent, indentSide:
 		extra = ls.pad(tok)
 		e = common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 	}
@@ -236,7 +236,7 @@ func (ls *layerState) handleSpace(tok *parser.Token, tc *parser.TokenContext) (b
 		return true, nil, nil
 	}
 
-	if ls.state != indentAside {
+	if ls.state != indentSide {
 		ls.state = ls.adjustIndent(content)
 	}
 	nextTok, e := tc.PeekToken()
@@ -254,7 +254,7 @@ func (ls *layerState) handleSpace(tok *parser.Token, tc *parser.TokenContext) (b
 	switch ls.state {
 	case validIndent:
 		extra = ls.pad()
-	case invalidIndent, indentAside:
+	case invalidIndent, indentSide:
 		extra = ls.pad()
 		e = common.MakeWrongTokenError(layerName, tok, errInvalidIndent)
 	case incIndent:
@@ -313,12 +313,12 @@ func (ls *layerState) adjustIndent(content []byte) state {
 	return invalidIndent
 }
 
-func (ls *layerState) handleAside(tok *parser.Token, tc *parser.TokenContext) (bool, []*parser.Token, error) {
+func (ls *layerState) handleSide(tok *parser.Token, tc *parser.TokenContext) (bool, []*parser.Token, error) {
 	if ls.state == indented {
 		return true, nil, nil
 	}
 
-	ls.state = indentAside
+	ls.state = indentSide
 	nextTok, e := tc.PeekToken()
 	if e != nil || nextTok == nil || ls.role(nextTok) != commonRole {
 		return false, ls.pad(tok), e
@@ -376,8 +376,8 @@ func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (pars
 	}
 
 	for i, tokenDef := range p.Tokens() {
-		if tokenDef.Flags&grammar.AsideToken != 0 {
-			roleMap[i] = asideRole
+		if tokenDef.Flags&grammar.SideToken != 0 {
+			roleMap[i] = sideRole
 			maxType = i
 		}
 	}

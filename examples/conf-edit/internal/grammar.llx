@@ -1,4 +1,4 @@
-!aside $space $comment;
+!side $space $comment;
 !literal $op;
 !group $value;
 !group $sec-name;
