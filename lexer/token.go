@@ -1,17 +1,18 @@
 package lexer
 
 import (
+	"unsafe"
+
 	"github.com/ava12/llx/source"
 )
 
 // Token represents a lexeme, either fetched from a source file or "external" one.
-// Contains token type, text, and source and starting position (if known).
+// Contains token type and source and starting position (if known).
 // Immutable.
 type Token struct {
 	tokenType int
 	typeName  string
 	content   []byte
-	text      string
 	pos       source.Pos
 }
 
@@ -30,13 +31,13 @@ func (t *Token) Content() []byte {
 	return t.content
 }
 
-// Text returns lexeme body converted to string.
-// Conversion occurs on first call, resulting string is stored and reused to minimize number of allocations.
+// Text returns lexeme content converted to string.
 func (t *Token) Text() string {
-	if t.text == "" && len(t.content) > 0 {
-		t.text = string(t.content)
+	if len(t.content) == 0 {
+		return ""
 	}
-	return t.text
+
+	return unsafe.String(&t.content[0], len(t.content))
 }
 
 // Pos returns captured source position.
