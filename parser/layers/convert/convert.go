@@ -39,7 +39,6 @@ import (
 	"context"
 
 	"github.com/ava12/llx/grammar"
-	"github.com/ava12/llx/internal/bmap"
 	"github.com/ava12/llx/lexer"
 	"github.com/ava12/llx/parser"
 	"github.com/ava12/llx/parser/layers/common"
@@ -76,7 +75,7 @@ func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (pars
 	inputTypeName := parser.AnyToken
 	outputTypeName := ""
 	var outputType int
-	replaces := bmap.New[[]byte](len(commands))
+	replaces := make(map[string][]byte, len(commands))
 	savePosition := false
 	gotReplaces := false
 	var dynamicType bool
@@ -117,12 +116,12 @@ func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (pars
 
 			for i := 0; i < l; i += 2 {
 				from := command.Arguments[i]
-				_, has := replaces.GetString(from)
+				_, has := replaces[from]
 				if has {
 					return nil, common.MakeInvalidArgumentError(layerName, convertCommand, from, convDefinedErr)
 				}
 
-				replaces.SetString(from, []byte(command.Arguments[i+1]))
+				replaces[from] = []byte(command.Arguments[i+1])
 			}
 
 		case savePositionCommand:
@@ -148,7 +147,7 @@ func (t template) Setup(commands []grammar.LayerCommand, p *parser.Parser) (pars
 	return layer{
 		Tokens: parser.TokenHooks{
 			inputTypeName: func(_ context.Context, token *parser.Token, _ *parser.TokenContext) (emit bool, extra []*parser.Token, e error) {
-				replace, has := replaces.Get(token.Content())
+				replace, has := replaces[token.Text()]
 				if !has {
 					return true, nil, nil
 				}

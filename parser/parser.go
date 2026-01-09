@@ -2,14 +2,11 @@
 package parser
 
 import (
-	"bytes"
 	"context"
 	"maps"
 	"regexp"
 	"sort"
 	"strings"
-
-	"github.com/ava12/llx/internal/bmap"
 
 	"github.com/ava12/llx/grammar"
 	"github.com/ava12/llx/internal/queue"
@@ -39,7 +36,7 @@ type Parser struct {
 	grammar    *grammar.Grammar
 	tokenNames map[string]int
 	nodeNames  map[string]int
-	literals   bmap.BMap[int]
+	literals   map[string]int
 	lexers     []*lexer.Lexer
 	layers     []HookLayer
 }
@@ -70,7 +67,7 @@ func New(g *grammar.Grammar, opts ...Option) (*Parser, error) {
 
 	tokenNames := make(map[string]int, len(g.Tokens)+3)
 	nodeNames := make(map[string]int, len(g.Nodes)+1)
-	literals := bmap.New[int](literalsCnt)
+	literals := make(map[string]int, literalsCnt)
 
 	tokenNames[AnyToken] = grammar.AnyToken
 	nodeNames[AnyNode] = -1
@@ -79,7 +76,7 @@ func New(g *grammar.Grammar, opts ...Option) (*Parser, error) {
 
 	for i, t := range g.Tokens {
 		if (t.Flags & grammar.LiteralToken) != 0 {
-			literals.SetString(t.Name, i)
+			literals[t.Name] = i
 		} else if (t.Flags & grammar.ErrorToken) == 0 {
 			tokenNames[t.Name] = i
 		}
@@ -226,7 +223,7 @@ type tokenHookRec struct {
 type ParseContext struct {
 	parser       *Parser
 	sources      *source.Queue
-	literals     bmap.BMap[int]
+	literals     map[string]int
 	tokens       *queue.Queue[*Token]
 	tokenHooks   []tokenHookRec
 	nodeHooks    [][]NodeHook
@@ -248,7 +245,7 @@ func newParseContext(ctx context.Context, p *Parser, q *source.Queue, hs Hooks) 
 	result := &ParseContext{
 		parser:       p,
 		sources:      q,
-		literals:     bmap.New[int](len(p.literals)),
+		literals:     make(map[string]int, len(p.literals)),
 		tokens:       queue.New[*Token](),
 		tokenHooks:   make([]tokenHookRec, 0, len(p.layers)+1),
 		nodeHooks:    make([][]NodeHook, 0, len(p.layers)+1),
@@ -295,10 +292,10 @@ func newHookLayer(p *Parser, pc *ParseContext, hs Hooks) error {
 		}
 
 		for k := range hs.Literals {
-			i, f := pc.literals.GetString(k)
+			i, f := pc.literals[k]
 			if !f {
 				i = len(p.grammar.Tokens) + len(pc.literals) - len(p.literals)
-				pc.literals.SetString(k, i)
+				pc.literals[k] = i
 			}
 			if i > maxTokenType {
 				maxTokenType = i
@@ -315,9 +312,9 @@ func newHookLayer(p *Parser, pc *ParseContext, hs Hooks) error {
 		}
 
 		for k, th := range hs.Literals {
-			i, f := p.literals.GetString(k)
+			i, f := p.literals[k]
 			if !f {
-				i, f = pc.literals.GetString(k)
+				i, f = pc.literals[k]
 			}
 			tokenLayer.hooks[i+tokenHooksOffset] = th
 		}
@@ -632,11 +629,11 @@ func (pc *ParseContext) possibleRuleKeys(t *Token) []int {
 	literalFound := false
 	literalIndex := 0
 	if (tf & grammar.NoLiteralsToken) == 0 {
-		literal := t.Content()
+		literal := t.Text()
 		if tf&grammar.CaselessToken != 0 {
-			literal = bytes.ToUpper(literal)
+			literal = strings.ToUpper(literal)
 		}
-		literalIndex, literalFound = pc.parser.literals.Get(literal)
+		literalIndex, literalFound = pc.parser.literals[literal]
 		literalFound = literalFound && (literalIndex >= 0)
 		if literalFound {
 			keys = append(keys, literalIndex)
@@ -772,7 +769,7 @@ func (pc *ParseContext) handleToken(ctx context.Context, tok *Token, layer int) 
 		tts = append(tts, tt)
 	} else {
 		if pc.parser.grammar.Tokens[tt].Flags&grammar.NoLiteralsToken == 0 {
-			i, f := pc.literals.Get(tok.Content())
+			i, f := pc.literals[tok.Text()]
 			if f && i <= maxTokenType {
 				tts = append(tts, i)
 			}
