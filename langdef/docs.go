@@ -9,8 +9,8 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //  $string = /(?:"(?:[^\\"]|\\.)*")|(?:'.*?')/;
 //  $name = name;
 //  $dir-name = /![a-z]+/;
-//  $template-name = /\$\$/name;
-//  $token-name = /\$(?:/name/)?/;
+//  $template-name = /\$\$/ name;
+//  $token-name = /\$(?:/ name /)?/;
 //  $regexp = /\/(?:[^\\\/]|\\.)+\//;
 //  $op = /[(){}\[\]=|,;@]/;
 //  $error = /["'!].{0,10}/;
@@ -22,8 +22,8 @@ A grammar is described using a language resembling EBNF. A self-definition of th
 //  langdef = {directive | template-definition | token-definition | layer-definition},
 //            node-definition, {node-definition | layer-definition};
 //  directive = $dir-name, {$token-name | $string}, ';';
-//  template-definition = $template-name, '=', $regexp | $name, {',', $regexp | name}, ';';
-//  token-definition = $token-name, '=', $regexp | $name, {',', $regexp | name}, ';';
+//  template-definition = $template-name, '=', $regexp | $name, {$regexp | name}, ';';
+//  token-definition = $token-name, '=', $regexp | $name, {$regexp | name}, ';';
 //  layer-definition = '@', $name, {layer-command}, ';';
 //  layer-command = $name, '(', [$name | $string, {',', $name | $string}], ')';
 //  node-definition = $name, '=', sequence, ';';
@@ -82,7 +82,7 @@ This defines a template that can be used later in other template or token type d
 The resulting regular expression is a concatenation of regexps with delimiters stripped, e.g.
   $$time = /\d\d:\d\d:\d\d/;
   $datetime = /\d{4}-\d\d-\d\d/
-                /(?:T/time/)?/
+                /(?:T/ time /)?/
               /|/ time;
 Is equivalent to:
   $datetime = /\d{4}-\d\d-\d\d(?:T\d\d:\d\d:\d\d)?|\d\d:\d\d:\d\d/;

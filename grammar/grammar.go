@@ -128,7 +128,7 @@ type Rule struct {
 	// Token is either an index in Grammar.Tokens slice or AnyToken.
 	Token int
 
-	// State is the index of next state or FinalState if this rule is the final one for node.
+	// State is the index of the next state or FinalState if this rule is the final one for node.
 	State int
 
 	// Node contains either SameNode or the index of nested node to push.

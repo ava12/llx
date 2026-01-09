@@ -1,3 +1,3 @@
 module github.com/ava12/llx
 
-go 1.20
+go 1.25
