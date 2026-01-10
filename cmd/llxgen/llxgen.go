@@ -155,9 +155,19 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 	}
 	buffer.WriteString("\t},\n")
 
+	nextIndex, nextItem := 0, 0
+
 	buffer.WriteString("\tStates: []grammar.State{\n")
-	for _, st := range gr.States {
-		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d, %d, %d},\n", st.TokenTypes, st.LowMultiRule, st.HighMultiRule, st.LowRule, st.HighRule))
+	for i, st := range gr.States {
+		buffer.WriteString(fmt.Sprintf("\t\t{%d, %d, %d, %d, %d},", st.TokenTypes, st.LowMultiRule, st.HighMultiRule, st.LowRule, st.HighRule))
+		if i == nextIndex {
+			buffer.WriteString(fmt.Sprintf(" // %s(%d)", gr.Nodes[nextItem].Name, i))
+			nextItem++
+			if nextItem < len(gr.Nodes) {
+				nextIndex = gr.Nodes[nextItem].FirstState
+			}
+		}
+		buffer.WriteString("\n")
 	}
 	buffer.WriteString("\t},\n")
 
@@ -165,8 +175,13 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 	if len(gr.MultiRules) == 0 {
 		buffer.WriteString("},\n")
 	} else {
-		for _, mr := range gr.MultiRules {
+		nextIndex, nextItem = findMultiRuleState(gr, 0)
+		for i, mr := range gr.MultiRules {
 			buffer.WriteString(fmt.Sprintf("\n\t\t{%d, %d, %d},", mr.Token, mr.LowRule, mr.HighRule))
+			if i == nextIndex {
+				buffer.WriteString(fmt.Sprintf(" // %d(%d)", nextItem, i))
+				nextIndex, nextItem = findMultiRuleState(gr, nextItem+1)
+			}
 		}
 		buffer.WriteString("\n\t},\n")
 	}
@@ -175,12 +190,43 @@ func makeGo(gr *grammar.Grammar) ([]byte, error) {
 	if len(gr.Rules) == 0 {
 		buffer.WriteString("},\n")
 	} else {
-		for _, r := range gr.Rules {
+		nextIndex, nextItem = findRuleState(gr, 0)
+		for i, r := range gr.Rules {
 			buffer.WriteString(fmt.Sprintf("\n\t\t{%d, %d, %d},", r.Token, r.State, r.Node))
+			if i == nextIndex {
+				buffer.WriteString(fmt.Sprintf(" // %d(%d)", nextItem, i))
+				nextIndex, nextItem = findRuleState(gr, nextItem+1)
+			}
 		}
 		buffer.WriteString("\n\t},\n")
 	}
 
 	buffer.WriteString("}\n")
 	return buffer.Bytes(), nil
+}
+
+func findMultiRuleState(gr *grammar.Grammar, state int) (nextIndex, nextItem int) {
+	for i := state; i < len(gr.States); i++ {
+		if gr.States[i].HighMultiRule != 0 {
+			nextItem = i
+			nextIndex = gr.States[i].LowMultiRule
+			break
+		}
+	}
+	return
+}
+
+func findRuleState(gr *grammar.Grammar, state int) (nextIndex, nextItem int) {
+	for i := state; i < len(gr.States); i++ {
+		st := gr.States[i]
+		if st.HighRule != 0 {
+			nextItem = i
+			nextIndex = st.LowRule
+			if st.HighMultiRule != 0 && gr.MultiRules[st.LowMultiRule].LowRule < nextIndex {
+				nextIndex = gr.MultiRules[st.LowMultiRule].LowRule // just in case
+			}
+			break
+		}
+	}
+	return
 }
